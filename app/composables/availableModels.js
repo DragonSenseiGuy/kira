@@ -37,21 +37,6 @@ export function findModelById(models, id) {
 
 export const availableModels = [
   {
-    category: "Perplexity",
-    logo: "/ai_logos/perplexity.svg",
-    models: [
-      {
-        id: "perplexity/sonar-deep-research",
-        name: "Perplexity: Sonar Deep Research",
-        description: "Searches and reasons across sources to generate comprehensive reports.",
-        tool_use: true,
-        reasoning: true,
-        extra_functions: [],
-        extra_parameters: {},
-      },
-    ],
-  },
-  {
     category: "DeepSeek",
     logo: "/ai_logos/deepseek.svg",
     models: [
@@ -225,6 +210,21 @@ export const availableModels = [
         extra_parameters: {
           reasoning_effort: [["low", "medium", "high"], "medium"],
         }
+      },
+    ],
+  },
+  {
+    category: "Perplexity",
+    logo: "/ai_logos/perplexity.svg",
+    models: [
+      {
+        id: "perplexity/sonar-deep-research",
+        name: "Sonar Deep Research",
+        description: "Searches and reasons across sources to generate comprehensive reports.",
+        tool_use: true,
+        reasoning: [true, false],
+        extra_functions: [],
+        extra_parameters: {},
       },
     ],
   },
