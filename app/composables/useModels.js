@@ -1,7 +1,36 @@
 import { ref, computed } from 'vue';
-import { availableModels, findModelById } from './availableModels';
+import { availableModels, findModelById, DEFAULT_MODEL_ID } from './availableModels';
 
 const MODELS_API_URL = '/api/models';
+
+// Build popularity indices from the curated availableModels list.
+// Provider and model order follows availableModels, with the default model's
+// provider promoted to the top.
+const PROVIDER_ORDER = (() => {
+  const defaultPrefix = DEFAULT_MODEL_ID.split('/')[0];
+  const order = {};
+  let idx = 0;
+  // Default model's provider goes first
+  order[defaultPrefix] = idx++;
+  for (const category of availableModels) {
+    const prefix = category.models?.[0]?.id?.split('/')[0];
+    if (prefix && !(prefix in order)) {
+      order[prefix] = idx++;
+    }
+  }
+  return order;
+})();
+
+const MODEL_ORDER = (() => {
+  const order = {};
+  let idx = 0;
+  for (const category of availableModels) {
+    for (const model of category.models || []) {
+      order[model.id] = idx++;
+    }
+  }
+  return order;
+})();
 
 const PROVIDER_MAP = {
   'deepseek': { name: 'DeepSeek', logo: '/ai_logos/deepseek.svg' },
@@ -114,12 +143,20 @@ const groupedModels = computed(() => {
     groups[prefix].models.push(model);
   }
 
-  const sorted = Object.values(groups).sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
+  const sorted = Object.values(groups).sort((a, b) => {
+    const aIdx = PROVIDER_ORDER[a.provider] ?? Infinity;
+    const bIdx = PROVIDER_ORDER[b.provider] ?? Infinity;
+    if (aIdx !== bIdx) return aIdx - bIdx;
+    return a.name.localeCompare(b.name);
+  });
 
   for (const group of sorted) {
-    group.models.sort((a, b) => a.name.localeCompare(b.name));
+    group.models.sort((a, b) => {
+      const aIdx = MODEL_ORDER[a.id] ?? Infinity;
+      const bIdx = MODEL_ORDER[b.id] ?? Infinity;
+      if (aIdx !== bIdx) return aIdx - bIdx;
+      return a.name.localeCompare(b.name);
+    });
   }
 
   return sorted;
