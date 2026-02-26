@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue';
 import { availableModels, findModelById } from './availableModels';
 
-const MODELS_API_URL = 'https://ai.hackclub.com/proxy/v1/models';
+const MODELS_API_URL = '/api/models';
 
 const PROVIDER_MAP = {
   'deepseek': { name: 'DeepSeek', logo: '/ai_logos/deepseek.svg' },
