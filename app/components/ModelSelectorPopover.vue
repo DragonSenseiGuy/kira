@@ -1,51 +1,50 @@
 <template>
   <PopoverRoot v-model:open="isOpen">
-    <PopoverTrigger as-child>
-      <button class="model-selector-trigger">
-        <Logo v-if="providerLogo" :src="providerLogo" :size="18" />
-        <span class="trigger-model-name">{{ selectedModelName || 'Select model' }}</span>
-      </button>
+    <PopoverTrigger class="model-selector-trigger">
+      <Logo v-if="providerLogo" :src="providerLogo" :size="18" />
+      <span class="trigger-model-name">{{ selectedModelName || 'Select model' }}</span>
+      <Icon icon="material-symbols:keyboard-arrow-down-rounded" :width="18" class="trigger-chevron" />
     </PopoverTrigger>
     <PopoverPortal>
-      <PopoverContent class="popover-content" side="top" :side-offset="8" align="start">
-        <div class="search-area">
+      <PopoverContent class="model-popover-content" side="top" :side-offset="8" align="start">
+        <div class="model-popover-search-area">
           <input
             v-model="searchQuery"
             type="text"
-            class="search-input"
+            class="model-popover-search-input"
             placeholder="Search models..."
           />
         </div>
-        <div class="models-scroll">
+        <div class="model-popover-scroll">
           <div
             v-for="group in filteredGroups"
             :key="group.provider"
-            class="provider-group"
+            class="model-popover-group"
           >
-            <div class="provider-header">
+            <div class="model-popover-provider-header">
               <Logo v-if="group.logo" :src="group.logo" :size="16" />
               <span>{{ group.name }}</span>
             </div>
             <div
               v-for="model in group.models"
               :key="model.id"
-              class="model-item"
+              class="model-popover-item"
               :class="{ selected: model.id === selectedModelId }"
               @click="selectModel(model.id, model.name)"
             >
-              <div class="model-item-info">
-                <span class="model-name">{{ model.name }}</span>
-                <span v-if="model.description" class="model-description">{{ model.description }}</span>
+              <div class="model-popover-item-info">
+                <span class="model-popover-model-name">{{ model.name }}</span>
+                <span v-if="model.description" class="model-popover-description">{{ model.description }}</span>
               </div>
               <Icon
                 v-if="model.id === selectedModelId"
                 icon="material-symbols:check-rounded"
                 :width="18"
-                class="model-check"
+                class="model-popover-check"
               />
             </div>
           </div>
-          <div v-if="filteredGroups.length === 0" class="no-results">
+          <div v-if="filteredGroups.length === 0" class="model-popover-no-results">
             No models found
           </div>
         </div>
@@ -138,7 +137,20 @@ const selectModel = (modelId, modelName) => {
   max-width: 180px;
 }
 
-.popover-content {
+.trigger-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+
+.model-selector-trigger[data-state="open"] .trigger-chevron {
+  transform: rotate(180deg);
+}
+</style>
+
+<!-- Unscoped styles for portal-teleported popover content -->
+<style>
+.model-popover-content {
   background: var(--popover-bg);
   border: 1px solid var(--popover-border);
   border-radius: 12px;
@@ -147,19 +159,19 @@ const selectModel = (modelId, modelName) => {
   max-height: 420px;
   padding: 0;
   z-index: 1100;
-  animation: popIn 0.2s ease-out forwards;
+  animation: modelPopoverIn 0.2s ease-out forwards;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.search-area {
+.model-popover-search-area {
   padding: 0;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
-.search-input {
+.model-popover-search-input {
   width: 100%;
   padding: 10px 12px;
   background: transparent;
@@ -170,21 +182,17 @@ const selectModel = (modelId, modelName) => {
   box-sizing: border-box;
 }
 
-.search-input::placeholder {
+.model-popover-search-input::placeholder {
   color: var(--text-muted);
 }
 
-.models-scroll {
+.model-popover-scroll {
   overflow-y: auto;
   max-height: 360px;
   padding: 4px 0;
 }
 
-.provider-group {
-  /* no extra spacing needed */
-}
-
-.provider-header {
+.model-popover-provider-header {
   padding: 8px 12px;
   font-size: 0.7rem;
   font-weight: 600;
@@ -196,7 +204,7 @@ const selectModel = (modelId, modelName) => {
   gap: 6px;
 }
 
-.model-item {
+.model-popover-item {
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
@@ -207,28 +215,28 @@ const selectModel = (modelId, modelName) => {
   transition: background 0.15s ease;
 }
 
-.model-item:hover {
+.model-popover-item:hover {
   background: var(--btn-hover);
 }
 
-.model-item.selected {
+.model-popover-item.selected {
   background: var(--btn-hover-2, var(--btn-hover));
 }
 
-.model-item-info {
+.model-popover-item-info {
   display: flex;
   flex-direction: column;
   min-width: 0;
   flex: 1;
 }
 
-.model-name {
+.model-popover-model-name {
   font-weight: 500;
   font-size: 0.85rem;
   color: var(--text-primary);
 }
 
-.model-description {
+.model-popover-description {
   font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
@@ -236,20 +244,20 @@ const selectModel = (modelId, modelName) => {
   text-overflow: ellipsis;
 }
 
-.model-check {
+.model-popover-check {
   color: var(--primary);
   flex-shrink: 0;
   margin-left: 8px;
 }
 
-.no-results {
+.model-popover-no-results {
   padding: 16px;
   text-align: center;
   color: var(--text-muted);
   font-size: 0.85rem;
 }
 
-@keyframes popIn {
+@keyframes modelPopoverIn {
   0% {
     opacity: 0;
     transform: scale(0.95) translateY(-5px);

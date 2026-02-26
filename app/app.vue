@@ -25,7 +25,7 @@ body,
   width: 100vw;
   background: var(--bg);
   color: var(--text-primary);
-  font-family: var(--font);
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overflow: hidden;
 }
 
@@ -99,6 +99,6 @@ button:hover {
 }
 
 .dark .global-menu-toggle:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(203, 166, 247, 0.1);
 }
 </style>

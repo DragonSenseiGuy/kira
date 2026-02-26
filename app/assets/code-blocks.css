@@ -1,62 +1,62 @@
 /* Code block and inline code styles */
 :root {
   /* Default code block colors (light mode) */
-  --code-bg: #fefbec;
-  /* Using Atelier Dune light background */
-  --code-text: #6e6b5e;
-  /* Using Atelier Dune light text color */
-  --code-action-text: #7d7a68;
-  /* Atelier Dune tag color */
-  --code-action-hover-bg: rgba(166, 162, 140, 0.1);
-  /* Atelier Dune selection color */
-  --code-action-hover-text: #6e6b5e;
-  --code-comment: #999580;
-  /* Atelier Dune comment color */
-  --code-keyword: #b854d4;
-  /* Atelier Dune keyword color */
-  --code-function: #6684e1;
-  /* Atelier Dune function color */
-  --code-string: #60ac39;
-  /* Atelier Dune string color */
-  --code-number: #b65611;
-  /* Atelier Dune number color */
-  --code-variable: #d73737;
-  /* Atelier Dune variable color */
-  --code-property: #6684e1;
-  /* Atelier Dune property color */
+  --code-bg: #e6e9ef;
+  /* Using Catppuccin Latte Mantle */
+  --code-text: #4c4f69;
+  /* Using Catppuccin Latte Text */
+  --code-action-text: #6c6f85;
+  /* Catppuccin Latte Subtext0 */
+  --code-action-hover-bg: rgba(140, 143, 161, 0.12);
+  /* Catppuccin Latte Overlay1-based */
+  --code-action-hover-text: #4c4f69;
+  --code-comment: #9ca0b0;
+  /* Catppuccin Latte Overlay0 */
+  --code-keyword: #8839ef;
+  /* Catppuccin Latte Mauve */
+  --code-function: #1e66f5;
+  /* Catppuccin Latte Blue */
+  --code-string: #40a02b;
+  /* Catppuccin Latte Green */
+  --code-number: #fe640b;
+  /* Catppuccin Latte Peach */
+  --code-variable: #d20f39;
+  /* Catppuccin Latte Red */
+  --code-property: #1e66f5;
+  /* Catppuccin Latte Blue */
 
-  --code-inline-bg: #e8e4cf;
-  /* Lighter version of background */
+  --code-inline-bg: #dce0e8;
+  /* Catppuccin Latte Crust */
 }
 
 .dark {
   /* Code block adjustments for dark mode */
-  --code-bg: #201f1d;
-  /* Atelier Dune dark background */
-  --code-text: #a6a28c;
-  /* Atelier Dune dark text color */
-  --code-action-text: #999580;
-  /* Atelier Dune tag color */
-  --code-action-hover-bg: rgba(110, 107, 94, 0.03);
-  /* Atelier Dune selection color */
-  --code-action-hover-text: #a6a28c;
-  --code-comment: #7d7a68;
-  /* Atelier Dune comment color */
-  --code-keyword: #b854d4;
-  /* Atelier Dune keyword color */
-  --code-function: #6684e1;
-  /* Atelier Dune function color */
-  --code-string: #60ac39;
-  /* Atelier Dune string color */
-  --code-number: #b65611;
-  /* Atelier Dune number color */
-  --code-variable: #d73737;
-  /* Atelier Dune variable color */
-  --code-property: #6684e1;
-  /* Atelier Dune property color */
+  --code-bg: #181825;
+  /* Catppuccin Mocha Mantle */
+  --code-text: #cdd6f4;
+  /* Catppuccin Mocha Text */
+  --code-action-text: #a6adc8;
+  /* Catppuccin Mocha Subtext0 */
+  --code-action-hover-bg: rgba(108, 112, 134, 0.1);
+  /* Catppuccin Mocha Overlay0-based */
+  --code-action-hover-text: #cdd6f4;
+  --code-comment: #6c7086;
+  /* Catppuccin Mocha Overlay0 */
+  --code-keyword: #cba6f7;
+  /* Catppuccin Mocha Mauve */
+  --code-function: #89b4fa;
+  /* Catppuccin Mocha Blue */
+  --code-string: #a6e3a1;
+  /* Catppuccin Mocha Green */
+  --code-number: #fab387;
+  /* Catppuccin Mocha Peach */
+  --code-variable: #f38ba8;
+  /* Catppuccin Mocha Red */
+  --code-property: #89b4fa;
+  /* Catppuccin Mocha Blue */
 
-  --code-inline-bg: #2d2d29;
-  /* Darker version of background */
+  --code-inline-bg: #313244;
+  /* Catppuccin Mocha Surface0 */
 }
 
 /* Code block wrapper */
@@ -130,7 +130,7 @@
 }
 
 .code-action-button.copied {
-  color: #3fb950;
+  color: var(--success);
 }
 
 .code-action-button svg {
@@ -169,7 +169,7 @@
   font-size: 0.85em;
 }
 
-/* Syntax highlighting colors - Atelier Dune themes */
+/* Syntax highlighting colors - Catppuccin themes */
 .markdown-content pre code.hljs {
   background: var(--code-bg);
   color: var(--code-text);
@@ -183,8 +183,15 @@
 .markdown-content pre code.hljs .hljs-meta,
 .markdown-content pre code.hljs .hljs-meta .hljs-keyword,
 .markdown-content pre code.hljs .hljs-meta .hljs-string {
-  color: #d43552;
-  /* Atelier Dune meta color */
+  color: #d20f39;
+  /* Catppuccin Latte Red */
+}
+
+.dark .markdown-content pre code.hljs .hljs-meta,
+.dark .markdown-content pre code.hljs .hljs-meta .hljs-keyword,
+.dark .markdown-content pre code.hljs .hljs-meta .hljs-string {
+  color: #f38ba8;
+  /* Catppuccin Mocha Red */
 }
 
 .markdown-content pre code.hljs .hljs-keyword,
@@ -226,8 +233,18 @@
 .markdown-content pre code.hljs .hljs-selector-class,
 .markdown-content pre code.hljs .hljs-selector-attr,
 .markdown-content pre code.hljs .hljs-selector-pseudo {
-  color: #1fad83;
-  /* Atelier Dune built-in color */
+  color: #179299;
+  /* Catppuccin Latte Teal */
+}
+
+.dark .markdown-content pre code.hljs .hljs-built_in,
+.dark .markdown-content pre code.hljs .hljs-template-tag,
+.dark .markdown-content pre code.hljs .hljs-selector-id,
+.dark .markdown-content pre code.hljs .hljs-selector-class,
+.dark .markdown-content pre code.hljs .hljs-selector-attr,
+.dark .markdown-content pre code.hljs .hljs-selector-pseudo {
+  color: #94e2d5;
+  /* Catppuccin Mocha Teal */
 }
 
 /* ==========================================
@@ -324,8 +341,8 @@
 }
 
 .markdown-content li.task-list-item input[type="checkbox"]:checked {
-  background-color: #3fb950;
-  border-color: #3fb950;
+  background-color: var(--success);
+  border-color: var(--success);
 }
 
 .markdown-content li.task-list-item input[type="checkbox"]:checked::after {
@@ -365,7 +382,7 @@
 }
 
 .dark .markdown-content hr {
-  border-top-color: rgba(139, 148, 158, 0.3);
+  border-top-color: var(--border);
 }
 
 /* Tables */

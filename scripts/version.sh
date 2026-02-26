@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version management script for Libre Assistant
+# Version management script for Kira
 
 set -e
 

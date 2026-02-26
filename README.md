@@ -1,7 +1,7 @@
-# Libre Assistant
+# Kira
 
-Libre Assistant is a **free, unlimited** AI Chatbot that uses various models through [Hack Club's free API](https://ai.hackclub.com).
-Libre Assistant does **not** sell or store user information, and all chat & user data is stored on your device.
+Kira is a **free, unlimited** AI Chatbot that uses various models through [Hack Club's free API](https://ai.hackclub.com).
+Kira does **not** sell or store user information, and all chat & user data is stored on your device.
 
 ## Features
 

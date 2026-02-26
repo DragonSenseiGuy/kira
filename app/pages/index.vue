@@ -138,7 +138,7 @@ function handleChatScroll(event) {
 
 // Update page head dynamically
 useHead({
-  title: 'New Chat - Libre Assistant',
+  title: 'New Chat - Kira',
   meta: [
     { name: 'description', content: 'Start a new conversation with the AI assistant' }
   ]

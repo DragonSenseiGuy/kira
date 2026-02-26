@@ -157,8 +157,7 @@ async function handleClearAllMemory() {
 </script>
 
 <template>
-  <div class="settings-overlay" v-if="isOpen" @click.self="closeSettings">
-    <div class="settings-panel">
+  <div class="settings-panel" v-if="isOpen">
       <!-- Header -->
       <div class="panel-header">
         <div class="header-content">
@@ -248,7 +247,7 @@ async function handleClearAllMemory() {
 
               <div class="setting-item textarea-item">
                 <div class="setting-info">
-                  <h3>What should Libre call you?</h3>
+                  <h3>What should Kira call you?</h3>
                   <p>Enter your name</p>
                 </div>
                 <div class="input-container">
@@ -269,7 +268,7 @@ async function handleClearAllMemory() {
 
               <div class="setting-item textarea-item">
                 <div class="setting-info">
-                  <h3>What custom instructions do you want Libre to follow?</h3>
+                  <h3>What custom instructions do you want Kira to follow?</h3>
                   <p>Be precise, be witty, etc.</p>
                 </div>
                 <div class="input-container">
@@ -331,7 +330,7 @@ async function handleClearAllMemory() {
             <div class="settings-content">
               <div class="content-header">
                 <h2>Keyboard Shortcuts</h2>
-                <p>Master Libre Assistant with these shortcuts</p>
+                <p>Master Kira with these shortcuts</p>
               </div>
 
               <div class="keybind-group">
@@ -405,11 +404,11 @@ async function handleClearAllMemory() {
             <div class="settings-content">
               <div class="content-header">
                 <h2>About</h2>
-                <p>Information about Libre Assistant Interface</p>
+                <p>Information about Kira</p>
               </div>
               <div class="info-section">
                 <p>
-                  Libre Assistant is a modern, Nuxt-powered interface designed for seamless AI interactions. 
+                  Kira is a modern, Nuxt-powered interface designed for seamless AI interactions. 
                   Built with developers in mind, it offers a customizable experience that adapts to your needs.
                 </p>
                 <p>
@@ -424,7 +423,7 @@ async function handleClearAllMemory() {
                 </ul>
                 <p>
                   For more information, visit our 
-                  <a href="https://github.com/Mostlime12195/Libre-Assistant" target="_blank" rel="noopener noreferrer">Libre Assistant GitHub repository</a>.
+                  <a href="https://github.com/Mostlime12195/Libre-Assistant" target="_blank" rel="noopener noreferrer">Kira GitHub repository</a>.
                 </p>
               </div>
             </div>
@@ -440,32 +439,16 @@ async function handleClearAllMemory() {
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <style scoped>
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-  padding: 1rem;
-}
-
 .settings-panel {
   background: var(--bg-primary);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
   width: 100%;
-  max-width: 900px;
-  height: 90vh;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border);
 }
 
 
@@ -995,20 +978,8 @@ kbd {
   }
 
   .settings-panel {
-    height: 100dvh;
-  }
-
-  .settings-overlay {
-    padding: 0;
-    align-items: stretch;
-    justify-content: stretch;
-  }
-
-  .settings-panel {
     max-width: 100vw;
-    height: 100dvh;
-    border-radius: 0;
-    box-shadow: none;
+    max-height: 100dvh;
   }
 
   .settings-content {

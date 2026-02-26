@@ -18,8 +18,8 @@ export default defineNuxtConfig({
   // Site configuration for SEO modules
   site: {
     url: 'https://libreassistant.vercel.app', // Replace with your actual domain
-    name: 'Libre Assistant',
-    description: 'An open-source AI assistant interface',
+    name: 'Kira',
+    description: 'An open-source AI chat assistant',
     defaultLocale: 'en', // default locale of your site
   },
 
@@ -29,33 +29,36 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Libre Assistant',
+      title: 'Kira',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: 'An open-source AI assistant interface' },
-        { name: 'theme-color', content: '#4F46E5' }, // Primary color
+        { name: 'description', content: 'An open-source AI chat assistant' },
+        { name: 'theme-color', content: '#cba6f7' }, // Primary color
         { name: 'format-detection', content: 'telephone=no' },
 
         // SEO and social media meta tags
-        { name: 'application-name', content: 'Libre Assistant' },
-        { name: 'apple-mobile-web-app-title', content: 'Libre Assistant' },
+        { name: 'application-name', content: 'Kira' },
+        { name: 'apple-mobile-web-app-title', content: 'Kira' },
         { name: 'twitter:card', content: 'summary' },
         { name: 'twitter:url', content: 'https://libreassistant.vercel.app' },
-        { name: 'twitter:title', content: 'Libre Assistant' },
-        { name: 'twitter:description', content: 'An open-source AI assistant interface' },
+        { name: 'twitter:title', content: 'Kira' },
+        { name: 'twitter:description', content: 'An open-source AI chat assistant' },
 
         // Open Graph tags for social sharing
         { property: 'og:type', content: 'website' },
         { property: 'og:url', content: 'https://libreassistant.vercel.app' },
-        { property: 'og:title', content: 'Libre Assistant' },
-        { property: 'og:description', content: 'An open-source AI assistant interface' },
-        { property: 'og:site_name', content: 'Libre Assistant' },
+        { property: 'og:title', content: 'Kira' },
+        { property: 'og:description', content: 'An open-source AI chat assistant' },
+        { property: 'og:site_name', content: 'Kira' },
         { property: 'og:image', content: '/og-image.png' } // You should add an og-image
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
-        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=JetBrains+Mono:wght@400;500;600&display=swap' }
       ],
       htmlAttrs: {
         lang: 'en'

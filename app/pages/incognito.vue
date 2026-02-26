@@ -129,7 +129,7 @@ function handleChatScroll(event) {
 
 // Update page head dynamically
 useHead({
-  title: 'Incognito Chat - Libre Assistant',
+  title: 'Incognito Chat - Kira',
   meta: [
     { name: 'description', content: 'Private chat conversation with the AI assistant - no data stored' }
   ]

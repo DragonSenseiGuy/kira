@@ -4,6 +4,7 @@ import localforage from 'localforage';
 import { createConversation as createNewConversation, storeMessages, deleteConversation as deleteConv, updateBranchPath, loadConversation } from './storeConversations';
 import { handleIncomingMessage } from './message';
 import { availableModels, findModelById, normalizeReasoningConfig, getDefaultReasoningEffort } from './availableModels';
+import { useModels } from './useModels';
 import { addMemory, modifyMemory, deleteMemory } from './memory';
 import DEFAULT_PARAMETERS from './defaultParameters';
 import { useSettings } from './useSettings';
@@ -252,7 +253,7 @@ export function useMessagesManager(chatPanel) {
 
     // Create conversation if needed
     if (!currConvo.value && !isIncognito.value) {
-      currConvo.value = await createNewConversation(messages.value, new Date());
+      currConvo.value = await createNewConversation(messages.value, new Date(), settingsManager.settings.custom_api_key || '');
       if (currConvo.value) {
         const convData = await loadConversation(currConvo.value);
         conversationTitle.value = convData?.title || "";
@@ -265,8 +266,13 @@ export function useMessagesManager(chatPanel) {
       chatPanel?.value?.scrollToEnd("smooth");
     });
 
-    // Get current model details
-    const selectedModelDetails = findModelById(availableModels, settingsManager.settings.selected_model_id);
+    // Get current model details (check hardcoded first, then dynamic API models)
+    let selectedModelDetails = findModelById(availableModels, settingsManager.settings.selected_model_id);
+
+    if (!selectedModelDetails) {
+      const { getModelById } = useModels();
+      selectedModelDetails = getModelById(settingsManager.settings.selected_model_id);
+    }
 
     if (!selectedModelDetails) {
       console.error("No model selected or model details not found. Aborting message send.");

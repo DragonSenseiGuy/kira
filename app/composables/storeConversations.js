@@ -41,7 +41,7 @@ function serializeMessage(msg) {
   };
 }
 
-export async function createConversation(plainMessages, lastUpdated) {
+export async function createConversation(plainMessages, lastUpdated, customApiKey = '') {
   const conversationId = crypto.randomUUID();
   const rawMessages = plainMessages.map(serializeMessage);
   const title = "Untitled";
@@ -62,7 +62,7 @@ export async function createConversation(plainMessages, lastUpdated) {
     emitter.emit("updateConversations");
     console.log("Conversation saved successfully with Untitled title!");
 
-    generateTitleInBackground(conversationId, plainMessages, lastUpdated);
+    generateTitleInBackground(conversationId, plainMessages, lastUpdated, customApiKey);
 
     return conversationId;
   } catch (error) {
@@ -70,7 +70,7 @@ export async function createConversation(plainMessages, lastUpdated) {
   }
 }
 
-async function generateTitleInBackground(conversationId, plainMessages, lastUpdated) {
+async function generateTitleInBackground(conversationId, plainMessages, lastUpdated, customApiKey = '') {
   const systemPrompt = `You are an AI with the task of shortening and summarising messages into a short title. You must summarise the given messages based on their content into at most a 40 character title. Each conversation is between a user and an AI chatbot. The messages provided to you are the first messages of the conversation. The title must be general enough to apply to what you think the conversation will be about. Only output the title, without any additional explainations or commentary.`;
 
   try {
@@ -82,11 +82,12 @@ async function generateTitleInBackground(conversationId, plainMessages, lastUpda
           { role: "system", content: systemPrompt },
           ...plainMessages.map((msg) => ({
             role: msg.role,
-            content: msg.content,
+            content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
           })),
         ],
         model: "z-ai/glm-4.7-flash",
         stream: false,
+        ...(customApiKey && { customApiKey }),
       }),
     });
 

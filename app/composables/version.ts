@@ -1,6 +1,6 @@
-// Version information for Libre Assistant
+// Version information for Kira
 export const APP_VERSION = '0.1.0';
-export const APP_NAME = 'Libre Assistant';
+export const APP_NAME = 'Kira';
 
 /**
  * Get the current application version

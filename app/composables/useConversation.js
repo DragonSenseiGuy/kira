@@ -18,7 +18,7 @@ export function useConversation() {
 
   // Create a new messages manager for this page
   const chatPanel = ref(null);
-  const messagesManager = useMessagesManager(settingsManager, chatPanel);
+  const messagesManager = useMessagesManager(chatPanel);
 
   // Destructure commonly used properties from messagesManager
   const {
@@ -46,16 +46,16 @@ export function useConversation() {
   // Set up dynamic page title based on conversation
   const title = computed(() => {
     if (conversationTitle.value) {
-      return `${conversationTitle.value} - Libre Assistant`;
+      return `${conversationTitle.value} - Kira`;
     }
-    return 'Libre Assistant';
+    return 'Kira';
   });
 
   // Update page head dynamically
   useHead({
     title: title,
     meta: [
-      { name: 'description', content: 'AI conversation in Libre Assistant' }
+      { name: 'description', content: 'AI conversation in Kira' }
     ]
   });
 
@@ -109,7 +109,7 @@ export function useConversation() {
 
     // Create the conversation in storage with this message - using the storeConversations function
     // Use toRaw to ensure we're not sending a Proxy to IndexedDB
-    const conversationId = await storeCreateConversation(toRaw(messages.value), new Date());
+    const conversationId = await storeCreateConversation(toRaw(messages.value), new Date(), settingsManager.settings.custom_api_key || '');
 
     // Update current conversation to point to the new one
     currConvo.value = conversationId;
