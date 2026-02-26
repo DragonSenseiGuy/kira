@@ -18,10 +18,9 @@
     -->
     <div class="main-container"
       :class="{ 'sidebar-open': sidebarOpen, 'parameter-config-open': parameterConfigPanelOpen }">
-      <TopBar :is-scrolled-top="isScrolledTop" :selected-model-name="selectedModelName"
-        :selected-model-id="selectedModelId" :toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen"
+      <TopBar :is-scrolled-top="isScrolledTop" :toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen"
         :is-incognito="isIncognito" :show-incognito-button="!route.params.id && messages.length === 0" :messages="messages"
-        :parameter-config-open="parameterConfigPanelOpen" @model-selected="handleModelSelect"
+        :parameter-config-open="parameterConfigPanelOpen"
         @toggle-incognito="toggleIncognito"
         @toggle-parameter-config="parameterConfigPanelOpen = !parameterConfigPanelOpen" />
 
@@ -30,17 +29,12 @@
     </div>
     <DialogRoot v-model:open="isSettingsOpen">
       <DialogPortal>
-        <DialogOverlay class="fixed inset-0 bg-black/25" />
-        <div class="fixed inset-0 overflow-y-auto">
-          <div class="flex min-h-full items-center justify-center p-4 text-center">
-            <DialogContent
-              class="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all dark:bg-gray-800 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-top-[48%]">
-              <SettingsPanel :is-open="isSettingsOpen" :initial-tab="settingsInitialTab"
-                @close="isSettingsOpen = false; settingsInitialTab = 'general';"
-                @reload-settings="settingsManager.loadSettings" />
-            </DialogContent>
-          </div>
-        </div>
+        <DialogOverlay class="dialog-overlay" />
+        <DialogContent class="dialog-content-panel">
+          <SettingsPanel :is-open="isSettingsOpen" :initial-tab="settingsInitialTab"
+            @close="isSettingsOpen = false; settingsInitialTab = 'general';"
+            @reload-settings="settingsManager.loadSettings" />
+        </DialogContent>
       </DialogPortal>
     </DialogRoot>
   </div>
@@ -57,7 +51,6 @@ import { useHead } from '@unhead/vue';
 import { DialogRoot, DialogContent, DialogPortal, DialogOverlay } from 'reka-ui';
 import { useRoute, useRouter } from 'vue-router';
 
-import { availableModels } from '~/composables/availableModels';
 import { useSettings } from '~/composables/useSettings';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
 import { useGlobalIncognito } from '~/composables/useGlobalIncognito';
@@ -82,8 +75,7 @@ const { getIsScrolledTop } = useGlobalScrollStatus();
 // Use global incognito state
 const { isIncognito, toggleIncognito: globalToggleIncognito } = useGlobalIncognito();
 
-// Compute selectedModelName from settingsManager to maintain reactivity
-const selectedModelName = computed(() => settingsManager.selectedModelName);
+// selectedModelId for potential future use
 const selectedModelId = computed(() => settingsManager.settings.selected_model_id);
 
 // Initialize shortcut keys
@@ -103,11 +95,11 @@ const settingsInitialTab = ref('general'); // Controls which tab opens in settin
 // Set up dynamic page title
 const title = computed(() => {
   if (route.params.id) {
-    return `${route.params.id} - Libre Assistant`;
+    return `${route.params.id} - Kira`;
   } else if (route.path === '/' || route.path === '/new') {
-    return 'New Chat - Libre Assistant';
+    return 'New Chat - Kira';
   } else {
-    return 'Libre Assistant';
+    return 'Kira';
   }
 });
 
@@ -118,9 +110,6 @@ useHead({
     { name: 'description', content: 'An open-source AI assistant interface' }
   ]
 });
-
-// Make availableModels reactive
-const models = ref(availableModels);
 
 // Reactive state for TopBar functionality (placeholders since chat state is in pages)
 const messages = ref([]); // Placeholder for messages
@@ -178,15 +167,6 @@ function handleNewConversation() {
 }
 
 
-
-/**
- * Handles model selection from the TopBar component.
- * Updates the settings with the selected model.
- */
-function handleModelSelect(modelId, modelName) {
-  settingsManager.settings.selected_model_id = modelId;
-  settingsManager.saveSettings();
-}
 
 /**
  * Toggles incognito mode
@@ -351,5 +331,29 @@ whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncog
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 17, 27, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.dialog-content-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 2rem);
+  max-width: 56rem;
+  max-height: 90vh;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: var(--surface);
+  padding: 0;
+  text-align: left;
+  box-shadow: var(--shadow-xl);
+  z-index: 2001;
 }
 </style>

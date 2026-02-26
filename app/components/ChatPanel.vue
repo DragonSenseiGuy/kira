@@ -565,11 +565,29 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   <div class="chat-wrapper" ref="chatWrapper">
     <div class="chat-container">
       <div v-if="messages.length < 1 && showWelcome" class="welcome-container">
-        <h1 v-if="!isIncognito" class="welcome-message">What do you need help with?</h1>
+        <h1 v-if="!isIncognito" class="welcome-message">How can I help you?</h1>
+        <div v-if="!isIncognito" class="suggestion-chips">
+          <button class="suggestion-chip" @click="emit('set-message', 'Write a short story about a space explorer')">
+            <Icon icon="material-symbols:auto-stories-outline" width="16" height="16" />
+            <span>Write a short story</span>
+          </button>
+          <button class="suggestion-chip" @click="emit('set-message', 'Explain quantum computing in simple terms')">
+            <Icon icon="material-symbols:school-outline" width="16" height="16" />
+            <span>Explain a concept</span>
+          </button>
+          <button class="suggestion-chip" @click="emit('set-message', 'Help me debug this code')">
+            <Icon icon="material-symbols:code" width="16" height="16" />
+            <span>Debug my code</span>
+          </button>
+          <button class="suggestion-chip" @click="emit('set-message', 'Brainstorm ideas for a new project')">
+            <Icon icon="material-symbols:lightbulb-outline" width="16" height="16" />
+            <span>Brainstorm ideas</span>
+          </button>
+        </div>
         <div v-else class="incognito-welcome">
           <h1 class="incognito-title">Incognito Mode</h1>
           <p class="incognito-description">
-            This chat won't be stored and will not use Libre's memory or personalization features.
+            This chat won't be stored and will not use Kira's memory or personalization features.
           </p>
         </div>
       </div>
@@ -771,44 +789,63 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 
 .welcome-container {
   text-align: center;
-  margin: calc(1rem + 10vh) 0;
+  margin: calc(1rem + 15vh) 0 2rem;
   width: 100%;
-  max-width: 800px;
+  max-width: 600px;
   margin-left: auto;
   margin-right: auto;
 }
 
 .welcome-message {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--text-primary-light);
-  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 1.5rem 0;
+  letter-spacing: -0.02em;
 }
 
-.dark .welcome-message {
-  color: var(--text-primary-dark);
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.suggestion-chip:hover {
+  background: var(--btn-hover-2);
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
 .incognito-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--text-primary-light);
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
   margin: 0 0 1rem 0;
 }
 
-.dark .incognito-title {
-  color: var(--text-primary-dark);
-}
-
 .incognito-description {
-  font-size: 1.1rem;
-  color: var(--text-secondary-light);
+  font-size: 0.95rem;
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.6;
-}
-
-.dark .incognito-description {
-  color: var(--text-secondary-dark);
 }
 
 .message {

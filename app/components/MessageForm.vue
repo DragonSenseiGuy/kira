@@ -9,8 +9,10 @@ import {
 } from "reka-ui";
 import { useWindowSize } from "@vueuse/core";
 import Logo from "./Logo.vue";
+import ModelSelectorPopover from "./ModelSelectorPopover.vue";
 import BottomSheetModelSelector from "./BottomSheetModelSelector.vue";
 import { useAttachments } from "~/composables/useAttachments";
+import { useModels } from "~/composables/useModels";
 import { 
   findModelById, 
   showReasoningToggle, 
@@ -63,12 +65,21 @@ const {
 // Computed property to check if the input is empty (after trimming whitespace)
 const trimmedMessage = computed(() => inputMessage.value.trim());
 
+// Dynamic models
+const { models: dynamicModels, getModelById: getDynamicModelById } = useModels();
+
 // Computed property to get the selected model object
 const selectedModel = computed(() => {
-  if (!props.selectedModelId || !props.availableModels) return null;
+  if (!props.selectedModelId) return null;
 
+  // Try dynamic models first, then fall back to hardcoded
+  const dynamic = getDynamicModelById(props.selectedModelId);
+  if (dynamic) return dynamic;
 
-  return findModelById(props.availableModels, props.selectedModelId);
+  if (props.availableModels) {
+    return findModelById(props.availableModels, props.selectedModelId);
+  }
+  return null;
 });
 
 // Computed property to check if the current model supports vision (image attachments)
@@ -568,17 +579,17 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, $el: messageForm
 
         <!-- Right aligned actions -->
         <div class="right-actions">
-          <!-- Mobile Model Selector Button -->
-          <button v-if="isMobile" type="button" class="feature-button model-selector-mobile-btn"
-            @click="openBottomSheet" :aria-label="`Change model, currently ${props.selectedModelName}`">
-            <Logo v-if="selectedModelLogo" :src="selectedModelLogo" :size="18" class="logo-inline" />
-            <span class="model-name-truncate">{{ props.selectedModelName }}</span>
-          </button>
+          <!-- Model Selector Popover (all screen sizes) -->
+          <ModelSelectorPopover
+            :selected-model-id="props.selectedModelId"
+            :selected-model-name="props.selectedModelName"
+            @model-selected="handleModelSelect"
+          />
 
           <button type="submit" class="action-btn send-btn" :disabled="!trimmedMessage && !isLoading"
             @click="handleActionClick" :aria-label="isLoading ? 'Stop generation' : 'Send message'">
-            <Icon v-if="!isLoading" icon="material-symbols:arrow-upward-rounded" width="22" height="22" />
-            <Icon v-else icon="material-symbols:stop-rounded" width="22" height="22" />
+            <Icon v-if="!isLoading" icon="material-symbols:arrow-upward-rounded" width="20" height="20" />
+            <Icon v-else icon="material-symbols:stop-rounded" width="20" height="20" />
           </button>
         </div>
       </div>

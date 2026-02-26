@@ -1,86 +1,83 @@
-/* Color variables (light + dark) — semantic tokens only.
+/* Color variables (light + dark) — Catppuccin semantic tokens.
    Purpose: Drop these into your CSS (e.g., at the top of a globals file) and reference
    the semantic tokens in your components. The comments next to each variable explain
    what it's intended to be used for.
 
    Notes:
    - Contrast-conscious: text colors are full-strength; primary colors include hover/dark variants
-   - Light mode: refreshing and bright but comfortable for long reading
-   - Dark mode: deep, colorful, still readable; primary keeps visual pop against dark surfaces
+   - Light mode: Catppuccin Latte — soft, warm-toned light palette
+   - Dark mode: Catppuccin Mocha — deep, pastel-accented dark palette
 */
 
 :root {
-  /* ----------------- LIGHT THEME (warmer + grayer) ----------------- */
+  /* ----------------- LIGHT THEME (Catppuccin Latte) ----------------- */
   /* Page & surfaces */
-  --bg: #ebe7e2;
-  /* soft, neutral gray canvas */
-  --surface: #dbd4d1;
-  /* cards, panels, app surfaces */
-  --elevated-surface: #e6dfdc;
-  /* slightly tinted surface for grouped panels/inputs */
+  --bg: #eff1f5;
+  /* Latte Base — soft neutral canvas */
+  --surface: #e6e9ef;
+  /* Latte Mantle — cards, panels, app surfaces */
+  --elevated-surface: #dce0e8;
+  /* Latte Crust — slightly tinted surface for grouped panels/inputs */
 
   /* Text */
-  --text-primary: #3a2119;
-  /* strong, neutral dark (gray-black) */
-  --text-secondary: #63564b;
-  /* neutral secondary */
-  --text-muted: #80716b;
-  /* placeholders, disabled labels */
+  --text-primary: #4c4f69;
+  /* Latte Text — strong, neutral dark */
+  --text-secondary: #5c5f77;
+  /* Latte Subtext1 — neutral secondary */
+  --text-muted: #6c6f85;
+  /* Latte Subtext0 — placeholders, disabled labels */
 
   /* Borders & dividers */
-  --border: #cabdb6;
-  /* clean gray divider */
-  --muted-border: #e6e7e8;
-  /* very light grouping divider */
+  --border: #bcc0cc;
+  /* Latte Surface1 — clean divider */
+  --muted-border: #ccd0da;
+  /* Latte Surface0 — very light grouping divider */
 
-  /* Primary (brand / main CTA) — warm, readable */
-  --primary: #c04a2c;
-  /* warm burnt-sienna (use sparingly for CTAs) */
-  --primary-foreground: #ffffff;
-  /* text/icon color when placed on --primary */
-  --primary-600: #9b3d23;
-  /* hover / active */
-  --primary-800: #6f2a18;
-  /* pressed/strong state */
+  /* Primary (brand / main CTA) — Catppuccin Mauve */
+  --primary: #8839ef;
+  /* Latte Mauve (use sparingly for CTAs) */
+  --primary-foreground: #eff1f5;
+  /* Latte Base — text/icon color when placed on --primary */
+  --primary-600: #7287fd;
+  /* Latte Lavender — hover / active */
+  --primary-800: #5c5f77;
+  /* Latte Subtext1 — pressed/strong state */
 
   /* Secondary / supporting accent */
-  --secondary: #b38b3b;
-  /* desaturated warm mustard */
-  --secondary-600: #8f6d2e;
-  /* hover/darker */
+  --secondary: #1e66f5;
+  /* Latte Blue */
+  --secondary-600: #209fb5;
+  /* Latte Sapphire — hover/darker */
 
   /* Accent colors (use sparingly for highlights) */
-  --accent-warm: #f59e0b;
-  /* lively warm accent */
-  --accent-soft: #d6a95a;
-  /* softer warm highlight */
+  --accent-warm: #df8e1d;
+  /* Latte Yellow — lively warm accent */
+  --accent-soft: #dc8a78;
+  /* Latte Rosewater — softer warm highlight */
 
   /* Feedback / semantic statuses */
-  --success: #15803d;
-  /* success states (slightly muted green) */
-  --warning: #b45309;
-  /* warm warning */
-  --danger: #b91c1c;
-  /* error (stronger, desaturated red) */
-  --info: #0f766e;
-  /* muted teal/info */
+  --success: #40a02b;
+  /* Latte Green — success states */
+  --warning: #df8e1d;
+  /* Latte Yellow — warm warning */
+  --danger: #d20f39;
+  /* Latte Red — error */
+  --info: #179299;
+  /* Latte Teal — info */
 
   /* Shadows & focus rings */
-  --shadow-elev: rgba(2, 6, 23, 0.06);
+  --shadow-elev: rgba(76, 79, 105, 0.08);
   /* subtle soft shadow */
-  --focus-ring: rgba(192,
-      74,
-      44,
-      0.12);
-  /* warmer focus ring tinted with primary */
+  --focus-ring: rgba(136, 57, 239, 0.15);
+  /* Mauve-tinted focus ring */
 
   /* Component-specific variables */
   --bg-primary: var(--surface);
   --bg-secondary: var(--elevated-surface);
   --bg-tertiary: var(--muted-border);
 
-  --btn-hover: hsla(16, 13%, 72%, 0.5);
-  --btn-hover-2: hsla(17, 100%, 96%, 0.6);
+  --btn-hover: hsla(234, 13%, 73%, 0.35);
+  --btn-hover-2: hsla(266, 85%, 58%, 0.08);
 
   /* Parameter config panel */
   --panel-bg: var(--bg-primary);
@@ -144,75 +141,77 @@
 
   /* Fonts */
   --font:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
 
-  scrollbar-color: #b4ab9e transparent;
+  scrollbar-color: #acb0be transparent;
 }
 
-/* ----------------- DARK THEME (deep, warm, grayer) ----------------- */
+/* ----------------- DARK THEME (Catppuccin Mocha) ----------------- */
 .dark {
   color-scheme: dark;
 
   /* Page & surfaces */
-  --bg: #1c1919;
-  /* deep neutral background (very dark gray) */
-  --surface: #131110;
-  /* main surface for cards/panels */
-  --elevated-surface: #22201e;
-  /* slightly lighter elevated surface */
+  --bg: #1e1e2e;
+  /* Mocha Base — deep neutral background */
+  --surface: #181825;
+  /* Mocha Mantle — main surface for cards/panels */
+  --elevated-surface: #313244;
+  /* Mocha Surface0 — slightly lighter elevated surface */
 
   /* Text */
-  --text-primary: #e6e6e7;
-  /* light, neutral text */
-  --text-secondary: #a3a3a6;
-  /* desaturated secondary */
-  --text-muted: #737373;
-  /* muted labels */
+  --text-primary: #cdd6f4;
+  /* Mocha Text — light, neutral text */
+  --text-secondary: #bac2de;
+  /* Mocha Subtext1 — desaturated secondary */
+  --text-muted: #a6adc8;
+  /* Mocha Subtext0 — muted labels */
 
   /* Borders & dividers */
-  --border: rgba(230, 230, 230, 0.06);
-  /* subtle divider on dark */
-  --muted-border: rgba(230, 230, 230, 0.04);
+  --border: #45475a;
+  /* Mocha Surface1 — subtle divider on dark */
+  --muted-border: #313244;
+  /* Mocha Surface0 */
 
-  /* Primary (warm, visible on dark surfaces) */
-  --primary: #e06a3a;
-  /* warm orange that pops on dark */
-  --primary-foreground: #ffffff;
-  /* always white on dark primary */
-  --primary-600: #b34e2b;
-  /* hover/darker */
-  --primary-800: #7a321d;
-  /* pressed/strong */
+  /* Primary (Catppuccin Mauve, visible on dark surfaces) */
+  --primary: #cba6f7;
+  /* Mocha Mauve — pops on dark */
+  --primary-foreground: #1e1e2e;
+  /* Mocha Base — text on primary */
+  --primary-600: #b4befe;
+  /* Mocha Lavender — hover/darker */
+  --primary-800: #9399b2;
+  /* Mocha Overlay2 — pressed/strong */
 
   /* Secondary supporting accent */
-  --secondary: #9e7a3a;
-  /* muted golden-olive */
-  --secondary-600: #7f6130;
+  --secondary: #89b4fa;
+  /* Mocha Blue */
+  --secondary-600: #74c7ec;
+  /* Mocha Sapphire */
 
   /* Accents & feedback */
-  --accent-warm: #f59e0b;
-  /* warm accent */
-  --accent-soft: #f3dfa6;
-  /* softer warm highlight */
+  --accent-warm: #f9e2af;
+  /* Mocha Yellow — warm accent */
+  --accent-soft: #f5e0dc;
+  /* Mocha Rosewater — softer warm highlight */
 
-  --success: #34d399;
-  --warning: #f59e0b;
-  --danger: #f87171;
-  --info: #60f0f0;
+  --success: #a6e3a1;
+  --warning: #f9e2af;
+  --danger: #f38ba8;
+  --info: #89dceb;
 
   /* Shadows & focus */
-  --shadow-elev: rgba(2, 6, 23, 0.15);
-  --focus-ring: rgba(224, 106, 58, 0.14);
-  /* warmer focus */
+  --shadow-elev: rgba(0, 0, 0, 0.25);
+  --focus-ring: rgba(203, 166, 247, 0.2);
+  /* Mauve-tinted focus */
 
   /* Component-specific variables for dark mode */
   --bg-primary: var(--surface);
   --bg-secondary: var(--elevated-surface);
   --bg-tertiary: var(--muted-border);
 
-  --btn-hover: hsla(15, 6%, 27%, 0.4);
-  --btn-hover-2: hsla(15, 6%, 27%, 0.4);
+  --btn-hover: hsla(234, 13%, 40%, 0.3);
+  --btn-hover-2: hsla(267, 83%, 76%, 0.1);
 
   /* Parameter config panel */
   --panel-bg: var(--bg-primary);
@@ -245,7 +244,7 @@
   --popover-list-item-selected-bg: var(--border);
   --popover-list-item-selected-text: var(--text-primary);
 
-  scrollbar-color: #54514d transparent;
+  scrollbar-color: #585b70 transparent;
 }
 
 
@@ -271,19 +270,13 @@ body {
     background-color 0.5s;
   line-height: 1.6;
   font-family:
-    Inter,
+    "Plus Jakarta Sans",
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    "Fira Sans",
-    "Droid Sans",
-    "Helvetica Neue",
     sans-serif;
-  font-size: 15px;
+  /* Scale: 13px base, tight spacing */
+  font-size: 13px;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -362,7 +355,7 @@ body {
   padding: 6px 10px;
   font-weight: 400;
   color: var(--popover-list-item-text);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .model-list-item {
@@ -370,7 +363,7 @@ body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 4px 8px;
+  padding: 3px 8px;
   text-align: left;
   background: none;
   color: var(--popover-list-item-text);
@@ -379,7 +372,7 @@ body {
     background-color 0.15s ease,
     color 0.15s ease,
     border-color 0.15s ease;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   border-radius: 6px;
   margin-bottom: 2px;
   border: none;
@@ -418,8 +411,8 @@ body {
   align-items: center;
   font-weight: 600;
   color: var(--popover-list-item-text);
-  padding: 8px 10px;
-  font-size: 0.9rem;
+  padding: 6px 10px;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   cursor: pointer;
@@ -467,7 +460,7 @@ body {
 
 /* Top bar styling */
 .top-bar {
-  height: 60px;
+  height: 48px;
   background-color: var(--bg);
   width: 100%;
   z-index: 1000;
@@ -515,7 +508,7 @@ body {
   align-items: center;
   gap: 10px;
   padding: 6px 12px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--btn-model-selector-text);
   background: none;
@@ -566,12 +559,12 @@ body {
   z-index: 1;
   display: flex;
   align-items: center;
-  padding: 8px 10px;
+  padding: 6px 10px;
   cursor: pointer;
   user-select: none;
   gap: 10px;
   transition: background-color 0.2s;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   border-radius: 0;
   margin: 0;
 }
@@ -603,7 +596,7 @@ body {
 
 .chat-widget-name {
   font-weight: 500;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -625,14 +618,14 @@ body {
 
 .chat-widget-search-query {
   opacity: 0.9;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .chat-widget-status {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
 }
 
@@ -663,7 +656,7 @@ body {
 
 .chat-widget .reasoning-content-area .reasoning-content {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 /* Search results */
@@ -695,14 +688,14 @@ body {
 }
 
 .chat-widget .search-result-title {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--primary);
   margin-bottom: 2px;
 }
 
 .chat-widget .search-result-domain {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-secondary);
 }
 
@@ -713,7 +706,7 @@ body {
 
 .chat-widget .tool-args pre {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-all;

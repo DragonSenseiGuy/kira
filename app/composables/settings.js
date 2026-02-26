@@ -1,10 +1,11 @@
 import localforage from "localforage";
 import { reactive } from "vue";
 import { availableModels, findModelById, DEFAULT_MODEL_ID } from './availableModels';
+import { useModels } from './useModels';
 import DEFAULT_PARAMETERS from './defaultParameters';
 
 /**
- * Manages application settings for the Libre Assistant Interface.
+ * Manages application settings for the Kira Interface.
  */
 class Settings {
   constructor() {
@@ -16,7 +17,7 @@ class Settings {
       // --- User Profile Settings ---
       user_name: null, // User's name
       occupation: null, // User's occupation
-      custom_instructions: null, // Custom instructions for Libre
+      custom_instructions: null, // Custom instructions for Kira
 
       // --- Memory Settings ---
       global_memory_enabled: true, // Whether global memory is enabled
@@ -239,7 +240,12 @@ class Settings {
    * Computed property to get the currently selected model object
    */
   get selectedModel() {
-    return findModelById(availableModels, this.settings.selected_model_id);
+    // Check hardcoded models first, then dynamic
+    const hardcoded = findModelById(availableModels, this.settings.selected_model_id);
+    if (hardcoded) return hardcoded;
+
+    const { getModelById } = useModels();
+    return getModelById(this.settings.selected_model_id);
   }
 
   /**

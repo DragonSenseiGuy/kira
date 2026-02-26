@@ -238,7 +238,7 @@ function handleNewConversation() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
+  height: 48px;
   color: var(--text-primary);
   padding: 0 8px;
   position: relative;
@@ -246,7 +246,7 @@ function handleNewConversation() {
 }
 
 .sidebar-title {
-  font-family: "Inter", sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 1.1em;
   font-weight: 600;
   color: inherit;
