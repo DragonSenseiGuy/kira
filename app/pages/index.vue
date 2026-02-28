@@ -123,11 +123,17 @@ onMounted(async () => {
   // Set the chat panel reference (used by useConversation for scrollToEnd, etc.)
   setChatPanel(chatPanelRef.value);
 
-  // Handle initial prompt from URL query parameter (e.g. /?initialPrompt=Hello)
-  const initialPrompt = route.query.initialPrompt;
+  // Handle initial prompt from URL query parameter (e.g. /?q=Hello)
+  const initialPrompt = route.query.q;
+  const initialModel = route.query.model;
   if (initialPrompt && typeof initialPrompt === 'string' && initialPrompt.trim()) {
     await nextTick();
-    messageFormRef.value?.setMessage(initialPrompt.trim());
+
+    if (initialModel && availableModels.value.some(m => m.name === initialModel)) {
+      settingsManager.setSelectedModel(initialModel);
+    }
+
+    await sendMessage(initialPrompt.trim());
   }
 });
 
