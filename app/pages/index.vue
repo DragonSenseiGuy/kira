@@ -125,12 +125,15 @@ onMounted(async () => {
 
   // Handle initial prompt from URL query parameter (e.g. /?q=Hello)
   const initialPrompt = route.query.q;
-  const initialModel = route.query.model;
+  let initialModel = route.query.model;
   if (initialPrompt && typeof initialPrompt === 'string' && initialPrompt.trim()) {
     await nextTick();
 
-    if (initialModel && availableModels.value.some(m => m.name === initialModel)) {
-      settingsManager.setSelectedModel(initialModel);
+    if (initialModel) {
+      initialModel = initialModel.replace('-', '/');
+      if (availableModels.value.find(m => m.name === initialModel)) {
+        settingsManager.setSelectedModel(initialModel);
+      }
     }
 
     await sendMessage(initialPrompt.trim());
