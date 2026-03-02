@@ -30,6 +30,10 @@ export default defineEventHandler(async (event) => {
       body: new URLSearchParams({
         secret: turnstileSecret,
         response: turnstileToken,
+        remoteip:
+          event.node.req.headers["x-real-ip"] ||
+          event.node.req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+          "",
       }),
     },
   );

@@ -41,7 +41,7 @@ export function verifySessionToken(token, secret) {
 
   try {
     const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
-    if (!payload.exp || Date.now() > payload.exp) return null;
+    if (!Number.isFinite(payload.exp) || Date.now() > payload.exp) return null;
     return payload;
   } catch {
     return null;
