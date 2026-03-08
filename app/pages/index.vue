@@ -44,7 +44,7 @@ import { useDark } from "@vueuse/core";
 import { useRoute, useRouter } from '#app';
 import { useHead } from '@unhead/vue';
 
-import { availableModels } from '~/composables/availableModels';
+import { availableModels, findModelById } from '~/composables/availableModels';
 import { useSettings } from '~/composables/useSettings';
 import { useConversation } from '~/composables/useConversation';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
@@ -125,14 +125,27 @@ onMounted(async () => {
 
   // Handle initial prompt from URL query parameter (e.g. /?q=Hello)
   const initialPrompt = route.query.q;
-  let initialModel = route.query.model;
+  const initialModel = route.query.model;
   if (initialPrompt && typeof initialPrompt === 'string' && initialPrompt.trim()) {
     await nextTick();
 
-    if (initialModel) {
-      initialModel = initialModel.replace('-', '/');
-      if (availableModels.value.find(m => m.name === initialModel)) {
-        settingsManager.setSelectedModel(initialModel);
+    if (typeof initialModel === 'string' && initialModel.trim()) {
+      const normalizedModel = decodeURIComponent(initialModel).trim();
+      const modelCandidates = [
+        normalizedModel,
+        normalizedModel.includes('/') ? null : normalizedModel.replace('-', '/'),
+      ].filter(Boolean);
+
+      const matchedModel = modelCandidates
+        .map(candidate => findModelById(availableModels, candidate))
+        .find(Boolean);
+
+      const matchedByName = availableModels
+        .flatMap(category => category.models || [])
+        .find(model => model.name.toLowerCase() === normalizedModel.toLowerCase());
+
+      if (matchedModel || matchedByName) {
+        settingsManager.settings.selected_model_id = (matchedModel || matchedByName).id;
       }
     }
 
