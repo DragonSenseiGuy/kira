@@ -16,10 +16,7 @@
   "dependencies": {
     "@iconify/vue": "^5.0.0",
     "@nuxtjs/sitemap": "^7.4.7",
-    "@oxc-minify/binding-darwin-x64": "^0.117.0",
-    "@oxc-parser/binding-darwin-x64": "^0.117.0",
-    "@oxc-transform/binding-darwin-x64": "^0.117.0",
-    "@vercel/analytics": "^1.5.0",
+"@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
     "animejs": "^4.2.2",
     "highlight.js": "^11.11.1",
