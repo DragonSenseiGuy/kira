@@ -56,7 +56,7 @@ export async function createConversation(plainMessages, lastUpdated, customApiKe
 
     const metadata =
       (await localforage.getItem("conversations_metadata")) || [];
-    metadata.push({ id: conversationId, title, lastUpdated });
+    metadata.push({ id: conversationId, title, lastUpdated, createdAt: lastUpdated });
     await localforage.setItem("conversations_metadata", metadata);
 
     emitter.emit("updateConversations");

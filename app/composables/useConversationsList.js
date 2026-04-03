@@ -104,10 +104,10 @@ export function useConversationsList() {
   const groupedConversations = computed(() => {
     const groups = {};
 
-    // Sort by lastUpdated (most recent first)
+    // Sort by createdAt (most recently created first), falling back to lastUpdated for older entries
     const sorted = [...filteredConversations.value].sort((a, b) => {
-      const dateA = a.lastUpdated ? new Date(a.lastUpdated) : new Date(0);
-      const dateB = b.lastUpdated ? new Date(b.lastUpdated) : new Date(0);
+      const dateA = a.createdAt ? new Date(a.createdAt) : (a.lastUpdated ? new Date(a.lastUpdated) : new Date(0));
+      const dateB = b.createdAt ? new Date(b.createdAt) : (b.lastUpdated ? new Date(b.lastUpdated) : new Date(0));
       return dateB - dateA;
     });
 
@@ -117,7 +117,7 @@ export function useConversationsList() {
       if (conv.pinned) {
         groupKey = "pinned";
       } else {
-        groupKey = getTimeGroup(conv.lastUpdated);
+        groupKey = getTimeGroup(conv.createdAt ?? conv.lastUpdated);
       }
 
       if (!groups[groupKey]) {
