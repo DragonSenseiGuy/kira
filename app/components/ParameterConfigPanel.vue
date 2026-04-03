@@ -204,25 +204,6 @@ const seed = computed({
   }
 });
 
-const grounding = computed({
-  get: () => {
-    if (!props.settingsManager?.settings?.parameter_config) return DEFAULT_PARAMETERS.grounding;
-    return props.settingsManager.settings.parameter_config.grounding ?? DEFAULT_PARAMETERS.grounding;
-  },
-  set: (value) => {
-    if (props.settingsManager) {
-      // Ensure parameter_config exists
-      if (!props.settingsManager.settings.parameter_config) {
-        props.settingsManager.settings.parameter_config = { ...DEFAULT_PARAMETERS };
-      }
-
-      // Update the specific parameter
-      props.settingsManager.settings.parameter_config.grounding = value;
-      saveSettings();
-    }
-  }
-});
-
 // Watch for changes in parameter config and save settings
 watch(
   () => props.settingsManager?.settings?.parameter_config,
@@ -298,16 +279,7 @@ const parameters = [
 ];
 
 // Middleware parameters
-const middlewareParameters = [
-  {
-    name: 'grounding',
-    label: 'Web search',
-    type: 'boolean',
-    value: grounding,
-    description: 'Enable web search capabilities using Brave Search to provide factually accurate responses.',
-    inputHandler: (value) => grounding.value = value
-  }
-];
+const middlewareParameters = [];
 </script>
 
 <style scoped>

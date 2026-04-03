@@ -13,6 +13,7 @@ import ModelSelectorPopover from "./ModelSelectorPopover.vue";
 import BottomSheetModelSelector from "./BottomSheetModelSelector.vue";
 import { useAttachments } from "~/composables/useAttachments";
 import { useModels } from "~/composables/useModels";
+import DEFAULT_PARAMETERS from '~/composables/defaultParameters';
 import { 
   findModelById, 
   showReasoningToggle, 
@@ -133,6 +134,26 @@ const isReasoningEnabled = computed(() => {
   return checkReasoningEnabled(selectedModel.value, reasoningEffort.value);
 });
 
+
+// Computed for web search (grounding) toggle
+const searchEnabled = computed({
+  get: () => {
+    if (!props.settingsManager?.settings?.parameter_config) return false;
+    return props.settingsManager.settings.parameter_config.grounding ?? false;
+  },
+  set: (value) => {
+    if (!props.settingsManager) return;
+    if (!props.settingsManager.settings.parameter_config) {
+      props.settingsManager.settings.parameter_config = { ...DEFAULT_PARAMETERS };
+    }
+    props.settingsManager.settings.parameter_config.grounding = value;
+    props.settingsManager.saveSettings();
+  }
+});
+
+function toggleSearch() {
+  searchEnabled.value = !searchEnabled.value;
+}
 
 // Watch the selected model and load the appropriate reasoning effort setting
 watch(
@@ -532,7 +553,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, $el: messageForm
         @paste="handlePaste"
         @focus="isFocused = true"
         @blur="isFocused = false"
-        placeholder="Type your message..." 
+        placeholder="Type your message here..."
         class="chat-textarea" 
         rows="1"
       ></textarea>
@@ -548,6 +569,20 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, $el: messageForm
           :title="supportsVision ? 'Attach image or PDF' : 'Attach PDF (images require vision model)'"
         >
           <Icon icon="material-symbols:add" width="22" height="22" />
+        </button>
+
+        <!-- Web search toggle -->
+        <button
+          type="button"
+          class="feature-button search-btn"
+          :class="{ 'feature-active': searchEnabled }"
+          @click="toggleSearch"
+          :disabled="isLoading"
+          aria-label="Toggle web search"
+          title="Toggle web search"
+        >
+          <Icon icon="material-symbols:search" width="18" height="18" />
+          <span class="feature-label">Search</span>
         </button>
 
         <!-- Reasoning toggle for models that should show a reasoning toggle -->
@@ -628,11 +663,15 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, $el: messageForm
   background-color: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 8px;
+  padding: 4px 8px 8px;
   box-shadow: var(--shadow-default);
   position: relative;
   z-index: 10;
   transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.input-area-wrapper:focus-within {
+  border-color: rgba(212, 69, 117, 0.25);
 }
 
 .input-area-wrapper.drag-over {
@@ -694,6 +733,27 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, $el: messageForm
   transform: none;
 }
 
+/* Dark mode send button — GitHub blue */
+:global(.dark) .send-btn:not(:disabled) {
+  background-color: #1f6feb;
+  color: #f0f6fc;
+}
+
+:global(.dark) .send-btn:hover:not(:disabled) {
+  background-color: #388bfd;
+}
+
+/* Feature active state (search enabled) */
+.feature-active {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border-color: var(--primary) !important;
+}
+
+.feature-label {
+  font-size: 13px;
+}
+
 .send-btn:disabled .icon-send {
   stroke: var(--btn-send-text);
   opacity: 0.7;
@@ -706,20 +766,26 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, $el: messageForm
   justify-content: center;
   gap: 6px;
   border-radius: 8px;
-
-  color: var(--btn-model-selector-text);
+  padding: 0 10px;
+  color: var(--text-secondary);
+  background: transparent;
   border: 1px solid var(--border);
   cursor: pointer;
   flex-shrink: 0;
   font-weight: 500;
   font-size: 13px;
-  transition: all 0.2s ease;
-  height: 36px;
+  transition: all 0.18s ease;
+  height: 32px;
   margin: 0;
 }
 
 .feature-button:hover:not(:disabled) {
-  background-color: var(--btn-model-selector-hover-bg);
+  color: var(--text-primary);
+  background-color: var(--btn-hover);
+}
+
+.search-btn {
+  padding: 0 10px;
 }
 
 .search-toggle-btn.search-enabled {

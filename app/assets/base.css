@@ -147,71 +147,54 @@
   scrollbar-color: #acb0be transparent;
 }
 
-/* ----------------- DARK THEME (Catppuccin Mocha) ----------------- */
+/* ----------------- DARK THEME (Midnight Blue — GitHub-inspired) ----------------- */
 .dark {
   color-scheme: dark;
 
   /* Page & surfaces */
-  --bg: #1e1e2e;
-  /* Mocha Base — deep neutral background */
-  --surface: #181825;
-  /* Mocha Mantle — main surface for cards/panels */
-  --elevated-surface: #313244;
-  /* Mocha Surface0 — slightly lighter elevated surface */
+  --bg: #0d1117;
+  --surface: #090c11;
+  --elevated-surface: #161b22;
 
   /* Text */
-  --text-primary: #cdd6f4;
-  /* Mocha Text — light, neutral text */
-  --text-secondary: #bac2de;
-  /* Mocha Subtext1 — desaturated secondary */
-  --text-muted: #a6adc8;
-  /* Mocha Subtext0 — muted labels */
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #484f58;
 
   /* Borders & dividers */
-  --border: #45475a;
-  /* Mocha Surface1 — subtle divider on dark */
-  --muted-border: #313244;
-  /* Mocha Surface0 */
+  --border: #21262d;
+  --muted-border: #161b22;
 
-  /* Primary (Catppuccin Mauve, visible on dark surfaces) */
-  --primary: #cba6f7;
-  /* Mocha Mauve — pops on dark */
-  --primary-foreground: #1e1e2e;
-  /* Mocha Base — text on primary */
-  --primary-600: #b4befe;
-  /* Mocha Lavender — hover/darker */
-  --primary-800: #9399b2;
-  /* Mocha Overlay2 — pressed/strong */
+  /* Primary — electric blue (works as text accent AND button bg) */
+  --primary: #58a6ff;
+  --primary-foreground: #f0f6fc;
+  --primary-600: #79c0ff;
+  --primary-800: #1f6feb;
 
-  /* Secondary supporting accent */
-  --secondary: #89b4fa;
-  /* Mocha Blue */
-  --secondary-600: #74c7ec;
-  /* Mocha Sapphire */
+  /* Secondary */
+  --secondary: #bc8cff;
+  --secondary-600: #d2a8ff;
 
   /* Accents & feedback */
-  --accent-warm: #f9e2af;
-  /* Mocha Yellow — warm accent */
-  --accent-soft: #f5e0dc;
-  /* Mocha Rosewater — softer warm highlight */
+  --accent-warm: #e3b341;
+  --accent-soft: #f2a8c0;
 
-  --success: #a6e3a1;
-  --warning: #f9e2af;
-  --danger: #f38ba8;
-  --info: #89dceb;
+  --success: #3fb950;
+  --warning: #d29922;
+  --danger: #f85149;
+  --info: #79c0ff;
 
   /* Shadows & focus */
-  --shadow-elev: rgba(0, 0, 0, 0.25);
-  --focus-ring: rgba(203, 166, 247, 0.2);
-  /* Mauve-tinted focus */
+  --shadow-elev: rgba(0, 0, 0, 0.5);
+  --focus-ring: rgba(88, 166, 255, 0.2);
 
-  /* Component-specific variables for dark mode */
+  /* Component-specific */
   --bg-primary: var(--surface);
   --bg-secondary: var(--elevated-surface);
   --bg-tertiary: var(--muted-border);
 
-  --btn-hover: hsla(234, 13%, 40%, 0.3);
-  --btn-hover-2: hsla(267, 83%, 76%, 0.1);
+  --btn-hover: hsla(215, 25%, 55%, 0.12);
+  --btn-hover-2: hsla(212, 100%, 70%, 0.1);
 
   /* Parameter config panel */
   --panel-bg: var(--bg-primary);
@@ -219,32 +202,35 @@
   --tooltip-bg: var(--elevated-surface);
   --tooltip-text: var(--text-primary);
 
-
-  /* Chat panel colors for dark mode */
+  /* Chat panel colors */
   --text-primary-dark: var(--text-primary);
   --text-secondary-dark: var(--text-secondary);
   --reasoning-border-dark: var(--border);
 
-  /* Message form dark colors */
+  /* Message form */
   --bg-sidebar: var(--surface);
   --bg-input: var(--elevated-surface);
   --text-placeholder: var(--text-muted);
-  --shadow-default: 0 0 8px var(--shadow-elev);
+  --shadow-default: 0 0 12px rgba(0, 0, 0, 0.6);
   --btn-model-selector-bg: var(--muted-border);
   --btn-model-selector-text: var(--text-primary);
   --btn-model-selector-hover-bg: var(--border);
   --btn-send-bg: var(--primary);
   --btn-send-hover-bg: var(--primary-600);
   --btn-send-disabled-bg: var(--border);
-  --popover-bg: var(--surface);
+  --popover-bg: #161b22;
   --popover-border: var(--border);
-  --popover-shadow: 0 8px 30px var(--shadow-elev);
+  --popover-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
   --popover-list-item-bg-hover: var(--muted-border);
   --popover-list-item-text: var(--text-primary);
   --popover-list-item-selected-bg: var(--border);
   --popover-list-item-selected-text: var(--text-primary);
 
-  scrollbar-color: #585b70 transparent;
+  /* User chat bubble — dark elevated, not bright */
+  --color-bubble-user-bg: #21262d;
+  --color-bubble-user-text: #e6edf3;
+
+  scrollbar-color: #30363d transparent;
 }
 
 
@@ -471,6 +457,15 @@ body {
 
 .top-bar.with-border {
   border-bottom: 1px solid var(--border);
+}
+
+/* Group header date labels to match t3.chat style */
+.group-header .group-label {
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .top-bar-content {
