@@ -388,6 +388,13 @@ export async function* handleIncomingMessage(
         if (reasoningParams) {
           requestBody.reasoning = reasoningParams;
         }
+
+        // Add provider restriction if model specifies allowed providers
+        if (selectedModelInfo.providers && selectedModelInfo.providers.length > 0) {
+          requestBody.provider = {
+            order: selectedModelInfo.providers,
+          };
+        }
       }
 
       const sessionToken = await getSessionToken();

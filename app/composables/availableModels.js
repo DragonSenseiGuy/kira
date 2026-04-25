@@ -32,9 +32,15 @@
  * | Toggleable              | disabled     | { enabled: false }              |
  * | Model routing           | enabled      | model: "alt-model-id"           |
  * | Model routing           | disabled     | {} (original model)             |
+ * 
+ * ================================================
+ * PROVIDER RESTRICTION
+ * ================================================
+ * 
+ * providers: ["provider-id"], // Optional - restricts model to specific OpenRouter provider(s)
  */
 
-export const DEFAULT_MODEL_ID = "moonshotai/kimi-k2.5";
+export const DEFAULT_MODEL_ID = "moonshotai/kimi-k2.6";
 
 /**
  * Normalizes legacy reasoning formats to the new schema
@@ -302,6 +308,7 @@ export const availableModels = [
         name: "Kimi K2.6",
         description: "SOTA open-weights model with exceptional EQ, coding, and agentic abilities.",
         vision: true,
+        providers: ["moonshotai/int4"],
         reasoning: {
           supported: true,
           toggleable: true,
@@ -313,6 +320,7 @@ export const availableModels = [
         name: "Kimi K2.5",
         description: "Open-weights model with exceptional EQ, coding, and agentic abilities.",
         vision: true,
+        providers: ["moonshotai/int4"],
         reasoning: {
           supported: true,
           toggleable: true,

@@ -19,6 +19,10 @@ All notable changes to Libre Assistant are documented here.
 - Kimi K2.6 model
 - GLM 5.1 model
 - Nano Banana 2 image generation model
+- **Provider restriction** — Models can now be restricted to specific OpenRouter provider(s)
+
+### Changed
+- Kimi K2.5 and K2.6 now route exclusively through `moonshotai/int4` provider for better quality
 
 ---
 
