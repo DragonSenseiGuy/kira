@@ -1,21 +1,21 @@
 # Libre Assistant
 
-Libre Assistant is a **free, unlimited** AI Chatbot that uses various models through [Hack Club's free API](https://ai.hackclub.com).
+Libre Assistant is an open-source AI Chatbot that provides various models through [Hack Club's free API](https://ai.hackclub.com).
 Libre Assistant does **not** sell or store user information, and all chat & user data is stored on your device.
 
 ## Features
 
-- All data is stored locally on your device. No data is stored on the internet.
-- Full Markdown & LaTeX Support.
+- All data is stored locally on your device. No data is stored on the internet
+- Full Markdown & LaTeX Support
 - Image generation support
-- Document upload support
-- Detailed code-blocks, including syntax highlighting, downloading, and a copy button.
-- Customizable with name, occupation, and custom instructions.
-- Free web search tools through [search.hackclub.com](https://search.hackclub.com).
-- Reasoning effort customizability.
-- Incognito mode to prevent chat history from being saved.
-- Global memory to remember user details/preferences/opinions across chats.
-- Parameter configuration panel with temperature, top_p, seed options, and a web search toggle.
+- Document analysis support
+- Detailed code-blocks, including syntax highlighting, downloading, and copying
+- Personalizable with name, occupation, and custom instructions
+- Free web search tools through [search.hackclub.com](https://search.hackclub.com)
+- Reasoning effort customizability
+- Incognito mode to prevent chat history from being saved
+- Global memory to remember user details/preferences/opinions across chats
+- Parameter configuration panel with temperature, top_p, seed options, and a web search toggle
 - Conversation branching with message editing/regenerating
 
 ## Todo
@@ -39,15 +39,10 @@ cd libre-assistant
 ### Set Environment Variables
 
 ```env
-NUXT_PUBLIC_TURNSTILE_SITE_KEY
-NUXT_TURNSTILE_SECRET_KEY
 NUXT_SESSION_SECRET
-NUXT_HACKCLUB_API_KEY
 NUXT_HACKCLUB_SEARCH_API_KEY
 ```
-`NUXT_PUBLIC_TURNSTILE_SITE_KEY`, `NUXT_TURNSTILE_SECRET_KEY`, and `NUXT_SESSION_SECRET` are required for Cloudflare's turnstile to work, but are optional.
-
-`NUXT_HACKCLUB_API_KEY` is the default API key that will be used for all inference from [ai.hackclub.com](https://ai.hackclub.com).
+`NUXT_SESSION_SECRET` is required for sessions to function
 
 `NUXT_HACKCLUB_SEARCH_API_KEY ` is the API key that will be used for all search tools from [search.hacklub.com](https://search.hackclub.com).
 

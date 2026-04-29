@@ -19,8 +19,25 @@ function quantizeToBinary(embedding) {
 export default defineEventHandler(async (event) => {
     const body = await readBody(event);
 
-    const config = useRuntimeConfig(event);
-    const apiKey = config.hackclubApiKey;
+    // Extract custom API key from body (user-provided)
+    const customApiKey = body.customApiKey;
+    delete body.customApiKey;
+
+    // Require user to provide their own API key
+    if (!customApiKey) {
+        event.node.res.statusCode = 401;
+        event.node.res.setHeader('Content-Type', 'application/json');
+        event.node.res.end(JSON.stringify({
+            error: {
+                type: 'authentication_error',
+                message: 'API key is required. Please add your own API key in settings.',
+                code: 401
+            }
+        }));
+        return;
+    }
+
+    const apiKey = customApiKey;
 
     const openai = new OpenAI({
         apiKey: apiKey || '',

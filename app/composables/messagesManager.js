@@ -10,7 +10,6 @@ import { useSettings } from './useSettings';
 import { useGlobalIncognito } from './useGlobalIncognito';
 import { emitter } from './emitter';
 import { PartsBuilder, TimingTracker } from './partsBuilder';
-import { useRateLimiter } from './rateLimiter';
 import {
   getMessagesForBranchPath,
   createBranch,
@@ -209,26 +208,17 @@ export function useMessagesManager(chatPanel) {
 
     if ((!message.trim() && attachments.length === 0) || isLoading.value) return;
 
-    // Check rate limit (only if not using custom API key)
+    // Check if API key is provided (required for all API calls)
     if (!settingsManager.settings.custom_api_key) {
-      const rateLimiter = useRateLimiter();
-      const selectedModelId = settingsManager.settings.selected_model_id;
-      const limitCheck = rateLimiter.checkLimit(selectedModelId);
-
-      if (!limitCheck.canSend) {
-        // Create a temporary message to show the rate limit error
-        const tempAssistantMsg = createAssistantMessage();
-        updateAssistantMessage(tempAssistantMsg, {
-          content: `⚠️ **Rate Limit Reached**\n\n${limitCheck.error}\n\nYou can add your own Hack Club API key in Settings → General to bypass rate limits.`,
-          complete: true,
-          error: true,
-          errorDetails: { name: 'RateLimitError', message: limitCheck.error }
-        });
-        return;
-      }
-
-      // Record the request
-      rateLimiter.recordRequest(selectedModelId);
+      // Create a temporary message to show the API key error
+      const tempAssistantMsg = createAssistantMessage();
+      updateAssistantMessage(tempAssistantMsg, {
+        content: `⚠️ **API Key Required**\n\nPlease add your own API key in Settings → General to use models.`,
+        complete: true,
+        error: true,
+        errorDetails: { name: 'APIKeyRequired', message: 'API key is required to use models' }
+      });
+      return;
     }
 
     controller.value = new AbortController();
@@ -597,11 +587,14 @@ export function useMessagesManager(chatPanel) {
    * Edits a user message and creates a new branch
    * @param {string} messageId - The ID of the message to edit
    * @param {string} newContent - The new content for the message
-   * @param {Array} attachments - Optional new attachments
+   * @param {Array} newAttachments - Optional new attachments (if not provided, uses original attachments)
    */
-  async function editUserMessage(messageId, newContent, attachments = []) {
+  async function editUserMessage(messageId, newContent, newAttachments = null) {
     const existingMsg = messages.value.find(m => m.id === messageId);
     if (!existingMsg) return;
+
+    // Use provided attachments, or fall back to original message attachments
+    const attachments = newAttachments !== null ? newAttachments : (existingMsg.attachments || []);
 
     // Create a branch from this message with new content
     const branchResult = createBranch(messages.value, messageId, {

@@ -1,5 +1,3 @@
-import { solveTurnstile } from "~/composables/useTurnstile";
-
 // Must be less than SESSION_TTL_MS (8 min) in server/api/session.post.js
 const REFRESH_BUFFER_MS = 60 * 1000; // Refresh 60s before expiry
 const SESSION_STORAGE_KEY = "__libre_session_v1";
@@ -62,27 +60,26 @@ function hydrateSessionFromStorage() {
 }
 
 /**
- * Exchanges a Turnstile token for a signed session token.
- * @param {string} turnstileToken
+ * Requests a new session token from the server.
  * @returns {Promise<{sessionToken: string, expiresAt: number}>}
  */
-async function exchangeForSession(turnstileToken) {
+async function requestSession() {
   const res = await fetch("/api/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ turnstileToken }),
+    body: JSON.stringify({}),
   });
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `Session exchange failed (${res.status})`);
+    throw new Error(data.error || `Session request failed (${res.status})`);
   }
 
   return res.json();
 }
 
 /**
- * Returns a valid session token, refreshing via Turnstile if needed.
+ * Returns a valid session token, refreshing from the server if needed.
  * Multiple concurrent callers share the same in-flight request.
  * @returns {Promise<string>} The session token header value
  */
@@ -103,9 +100,7 @@ export async function getSessionToken() {
         clearPersistedSession();
       }
 
-      const turnstileToken = await solveTurnstile();
-      const { sessionToken, expiresAt } =
-        await exchangeForSession(turnstileToken);
+      const { sessionToken, expiresAt } = await requestSession();
       _sessionToken = sessionToken;
       _expiresAt = expiresAt;
       persistSession(_sessionToken, _expiresAt);

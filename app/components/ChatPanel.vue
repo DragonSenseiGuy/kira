@@ -418,21 +418,30 @@ function copyMessage(content, event) {
 // --- Branching Logic ---
 const editingMessageId = ref(null);
 const editContent = ref("");
+const editAttachments = ref([]);
 
 function startEditing(message) {
   editingMessageId.value = message.id;
   editContent.value = message.content;
+  // Clone attachments to allow modifications during editing
+  editAttachments.value = message.attachments ? [...message.attachments] : [];
 }
 
 function cancelEditing() {
   editingMessageId.value = null;
   editContent.value = "";
+  editAttachments.value = [];
 }
 
 function submitEdit(messageId) {
-  if (editContent.value.trim() === "") return;
-  emit("edit-message", messageId, editContent.value);
+  if (editContent.value.trim() === "" && editAttachments.value.length === 0) return;
+  emit("edit-message", messageId, editContent.value, editAttachments.value);
   editingMessageId.value = null;
+  editAttachments.value = [];
+}
+
+function removeEditAttachment(index) {
+  editAttachments.value.splice(index, 1);
 }
 
 function regenerateMessage(messageId) {
@@ -651,10 +660,10 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                   </div>
 
                   <!-- User messages without parts (not applicable for assistant due to auto-migration) -->
-                  <div v-else-if="message.role === 'user'" class="bubble">
+                  <div v-else-if="message.role === 'user'" class="bubble" :class="{ 'editing': editingMessageId === message.id }">
                     <div class="user-message-content">
-                      <!-- Display attached files -->
-                      <div v-if="message.attachments?.length" class="message-attachments">
+                      <!-- Display attached files (normal view) -->
+                      <div v-if="editingMessageId !== message.id && message.attachments?.length" class="message-attachments">
                         <div
                           v-for="attachment in message.attachments"
                           :key="attachment.id"
@@ -675,17 +684,47 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                       </div>
                       <!-- Message text -->
                       <div v-if="editingMessageId !== message.id" class="user-text">{{ message.content }}</div>
+                      <!-- Edit area -->
                       <div v-else class="edit-area">
+                        <!-- Editable attachments -->
+                        <div v-if="editAttachments.length > 0" class="edit-attachments">
+                          <div
+                            v-for="(attachment, index) in editAttachments"
+                            :key="attachment.id"
+                            class="edit-attachment-item"
+                            :class="attachment.type"
+                          >
+                            <img
+                              v-if="attachment.type === 'image'"
+                              :src="attachment.dataUrl"
+                              :alt="attachment.filename"
+                            />
+                            <div v-else class="edit-pdf-item">
+                              <Icon icon="material-symbols:picture-as-pdf" width="20" height="20" />
+                              <span class="edit-pdf-filename">{{ attachment.filename }}</span>
+                            </div>
+                            <button class="remove-attachment-btn" @click="removeEditAttachment(index)" title="Remove attachment">
+                              <Icon icon="material-symbols:close-rounded" width="16px" height="16px" />
+                            </button>
+                          </div>
+                        </div>
                         <textarea
                           v-model="editContent"
                           class="edit-textarea"
                           ref="editTextarea"
+                          placeholder="Edit your message..."
                           @keydown.enter.exact.prevent="submitEdit(message.id)"
                           @keydown.esc="cancelEditing"
                         ></textarea>
                         <div class="edit-actions">
-                          <button class="edit-cancel" @click="cancelEditing">Cancel</button>
-                          <button class="edit-save" @click="submitEdit(message.id)">Save & Submit</button>
+                          <button class="edit-cancel" @click="cancelEditing">
+                            <Icon icon="material-symbols:close-rounded" width="16px" height="16px" />
+                            <span>Cancel</span>
+                          </button>
+                          <button class="edit-save" @click="submitEdit(message.id)">
+                            <Icon icon="material-symbols:check-rounded" width="16px" height="16px" />
+                            <span>Save & Submit</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -994,59 +1033,149 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 .edit-area {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
+  min-width: 500px;
+}
+
+.edit-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.edit-attachment-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.edit-attachment-item.image {
+  max-width: 120px;
+  max-height: 120px;
+}
+
+.edit-attachment-item.image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.edit-attachment-item.pdf {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-pdf-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.edit-pdf-filename {
+  font-size: 0.85rem;
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remove-attachment-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.remove-attachment-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
 }
 
 .edit-textarea {
   width: 100%;
-  min-height: 100px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg-input);
-  color: var(--text-primary);
+  min-height: 80px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--bubble-user-text);
   font-family: inherit;
   font-size: 1rem;
   line-height: 1.5;
-  resize: vertical;
+  resize: none;
   outline: none;
+  transition: all 0.2s ease;
+}
+
+.edit-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .edit-textarea:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-20);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .edit-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-top: 4px;
 }
 
 .edit-actions button {
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  border: none;
 }
 
 .edit-cancel {
-  color: var(--primary-foreground);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--bubble-user-text);
 }
 
 .edit-cancel:hover {
-  background: var(--btn-hover);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .edit-save {
-  color: var(--primary-foreground);
+  background: rgba(255, 255, 255, 0.25);
+  color: var(--bubble-user-text);
 }
 
 .edit-save:hover {
-  background: var(--btn-hover);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Editing state for bubble */
+.bubble.editing {
+  width: 100%;
+  max-width: 100%;
 }
 
 .copy-button.copied {

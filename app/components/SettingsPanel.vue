@@ -215,14 +215,14 @@ async function handleClearAllMemory() {
               </div>
               <div class="setting-item textarea-item">
                 <div class="setting-info">
-                  <h3>Custom API Key</h3>
-                  <p>Use your own Hack Club API key (bypasses rate limits)</p>
+                  <h3>API Key</h3>
+                  <p>Enter your own API key to use models</p>
                 </div>
                 <div class="input-container api-key-container">
                   <input 
                     v-model="customApiKey" 
                     :type="showApiKey ? 'text' : 'password'" 
-                    placeholder="Enter your Hack Club API key"
+                    placeholder="Enter your API key"
                     class="custom-input api-key-input" 
                   />
                   <button 

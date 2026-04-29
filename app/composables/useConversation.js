@@ -117,8 +117,6 @@ export function useConversation() {
     return conversationId;
   }
 
-
-
   return {
     // State
     messages,
