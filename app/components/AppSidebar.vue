@@ -730,4 +730,36 @@ function handleNewConversation() {
 }
 
 .warning-title {
-  font-size: 0
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.warning-text {
+  font-size: 0.75em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.warning-button {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--btn-hover);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.15s, color 0.15s;
+}
+
+.warning-button:hover {
+  background: var(--border);
+  color: var(--warning);
+}
+</style>
