@@ -130,12 +130,16 @@ const normalizedMessages = computed(() => {
         });
       }
 
-      // Add tool_calls as tool_group part if present
+      // Add tool_calls as individual tool_group parts
+      // Each tool gets its own part to maintain proper ordering with other content types
       if (msg.tool_calls && msg.tool_calls.length > 0) {
-        parts.push({
-          type: 'tool_group',
-          tools: msg.tool_calls
-        });
+        for (const toolCall of msg.tool_calls) {
+          parts.push({
+            type: 'tool_group',
+            _id: `tool-${toolCall.id || Math.random().toString(36).substr(2, 9)}`,
+            tools: [toolCall]
+          });
+        }
       }
 
       // Add content part

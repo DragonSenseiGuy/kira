@@ -5,7 +5,8 @@
  * 1. IMMUTABILITY: All updates create new objects, never mutate existing ones
  * 2. UUID-BASED: Each part has a unique ID for reliable tracking
  * 3. APPEND-ONLY: Parts are only added, never replaced (except for content updates within a part)
- * 4. CLEAR SEPARATION: Each tool gets its own part
+ * 4. CLEAR SEPARATION: Each part type gets its own part
+ * 5. TOOL TRACKING: Tools are tracked by their API index to handle streaming correctly
  */
 
 /**
@@ -26,20 +27,26 @@ export class PartsBuilder {
   constructor() {
     this.parts = [];
     this.partMap = new Map(); // Map of partId -> part
-    this.toolIndexToPartId = new Map(); // Map of apiIndex -> partId (for streaming within same iteration)
-    this.seenToolIds = new Set(); // Set of tool IDs we've seen
-    this.completedToolIds = new Set(); // Set of tool IDs that have completed (have results)
+    this.toolIndexToPartId = new Map(); // Map of apiIndex -> partId
+    this.toolIdToPartId = new Map(); // Map of toolId -> partId
+    this.completedToolIds = new Set(); // Set of tool IDs that have results
     this.nextToolIndex = 0; // Global counter for tool indices
   }
 
   /**
    * Mark a tool as completed (has received result)
-   * This helps distinguish new iterations from streaming chunks
    */
   markToolCompleted(toolId) {
     if (toolId) {
       this.completedToolIds.add(toolId);
     }
+  }
+
+  /**
+   * Check if a tool is completed
+   */
+  isToolCompleted(toolId) {
+    return toolId ? this.completedToolIds.has(toolId) : false;
   }
 
   /**
@@ -130,68 +137,78 @@ export class PartsBuilder {
    * Add or update a tool
    * 
    * Logic:
-   * 1. If tool has an ID we've seen before -> update existing tool
-   * 2. If API index is mapped AND the mapped tool hasn't completed -> update that part
-   * 3. Otherwise -> create new tool part
+   * 1. Finalize any open content part (tools separate content segments)
+   * 2. If tool has an ID we've seen before -> update existing tool
+   * 3. If API index is mapped AND the mapped tool hasn't completed -> update that part
+   * 4. Otherwise -> create new tool part
+   * 
+   * This handles:
+   * - Streaming chunks for the same tool
+   * - Multiple tools in sequence
+   * - Different tool types in the same turn
+   * - Content before and after tools (e.g., content -> tool -> content)
    */
   addOrUpdateTool(toolType, toolData) {
+    // CRITICAL: Finalize any open content part before adding a tool
+    // This ensures content segments are properly separated by tool calls
+    // e.g., "reason -> search -> content -> crawl -> content" creates two separate content parts
+    this.finalizeContent();
+    
     const apiIndex = toolData.index;
     const toolId = toolData.id;
     
     // Case 1: Tool has an ID we've seen before - update it
-    if (toolId && this.seenToolIds.has(toolId)) {
-      for (const part of this.parts) {
-        if (part.type === 'tool_group' && part.tools[0]?.id === toolId) {
+    if (toolId && this.toolIdToPartId.has(toolId)) {
+      const partId = this.toolIdToPartId.get(toolId);
+      const part = this.partMap.get(partId);
+      
+      if (part && part.type === 'tool_group') {
+        const tool = part.tools[0];
+        if (tool) {
           const updatedTool = {
-            ...part.tools[0],
-            id: toolId,
-            type: toolData.type || part.tools[0].type,
+            ...tool,
+            type: toolData.type || tool.type,
             function: {
-              name: toolData.function?.name || part.tools[0].function.name,
-              arguments: part.tools[0].function.arguments + (toolData.function?.arguments || '')
+              name: toolData.function?.name || tool.function.name,
+              arguments: tool.function.arguments + (toolData.function?.arguments || '')
             }
           };
           
-          this._replacePart(part._id, { ...part, tools: [updatedTool] });
-          this.toolIndexToPartId.set(apiIndex, part._id);
+          this._replacePart(partId, { ...part, tools: [updatedTool] });
           return this.getParts();
         }
       }
     }
     
     // Case 2: API index is mapped AND the tool hasn't completed yet - update existing
-    // This handles streaming chunks for the current tool
     if (apiIndex !== undefined && this.toolIndexToPartId.has(apiIndex)) {
       const partId = this.toolIndexToPartId.get(apiIndex);
       const part = this.partMap.get(partId);
       
-      if (part) {
-        const existingToolId = part.tools[0]?.id;
-        const isCompleted = existingToolId && this.completedToolIds.has(existingToolId);
+      if (part && part.type === 'tool_group') {
+        const tool = part.tools[0];
+        const isCompleted = tool?.id && this.completedToolIds.has(tool.id);
         
-        // Only update if:
-        // - The tool hasn't completed yet (still streaming), OR
-        // - The IDs match (same tool), OR
-        // - The existing tool has no ID yet
-        if (!isCompleted && (!existingToolId || !toolId || existingToolId === toolId)) {
+        // Only update if not completed
+        if (!isCompleted) {
           const updatedTool = {
-            ...part.tools[0],
-            id: toolId || part.tools[0].id,
-            type: toolData.type || part.tools[0].type,
+            ...tool,
+            id: toolId || tool.id,
+            type: toolData.type || tool.type,
             function: {
-              name: toolData.function?.name || part.tools[0].function.name,
-              arguments: part.tools[0].function.arguments + (toolData.function?.arguments || '')
+              name: toolData.function?.name || tool.function.name,
+              arguments: tool.function.arguments + (toolData.function?.arguments || '')
             }
           };
           
           this._replacePart(partId, { ...part, tools: [updatedTool] });
           
           if (toolId) {
-            this.seenToolIds.add(toolId);
+            this.toolIdToPartId.set(toolId, partId);
           }
           return this.getParts();
         }
-        // Tool has completed or ID conflict - this is a new tool from a new iteration
+        // Tool has completed - this is a new tool with the same index (new iteration)
         // Fall through to create new tool
       }
     }
@@ -220,30 +237,45 @@ export class PartsBuilder {
     this.toolIndexToPartId.set(apiIndex, newPart._id);
     
     if (toolId) {
-      this.seenToolIds.add(toolId);
+      this.toolIdToPartId.set(toolId, newPart._id);
     }
     
     return this.getParts();
   }
 
   /**
-   * Set the result for a tool
+   * Set the result for a tool by its ID
    */
   setToolResult(toolId, result) {
+    const partId = this.toolIdToPartId.get(toolId);
+    
+    if (partId) {
+      const part = this.partMap.get(partId);
+      if (part && part.type === 'tool_group') {
+        const tool = part.tools[0];
+        if (tool && tool.id === toolId) {
+          const updatedTool = { ...tool, result };
+          this._replacePart(partId, { ...part, tools: [updatedTool] });
+          this.markToolCompleted(toolId);
+          return true;
+        }
+      }
+    }
+    
+    // Fallback: search all parts
     for (const part of this.parts) {
       if (part.type === 'tool_group') {
         const tool = part.tools.find(t => t.id === toolId);
         if (tool) {
           const updatedTool = { ...tool, result };
           this._replacePart(part._id, { ...part, tools: [updatedTool] });
-          
-          // Mark this tool as completed
           this.markToolCompleted(toolId);
-          
+          this.toolIdToPartId.set(toolId, part._id);
           return true;
         }
       }
     }
+    
     return false;
   }
 

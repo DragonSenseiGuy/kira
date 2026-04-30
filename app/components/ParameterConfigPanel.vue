@@ -170,6 +170,11 @@ function handleTopPChange(value) {
   topP.value = value[0];
 }
 
+function handleMaxTokensChange(value) {
+  // Extract the first value from the array
+  maxTokens.value = value[0];
+}
+
 const seed = computed({
   get: () => {
     if (!props.settingsManager?.settings?.parameter_config) return DEFAULT_PARAMETERS.seed;
@@ -184,6 +189,25 @@ const seed = computed({
 
       // Update the specific parameter
       props.settingsManager.settings.parameter_config.seed = value;
+      saveSettings();
+    }
+  }
+});
+
+const maxTokens = computed({
+  get: () => {
+    if (!props.settingsManager?.settings?.parameter_config) return DEFAULT_PARAMETERS.max_tokens;
+    return props.settingsManager.settings.parameter_config.max_tokens ?? DEFAULT_PARAMETERS.max_tokens;
+  },
+  set: (value) => {
+    if (props.settingsManager) {
+      // Ensure parameter_config exists
+      if (!props.settingsManager.settings.parameter_config) {
+        props.settingsManager.settings.parameter_config = { ...DEFAULT_PARAMETERS };
+      }
+
+      // Update the specific parameter
+      props.settingsManager.settings.parameter_config.max_tokens = value;
       saveSettings();
     }
   }
@@ -252,6 +276,18 @@ const parameters = [
     description: 'Controls diversity via nucleus sampling: 0.5 means half of all likelihood-weighted options are considered.',
     inputHandler: (e) => topP.value = parseFloat(e.target.value),
     sliderHandler: handleTopPChange
+  },
+  {
+    name: 'max_tokens',
+    label: 'Max Tokens',
+    type: 'slider',
+    value: maxTokens,
+    min: 256,
+    max: 65536,
+    step: 256,
+    description: 'Maximum number of tokens to generate. Lower values help when you have limited API credits.',
+    inputHandler: (e) => maxTokens.value = parseInt(e.target.value),
+    sliderHandler: handleMaxTokensChange
   },
   {
     name: 'seed',

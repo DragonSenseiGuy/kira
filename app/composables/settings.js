@@ -19,7 +19,7 @@ class Settings {
       custom_instructions: null, // Custom instructions for Libre
 
       // --- Memory Settings ---
-      global_memory_enabled: true, // Whether global memory is enabled
+      notebook_memory_enabled: false, // Whether Notebook/memory is enabled (new unified setting)
 
       // --- Model Settings ---
       selected_model_id: DEFAULT_MODEL_ID, // Default model ID
@@ -46,7 +46,7 @@ class Settings {
     // Create a non-reactive copy of default settings to avoid circular references
     this.defaultSettings = {
       version: 2,
-      global_memory_enabled: true, // Add default value for global memory
+      notebook_memory_enabled: false, // Whether Notebook/memory is enabled (new unified setting)
       selected_model_id: DEFAULT_MODEL_ID, // Default model ID
       search_enabled: false, // Default value for search setting
       model_settings: {}, // Default value for model settings

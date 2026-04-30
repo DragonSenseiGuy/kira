@@ -7,8 +7,27 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue';
 // Import the main CSS file to ensure all styling is loaded
-import './assets/main.css'
+import './assets/main.css';
+import { runNotebookPipeline } from '~/composables/notebookPipeline';
+import { useSettings } from '~/composables/useSettings';
+
+// Initialize settings to get API key for pipeline
+const settingsManager = useSettings();
+
+// Run Notebook pipeline on app mount (non-blocking)
+onMounted(() => {
+  // Delay slightly to let the app fully initialize
+  setTimeout(() => {
+    const apiKey = settingsManager.settings?.custom_api_key;
+    if (apiKey) {
+      runNotebookPipeline(apiKey).catch(error => {
+        console.error("Notebook pipeline error:", error);
+      });
+    }
+  }, 2000); // 2 second delay
+});
 </script>
 
 <style>

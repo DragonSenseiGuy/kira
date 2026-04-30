@@ -13,6 +13,20 @@ All notable changes to Libre Assistant are documented here.
 
 ---
 
+## [1.2.0] - 2026-04-30
+
+### Added
+- Your Notebook is a complete redesign of our global memory system that centers around autonomous scheduled updates to your Notebook. The Notebook itself is managed behind-the-scenes and is a holistic overview of you. It's currently in the preview stage.
+- Added max_tokens parameter to alternative sidebar
+
+### Fixed
+- Fixed agentic tool calling (again), it is now more robust and reliable than ever
+
+### Removed
+- The old memory system is removed. I would have deprecated it instead, but practically nobody used it anyway so I wanted to keep the code clean without it.
+
+---
+
 ## [1.1.0] - 2026-04-30
 
 ### Added
