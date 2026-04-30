@@ -259,6 +259,11 @@
   margin: 0 auto;
   box-sizing: border-box;
   transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  /* Text wrapping - ensure all content wraps properly */
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 /* Remove top margin from the first visible element */
@@ -271,6 +276,71 @@
 .markdown-content>*:last-child,
 .markdown-content>.last-block {
   margin-bottom: 0 !important;
+}
+
+/* 
+ * Streaming message margin fixes
+ * When content is split between static and streaming containers (both using display:contents),
+ * we need to ensure proper margins between elements
+ */
+
+/* 
+ * When streaming container has preceding content (staticHtml exists),
+ * the first child elements inside streaming need proper top margins.
+ * These must match the margins defined in the base .markdown-content styles above.
+ * The has-preceding-content class is dynamically added by Vue when staticHtml is present.
+ */
+
+/* Base margin for most elements: 0.8em */
+.streaming-content-streaming.has-preceding-content>p:first-child,
+.streaming-content-streaming.has-preceding-content>div:not(.code-block-wrapper):not(.katex-display):first-child {
+  margin-top: 0.8em !important;
+}
+
+/* Headings: 1.2em top margin */
+.streaming-content-streaming.has-preceding-content>h1:first-child,
+.streaming-content-streaming.has-preceding-content>h2:first-child,
+.streaming-content-streaming.has-preceding-content>h3:first-child {
+  margin-top: 1.2em !important;
+}
+
+/* h4-h6 use base margin */
+.streaming-content-streaming.has-preceding-content>h4:first-child,
+.streaming-content-streaming.has-preceding-content>h5:first-child,
+.streaming-content-streaming.has-preceding-content>h6:first-child {
+  margin-top: 0.8em !important;
+}
+
+/* Lists: 1em top margin */
+.streaming-content-streaming.has-preceding-content>ul:first-child,
+.streaming-content-streaming.has-preceding-content>ol:first-child {
+  margin-top: 1em !important;
+}
+
+/* Blockquotes: 1.5em top margin */
+.streaming-content-streaming.has-preceding-content>blockquote:first-child {
+  margin-top: 1.5em !important;
+}
+
+/* Code blocks: 1em top margin */
+.streaming-content-streaming.has-preceding-content>.code-block-wrapper:first-child,
+.streaming-content-streaming.has-preceding-content>pre:first-child {
+  margin-top: 1em !important;
+}
+
+/* Tables: 1em top margin */
+.streaming-content-streaming.has-preceding-content>table:first-child {
+  margin-top: 1em !important;
+}
+
+/* Horizontal rules: 1.5em top margin */
+.streaming-content-streaming.has-preceding-content>hr:first-child {
+  margin-top: 1.5em !important;
+}
+
+/* KaTeX display: 1em top margin */
+.streaming-content-streaming.has-preceding-content>.katex-display:first-child {
+  margin-top: 1em !important;
 }
 
 /* Consistent base margins for all direct children */
@@ -435,6 +505,37 @@
   margin: 1em 0;
 }
 
+/* KaTeX text wrapping - ensure math doesn't overflow */
+.markdown-content .katex {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+  max-width: 100%;
+}
+
+.markdown-content .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+.markdown-content .katex-display .katex {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.markdown-content .katex-html {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Ensure inline math wraps properly */
+.markdown-content .katex-inline .katex {
+  white-space: normal;
+}
+
 /* ==========================================
    Streaming Caret Indicator
    ========================================== */
@@ -469,4 +570,65 @@
     opacity: 0.3;
     transform: scale(0.8);
   }
+}
+
+/* ==========================================
+   Streaming Message Margin Fixes
+   ==========================================
+ * When streaming container has preceding content (staticHtml exists),
+ * the first child elements inside streaming need proper top margins.
+ * These match the base margins defined above.
+ * The has-preceding-content class is added by Vue when staticHtml is present.
+ */
+
+/* Headings h1-h3: 1.2em top margin */
+.streaming-content-streaming.has-preceding-content>h1:first-child,
+.streaming-content-streaming.has-preceding-content>h2:first-child,
+.streaming-content-streaming.has-preceding-content>h3:first-child {
+  margin-top: 1.2em !important;
+}
+
+/* Headings h4-h6: base 0.8em margin */
+.streaming-content-streaming.has-preceding-content>h4:first-child,
+.streaming-content-streaming.has-preceding-content>h5:first-child,
+.streaming-content-streaming.has-preceding-content>h6:first-child {
+  margin-top: 0.8em !important;
+}
+
+/* Paragraphs and generic divs: 0.8em */
+.streaming-content-streaming.has-preceding-content>p:first-child,
+.streaming-content-streaming.has-preceding-content>div:not(.code-block-wrapper):not(.katex-display):first-child {
+  margin-top: 0.8em !important;
+}
+
+/* Lists: 1em top margin */
+.streaming-content-streaming.has-preceding-content>ul:first-child,
+.streaming-content-streaming.has-preceding-content>ol:first-child {
+  margin-top: 1em !important;
+}
+
+/* Blockquotes: 1.5em top margin */
+.streaming-content-streaming.has-preceding-content>blockquote:first-child {
+  margin-top: 1.5em !important;
+}
+
+/* Code blocks: 1em top margin */
+.streaming-content-streaming.has-preceding-content>.code-block-wrapper:first-child,
+.streaming-content-streaming.has-preceding-content>pre:first-child {
+  margin-top: 1em !important;
+}
+
+/* Tables: 1em top margin */
+.streaming-content-streaming.has-preceding-content>table:first-child {
+  margin-top: 1em !important;
+}
+
+/* Horizontal rules: 1.5em top margin */
+.streaming-content-streaming.has-preceding-content>hr:first-child {
+  margin-top: 1.5em !important;
+}
+
+/* KaTeX display: 1em top margin */
+.streaming-content-streaming.has-preceding-content>.katex-display:first-child {
+  margin-top: 1em !important;
 }

@@ -13,6 +13,40 @@ All notable changes to Kira are documented here.
 
 ---
 
+## [1.0.0] - 2026-04-29
+
+### Added
+- Plethora of new models (from now on, they will not be named in the changelog)
+- Widget reminding users to set their own API key
+
+### Changed
+- Users will now be required to **set their own API key** to use any models, to avoid overusage on my own API key
+- Redesigned message editing UI
+
+### Fixed
+- UI streaming should no longer "duplicate" or "hide" certain markdown elements while streaming
+- Sidebar no longer pops in and transitions out when you load the site on mobile
+- Text now properly wraps, avoiding a horizontal scrollbar
+- Editing the first message of a conversation broke the conversation prior to this release
+
+### Removed
+- Turnstile is removed as it is no longer needed, as the API key is set by users
+
+---
+
+## [0.9.2] - 2026-04-25
+
+### Added
+- Kimi K2.6 model
+- GLM 5.1 model
+- Nano Banana 2 image generation model
+- **Provider restriction** — Models can now be restricted to specific OpenRouter provider(s)
+
+### Changed
+- Kimi K2.5 and K2.6 now route exclusively through `moonshotai/int4` provider for better quality
+
+---
+
 ## [0.9.1] - 2026-02-19
 
 ### Added

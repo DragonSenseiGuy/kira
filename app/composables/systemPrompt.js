@@ -7,8 +7,8 @@
 
 // --- PROMPT MODULES ---
 // These are the "Lego" blocks that will be assembled into the final prompt.
-
-const CORE_IDENTITY = `You are Kira, a helpful and capable AI assistant from the open-source Kira project. Your goal is to provide clear, accurate, and useful responses. Your underlying model is NOT called 'Kira' nor is it developed by Kira; you are developed by a third-party and integrated into Kira through OpenRouter. Current date is ${new Date().toISOString().split("T")[0]}`;
+// Note: CORE_IDENTITY is defined inside generateSystemPrompt() because it needs
+// access to the currently selected model name at prompt-assembly time.
 
 const GUIDING_PRINCIPLES = `### Guiding Principles
 *   **Be Accurate:** Strive for factual accuracy. If you're unsure about something, say so. Don't invent information.
@@ -96,7 +96,6 @@ export async function generateSystemPrompt(
   hasToolUse = true
 ) {
   // Start with the core identity and main principles.
-  const promptSections = [CORE_IDENTITY];
 
   const {
     user_name,
@@ -106,6 +105,12 @@ export async function generateSystemPrompt(
     selected_model_id,
     gpt_oss_limit_tables,
   } = settings;
+
+  // Core identity is built dynamically so it can reference the selected model name.
+  // Branding is preserved as "Kira" per this fork's identity.
+  const CORE_IDENTITY = `You are Kira, a helpful and capable AI assistant from the open-source Kira project. Your goal is to provide clear, accurate, and useful responses. Your underlying model is NOT called 'Kira' nor is it developed by Kira; you are ${findModelById(availableModels, selected_model_id).name} developed by a third-party and integrated into Kira through OpenRouter. Current date is ${new Date().toISOString().split("T")[0]}`;
+
+  const promptSections = [CORE_IDENTITY];
 
   // **User Context Section (High Priority)**
   // This is added early to ensure the model prioritizes it.

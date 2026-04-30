@@ -5,17 +5,17 @@ Kira does **not** sell or store user information, and all chat & user data is st
 
 ## Features
 
-- All data is stored locally on your device. No data is stored on the internet.
-- Full Markdown & LaTeX Support.
+- All data is stored locally on your device. No data is stored on the internet
+- Full Markdown & LaTeX Support
 - Image generation support
-- Document upload support
-- Detailed code-blocks, including syntax highlighting, downloading, and a copy button.
-- Customizable with name, occupation, and custom instructions.
-- Free web search tools through [search.hackclub.com](https://search.hackclub.com).
-- Reasoning effort customizability.
-- Incognito mode to prevent chat history from being saved.
-- Global memory to remember user details/preferences/opinions across chats.
-- Parameter configuration panel with temperature, top_p, seed options, and a web search toggle.
+- Document analysis support
+- Detailed code-blocks, including syntax highlighting, downloading, and copying
+- Personalizable with name, occupation, and custom instructions
+- Free web search tools through [search.hackclub.com](https://search.hackclub.com)
+- Reasoning effort customizability
+- Incognito mode to prevent chat history from being saved
+- Global memory to remember user details/preferences/opinions across chats
+- Parameter configuration panel with temperature, top_p, seed options, and a web search toggle
 - Conversation branching with message editing/regenerating
 
 ## Todo
@@ -34,33 +34,38 @@ Please suggest more ideas in the Issues tab.
 ```sh
 git clone https://github.com/Mostlime12195/Libre-Assistant.git
 cd libre-assistant
-```
 
-### Install Dependencies
+Set Environment Variables
+env
 
-```sh
+NUXT_SESSION_SECRET
+NUXT_HACKCLUB_SEARCH_API_KEY
+
+NUXT_SESSION_SECRET is required for sessions to function
+
+NUXT_HACKCLUB_SEARCH_API_KEY is the API key that will be used for all search tools from search.hacklub.com.
+Install Dependencies
+sh
+
 npm install
-```
 
-### Compile and Hot-Reload for Development
+Compile and Hot-Reload for Development
+sh
 
-```sh
 npm run dev
-```
 
-### Compile and Minify for Production
+Compile and Minify for Production
+sh
 
-```sh
 npm run build
-```
 
-## Versioning
+Versioning
 
-This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+This project uses Semantic Versioning.
 
 To update the version, use npm version commands:
+bash
 
-```bash
 # Bump the patch version (x.y.z -> x.y.z+1)
 npm version patch
 
@@ -72,6 +77,5 @@ npm version major
 
 # Or set an explicit version
 npm version 1.2.3
-```
 
-All notable changes to this project are documented in the [CHANGELOG.md](./CHANGELOG.md) file.
+All notable changes to this project are documented in the CHANGELOG.md file.

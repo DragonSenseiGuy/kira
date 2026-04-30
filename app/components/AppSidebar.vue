@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onBeforeUnmount, onMounted, nextTick } from "vue";
+import { ref, onBeforeUnmount, onMounted, nextTick, computed } from "vue";
 import { Icon } from "@iconify/vue";
 import { useRouter, useRoute } from "vue-router";
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
 } from "reka-ui";
 import { useConversationsList } from "~/composables/useConversationsList";
+import { useSettings } from "~/composables/useSettings";
 
 const emit = defineEmits([
   "reloadSettings",
@@ -20,6 +21,10 @@ const props = defineProps(["currConvo", "messages", "isDark", "isOpen"]);
 
 const router = useRouter();
 const route = useRoute();
+
+// Use settings to check for API key
+const settingsManager = useSettings();
+const hasApiKey = computed(() => !!settingsManager.settings.custom_api_key);
 
 // Use the conversations list composable
 const {
@@ -87,7 +92,7 @@ function handleNewConversation() {
       <button id="new-chat-button" class="new-chat-btn" @click="handleNewConversation">
         <span>New Chat</span>
       </button>
-      
+
       <!-- Search Input -->
       <div class="search-container">
         <Icon icon="material-symbols:search" class="search-icon" width="18" height="18" />
@@ -106,7 +111,7 @@ function handleNewConversation() {
           <Icon icon="material-symbols:close" width="16" height="16" />
         </button>
       </div>
-      
+
       <div class="main-content" style="padding-bottom: 0;">
         <!-- Empty state when no conversations -->
         <div v-if="!metadata.length" class="empty-state">
@@ -114,14 +119,14 @@ function handleNewConversation() {
           <p>No conversations yet</p>
           <p class="empty-hint">Start a new chat to begin</p>
         </div>
-        
+
         <!-- Empty search results -->
         <div v-else-if="isSearching && !groupedConversations.length" class="empty-state">
           <Icon icon="material-symbols:search" width="48" height="48" />
           <p>No results found</p>
           <p class="empty-hint">Try a different search term</p>
         </div>
-        
+
         <!-- Grouped conversation list -->
         <div v-else class="conversation-list">
           <template v-for="(group, index) in groupedConversations" :key="group.key">
@@ -150,7 +155,7 @@ function handleNewConversation() {
                 />
               </button>
             </div>
-            
+
             <!-- Conversations in this group -->
             <template v-if="group.key !== 'pinned' || isPinnedExpanded">
               <div
@@ -168,7 +173,7 @@ function handleNewConversation() {
                   ref="renameInput"
                   autofocus
                 />
-                
+
                 <!-- Normal conversation button (shown when not renaming) -->
                 <NuxtLink
                   v-else
@@ -178,7 +183,7 @@ function handleNewConversation() {
                 >
                   <span class="conversation-title">{{ data.title }}</span>
                 </NuxtLink>
-                
+
                 <!-- Dropdown Menu -->
                 <DropdownMenuRoot v-if="renamingId !== data.id">
                   <DropdownMenuTrigger class="menu-trigger" @click.stop aria-label="More options">
@@ -208,6 +213,20 @@ function handleNewConversation() {
           </template>
         </div>
       </div>
+
+      <!-- API Key Warning (upstream feature) - shown only when no API key is configured -->
+      <div v-if="!hasApiKey" class="api-key-warning">
+        <Icon icon="material-symbols:warning" width="20" height="20" />
+        <div class="warning-content">
+          <span class="warning-title">API Key Required</span>
+          <span class="warning-text">Add your API key in settings</span>
+        </div>
+        <button class="warning-button" @click="$emit('openSettings')" aria-label="Open settings">
+          <Icon icon="material-symbols:arrow-forward" width="18" height="18" />
+        </button>
+      </div>
+
+      <!-- Custom Login footer (HEAD UI modification) -->
       <div class="sidebar-footer">
         <button class="login-btn">
           <Icon icon="material-symbols:login-rounded" width="18" height="18" />
@@ -683,4 +702,32 @@ function handleNewConversation() {
     font-size: 0.9em;
   }
 }
-</style>
+
+/* API Key Warning */
+.api-key-warning {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 16px 16px 16px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+}
+
+.api-key-warning > svg {
+  flex-shrink: 0;
+  color: var(--warning);
+}
+
+.warning-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.warning-title {
+  font-size: 0
