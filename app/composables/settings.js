@@ -8,6 +8,9 @@ import DEFAULT_PARAMETERS from './defaultParameters';
  */
 class Settings {
   constructor() {
+    // Loading state to track if settings have been loaded
+    this.isLoaded = false;
+
     // Use a reactive reference for settings to improve reactivity
     const settings = reactive({
       // Version marker for future migrations
@@ -146,8 +149,13 @@ class Settings {
             console.error(`Error saving initial default settings: ${err}`);
           });
       }
+
+      // Mark settings as loaded
+      this.isLoaded = true;
     } catch (err) {
       console.error("Failed to load settings from localForage:", err);
+      // Still mark as loaded to prevent infinite loading attempts
+      this.isLoaded = true;
     }
   }
 

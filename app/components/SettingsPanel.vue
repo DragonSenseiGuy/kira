@@ -125,6 +125,7 @@ async function saveSettings() {
     has_custom_api_key: !!customApiKey.value.trim()
   });
 
+  // Save settings and wait for completion before reloading
   await settingsManager.saveSettings();
 
   // Reload notebook data after saving settings
@@ -132,7 +133,11 @@ async function saveSettings() {
 
   // Close settings and refresh the page
   closeSettings();
-  location.reload();
+
+  // Small delay to ensure all async operations complete before reload
+  setTimeout(() => {
+    location.reload();
+  }, 100);
 }
 
 function openNotebook() {
@@ -269,7 +274,7 @@ function openNotebook() {
           <div v-show="currTab === 'notebook'" class="settings-section">
             <div class="settings-content">
               <div class="content-header">
-                <h2>Notebook</h2>
+                <h2>Notebook (Preview)</h2>
                 <p>Your Notebook is a document that Libre maintains about you. It contains observations 
                   about your personality, communication style, ongoing projects, and recent activity, all stored on your device. It is used to give Libre context about you.</p>
               </div>
@@ -315,7 +320,7 @@ function openNotebook() {
               </div>
 
               <div v-else class="notebook-disabled-message">
-                <p>The Notebook is currently disabled. Enable it to start building your personal biography.</p>
+                <p>The Notebook is currently disabled. Enable it to let AI document your chats.</p>
               </div>
             </div>
           </div>
