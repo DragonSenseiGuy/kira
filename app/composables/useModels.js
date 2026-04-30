@@ -33,6 +33,7 @@ const MODEL_ORDER = (() => {
 })();
 
 const PROVIDER_MAP = {
+  'anthropic': { name: 'Anthropic', logo: '/ai_logos/anthropic.svg' },
   'deepseek': { name: 'DeepSeek', logo: '/ai_logos/deepseek.svg' },
   'google': { name: 'Google', logo: '/ai_logos/gemini.svg' },
   'minimax': { name: 'MiniMax', logo: '/ai_logos/minimax.svg' },
@@ -113,7 +114,15 @@ async function fetchModels() {
       const res = await fetch(MODELS_API_URL);
       if (!res.ok) throw new Error(`Failed to fetch models: ${res.status}`);
       const json = await res.json();
-      models.value = (json.data || []).map(normalizeModel);
+      
+      // 1. Normalize the raw API data
+      const normalizedModels = (json.data || []).map(normalizeModel);
+      
+      // 2. Brutally deduplicate by model name so the UI never doubles up
+      models.value = normalizedModels.filter((model, index, self) => 
+        index === self.findIndex((m) => m.name === model.name)
+      );
+
     } catch (e) {
       error.value = e.message;
       console.error('Failed to fetch models:', e);
