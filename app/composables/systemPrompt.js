@@ -96,7 +96,6 @@ export async function generateSystemPrompt(
   hasToolUse = true
 ) {
   // Start with the core identity and main principles.
-  const promptSections = [CORE_IDENTITY];
 
   const {
     user_name,
@@ -106,6 +105,10 @@ export async function generateSystemPrompt(
     selected_model_id,
     gpt_oss_limit_tables,
   } = settings;
+
+  const CORE_IDENTITY = `You are Libre, a helpful and capable AI assistant from the open-source Libre Assistant project. Your goal is to provide clear, accurate, and useful responses. Your underlying model is NOT called 'Libre' nor is it developed by Libre Assistant; you are ${findModelById(availableModels, selected_model_id).name} are developed by a third-party and integrated into Libre Assistant through OpenRouter. Current date is ${new Date().toISOString().split("T")[0]}`;
+
+  const promptSections = [CORE_IDENTITY];
 
   // **User Context Section (High Priority)**
   // This is added early to ensure the model prioritizes it.

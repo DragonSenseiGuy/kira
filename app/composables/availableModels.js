@@ -32,9 +32,15 @@
  * | Toggleable              | disabled     | { enabled: false }              |
  * | Model routing           | enabled      | model: "alt-model-id"           |
  * | Model routing           | disabled     | {} (original model)             |
+ * 
+ * ================================================
+ * PROVIDER RESTRICTION
+ * ================================================
+ * 
+ * providers: ["provider-id"], // Optional - restricts model to specific OpenRouter provider(s)
  */
 
-export const DEFAULT_MODEL_ID = "moonshotai/kimi-k2.5";
+export const DEFAULT_MODEL_ID = "moonshotai/kimi-k2.6";
 
 /**
  * Normalizes legacy reasoning formats to the new schema
@@ -197,9 +203,89 @@ export function findModelById(models, id) {
 
 export const availableModels = [
   {
+    category: "Anthropic",
+    logo: "/ai_logos/anthropic.svg",
+    models: [
+      {
+        id: "anthropic/claude-opus-4.7",
+        name: "Claude Opus 4.7",
+        description: "Most capable Anthropic model for complex reasoning and analysis.",
+        reasoning: {
+          supported: true,
+          toggleable: true,
+        },
+        vision: true,
+      },
+      {
+        id: "anthropic/claude-opus-4.6",
+        name: "Claude Opus 4.6",
+        description: "Powerful Anthropic model for advanced reasoning tasks.",
+        reasoning: {
+          supported: true,
+          toggleable: true,
+        },
+        vision: true,
+      },
+      {
+        id: "anthropic/claude-sonnet-4.6",
+        name: "Claude Sonnet 4.6",
+        description: "Balanced Anthropic model with strong reasoning and efficiency.",
+        reasoning: {
+          supported: true,
+          toggleable: true,
+        },
+        vision: true,
+      },
+      {
+        id: "anthropic/claude-sonnet-4.5",
+        name: "Claude Sonnet 4.5",
+        description: "Older Anthropic model with excellent reasoning capabilities.",
+        reasoning: {
+          supported: true,
+          toggleable: true,
+        },
+        vision: true,
+      },
+      {
+        id: "anthropic/claude-haiku-4.5",
+        name: "Claude Haiku 4.5",
+        description: "Fast and lightweight Anthropic model for quick responses.",
+        reasoning: {
+          supported: true,
+          toggleable: true,
+        },
+        vision: true,
+      },
+    ],
+  },
+  {
     category: "DeepSeek",
     logo: "/ai_logos/deepseek.svg",
     models: [
+      {
+        id: "deepseek/deepseek-v4-pro",
+        name: "DeepSeek V4 Pro",
+        description: "Frontier reasoning model with exceptional STEM capabilities.",
+        tool_use: true,
+        reasoning: {
+          supported: true,
+          toggleable: true,
+        },
+        extra_functions: [],
+        extra_parameters: {}
+      },
+      {
+        id: "deepseek/deepseek-v4-flash",
+        name: "DeepSeek V4 Flash",
+        description: "Fast variant of DeepSeek V4 optimized for speed.",
+        tool_use: true,
+        reasoning: {
+          supported: true,
+          toggleable: false,
+        },
+        extra_functions: [],
+        extra_parameters: {}
+      },
       {
         id: "deepseek/deepseek-v3.2-speciale",
         name: "DeepSeek V3.2 Speciale",
@@ -207,7 +293,7 @@ export const availableModels = [
         tool_use: false,
         reasoning: {
           supported: true,
-          toggleable: false
+          toggleable: false,
         },
         extra_functions: [],
         extra_parameters: {}
@@ -220,7 +306,7 @@ export const availableModels = [
         reasoning: {
           supported: true,
           toggleable: true,
-          defaultEnabled: true
+          defaultEnabled: true,
         },
       },
     ],
@@ -272,6 +358,16 @@ export const availableModels = [
         vision: true,
       },
       {
+        id: "google/gemini-3.1-flash-image-preview",
+        name: "Nano Banana 2 (Image)",
+        description: "Frontier fast image generation model.",
+        tool_use: false,
+        reasoning: {
+          supported: true
+        },
+        vision: true,
+      },
+      {
         id: "google/gemini-2.5-flash-image",
         name: "Nano Banana (Image)",
         description: "Fast image generation model.",
@@ -288,10 +384,23 @@ export const availableModels = [
     logo: "/ai_logos/moonshot.svg",
     models: [
       {
-        id: "moonshotai/kimi-k2.5",
-        name: "Kimi K2.5",
+        id: "moonshotai/kimi-k2.6",
+        name: "Kimi K2.6",
         description: "SOTA open-weights model with exceptional EQ, coding, and agentic abilities.",
         vision: true,
+        providers: ["moonshotai/int4"],
+        reasoning: {
+          supported: true,
+          toggleable: true,
+          defaultEnabled: true
+        },
+      },
+      {
+        id: "moonshotai/kimi-k2.5",
+        name: "Kimi K2.5",
+        description: "Open-weights model with exceptional EQ, coding, and agentic abilities.",
+        vision: true,
+        providers: ["moonshotai/int4"],
         reasoning: {
           supported: true,
           toggleable: true,
@@ -316,6 +425,15 @@ export const availableModels = [
     logo: "/ai_logos/minimax.svg",
     models: [
       {
+        id: "minimax/minimax-m2.7",
+        name: "MiniMax M2.7",
+        description: "Latest frontier open-weights coding model with enhanced capabilities.",
+        reasoning: {
+          supported: true,
+          toggleable: false,
+        },
+      },
+      {
         id: "minimax/minimax-m2.5",
         name: "MiniMax M2.5",
         description: "Frontier open-weights coding model",
@@ -339,6 +457,92 @@ export const availableModels = [
     category: "OpenAI",
     logo: "/ai_logos/openai.svg",
     models: [
+      {
+        id: "openai/gpt-5.5",
+        name: "GPT-5.5",
+        description: "Latest GPT-5 model with advanced reasoning and capabilities.",
+        reasoning: {
+          supported: true,
+          toggleable: false,
+          effort: {
+            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
+            default: 'medium'
+          }
+        },
+      },
+      {
+        id: "openai/gpt-5.4",
+        name: "GPT-5.4",
+        description: "Advanced GPT-5 model with strong reasoning capabilities.",
+        reasoning: {
+          supported: true,
+          toggleable: false,
+          effort: {
+            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
+            default: 'medium'
+          }
+        },
+      },
+      {
+        id: "openai/gpt-5.4-mini",
+        name: "GPT-5.4 Mini",
+        description: "Lightweight variant of GPT-5.4 optimized for speed.",
+        reasoning: {
+          supported: true,
+          toggleable: false,
+          effort: {
+            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
+            default: 'medium'
+          }
+        },
+      },
+      {
+        id: "openai/gpt-5.4-nano",
+        name: "GPT-5.4 Nano",
+        description: "Compact variant of GPT-5.4 for minimal resource usage.",
+        reasoning: {
+          supported: true,
+          toggleable: false,
+          effort: {
+            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
+            default: 'medium'
+          }
+        },
+      },
+      {
+        id: "openai/gpt-5.3-chat",
+        name: "GPT-5.3 Chat",
+        description: "GPT-5.3 optimized for conversational interactions.",
+        reasoning: {
+          supported: false,
+        },
+      },
+      {
+        id: "openai/gpt-5.3-codex",
+        name: "GPT-5.3 Codex",
+        description: "GPT-5.3 specialized for code generation and understanding.",
+        reasoning: {
+          supported: true,
+          toggleable: false,
+          effort: {
+            levels: ['low', 'medium', 'high', 'xhigh'],
+            default: 'medium'
+          }
+        },
+      },
+      {
+        id: "openai/gpt-5.2",
+        name: "GPT-5.2",
+        description: "Previous generation GPT-5 model with strong all-around performance.",
+        reasoning: {
+          supported: true,
+          toggleable: false,
+          effort: {
+            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
+            default: 'medium'
+          }
+        },
+      },
       {
         id: "openai/gpt-oss-120b",
         name: "GPT OSS 120B",
@@ -438,6 +642,16 @@ export const availableModels = [
     logo: "/ai_logos/zai.svg",
     models: [
       {
+        id: "z-ai/glm-5.1",
+        name: "GLM 5.1",
+        description: "Frontier open-weight model excelling at coding and math",
+        reasoning: {
+          supported: true,
+          toggleable: true,
+          defaultEnabled: true
+        },
+      },
+      {
         id: "z-ai/glm-5",
         name: "GLM 5",
         description: "Frontier open-weight model excelling at coding and math",
@@ -460,7 +674,7 @@ export const availableModels = [
       {
         id: "z-ai/glm-4.7-flash",
         name: "GLM 4.7 Flash",
-        description: "SOTA 30B-class model with excelent agentic capabilities",
+        description: "SOTA 30B-class model with excellent agentic capabilities",
         reasoning: {
           supported: true,
           toggleable: true,
