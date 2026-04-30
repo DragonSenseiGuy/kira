@@ -9,6 +9,9 @@ import DEFAULT_PARAMETERS from './defaultParameters';
  */
 class Settings {
   constructor() {
+    // Loading state to track if settings have been loaded
+    this.isLoaded = false;
+
     // Use a reactive reference for settings to improve reactivity
     const settings = reactive({
       // Version marker for future migrations
@@ -20,7 +23,7 @@ class Settings {
       custom_instructions: null, // Custom instructions for Kira
 
       // --- Memory Settings ---
-      global_memory_enabled: true, // Whether global memory is enabled
+      notebook_memory_enabled: false, // Whether Notebook/memory is enabled (new unified setting)
 
       // --- Model Settings ---
       selected_model_id: DEFAULT_MODEL_ID, // Default model ID
@@ -47,7 +50,7 @@ class Settings {
     // Create a non-reactive copy of default settings to avoid circular references
     this.defaultSettings = {
       version: 2,
-      global_memory_enabled: true, // Add default value for global memory
+      notebook_memory_enabled: false, // Whether Notebook/memory is enabled (new unified setting)
       selected_model_id: DEFAULT_MODEL_ID, // Default model ID
       search_enabled: false, // Default value for search setting
       model_settings: {}, // Default value for model settings
@@ -147,8 +150,13 @@ class Settings {
             console.error(`Error saving initial default settings: ${err}`);
           });
       }
+
+      // Mark settings as loaded
+      this.isLoaded = true;
     } catch (err) {
       console.error("Failed to load settings from localForage:", err);
+      // Still mark as loaded to prevent infinite loading attempts
+      this.isLoaded = true;
     }
   }
 

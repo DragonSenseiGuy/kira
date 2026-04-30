@@ -3,6 +3,7 @@ import { emitter } from "~/composables/emitter";
 import { migrateMessages } from "./branchManager";
 import { getSessionToken } from "~/composables/useSession";
 import { useSettings } from "~/composables/useSettings";
+import { deleteChatSummary } from "./chatSummarizer";
 
 /**
  * Serializes a message object for storage, removing Vue reactivity proxies
@@ -11,7 +12,7 @@ import { useSettings } from "~/composables/useSettings";
  * @returns {Object} Serialized message ready for storage
  */
 function serializeMessage(msg) {
-  return {
+  const baseMessage = {
     id: msg.id,
     role: msg.role,
     content: msg.content,
@@ -20,27 +21,43 @@ function serializeMessage(msg) {
     // Branching metadata
     parentId: msg.parentId ?? null,
     branchIndex: msg.branchIndex ?? 0,
-    // Add attachments for user messages (deep clone to remove reactive proxies)
-    ...(msg.role === "user" && msg.attachments && msg.attachments.length > 0 && {
-      attachments: JSON.parse(JSON.stringify(msg.attachments)),
-    }),
-    // Add reasoning properties for assistant messages
-    ...(msg.role === "assistant" && {
-      reasoning: msg.reasoning,
-      reasoningStartTime: msg.reasoningStartTime,
-      reasoningEndTime: msg.reasoningEndTime,
-      reasoningDuration: msg.reasoningDuration,
-      tool_calls: msg.tool_calls
-        ? JSON.parse(JSON.stringify(msg.tool_calls))
-        : [],
-      apiCallTime: msg.apiCallTime,
-      firstTokenTime: msg.firstTokenTime,
-      completionTime: msg.completionTime,
-      tokenCount: msg.tokenCount,
-      annotations: msg.annotations ? JSON.parse(JSON.stringify(msg.annotations)) : null,
-      parts: msg.parts ? JSON.parse(JSON.stringify(msg.parts)) : null,
-    }),
   };
+
+  // Add attachments for user messages (deep clone to remove reactive proxies)
+  if (msg.role === "user" && msg.attachments && msg.attachments.length > 0) {
+    baseMessage.attachments = JSON.parse(JSON.stringify(msg.attachments));
+  }
+
+  // Add reasoning properties for assistant messages
+  if (msg.role === "assistant") {
+    baseMessage.reasoning = msg.reasoning;
+    baseMessage.reasoningStartTime = msg.reasoningStartTime;
+    baseMessage.reasoningEndTime = msg.reasoningEndTime;
+    baseMessage.reasoningDuration = msg.reasoningDuration;
+    baseMessage.tool_calls = msg.tool_calls
+      ? JSON.parse(JSON.stringify(msg.tool_calls))
+      : [];
+    baseMessage.apiCallTime = msg.apiCallTime;
+    baseMessage.firstTokenTime = msg.firstTokenTime;
+    baseMessage.completionTime = msg.completionTime;
+    baseMessage.tokenCount = msg.tokenCount;
+    baseMessage.totalTokens = msg.totalTokens;
+    baseMessage.promptTokens = msg.promptTokens;
+    baseMessage.annotations = msg.annotations
+      ? JSON.parse(JSON.stringify(msg.annotations))
+      : null;
+    baseMessage.parts = msg.parts
+      ? JSON.parse(JSON.stringify(msg.parts))
+      : null;
+  }
+
+  // Add tool message properties
+  if (msg.role === "tool") {
+    baseMessage.tool_call_id = msg.tool_call_id;
+    baseMessage.name = msg.name;
+  }
+
+  return baseMessage;
 }
 
 export async function createConversation(plainMessages, lastUpdated, customApiKey = '') {
@@ -182,6 +199,9 @@ export async function storeMessages(
 export async function deleteConversation(conversationId) {
   // Remove full conversation data
   await localforage.removeItem(`conversation_${conversationId}`);
+
+  // Delete the chat summary for this conversation
+  await deleteChatSummary(conversationId);
 
   // Update metadata by filtering out the deleted conversation.
   const metadata = (await localforage.getItem("conversations_metadata")) || [];

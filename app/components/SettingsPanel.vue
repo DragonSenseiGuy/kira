@@ -1,10 +1,11 @@
 <script setup>
 import { onMounted, ref, watch, computed } from "vue";
+import { navigateTo } from "#app";
 import { useSettings } from "@/composables/useSettings";
 import { useDark, useToggle } from "@vueuse/core";
 import { SwitchRoot, SwitchThumb } from "reka-ui";
 import { Icon } from "@iconify/vue";
-import { listMemory, deleteMemory, clearAllMemory } from "@/composables/memory";
+import { loadNotebook } from "@/composables/notebook";
 
 // Define props and emits
 const props = defineProps(["isOpen", "initialTab"]);
@@ -17,7 +18,7 @@ const isDark = useDark();
 const toggleDark = useToggle(isDark);
 const globalMemoryEnabled = ref(false);
 const gptOssLimitTables = ref(false);
-const memoryFacts = ref([]);
+const notebookMetadata = ref(null);
 const isMac = ref(false);
 
 // User profile fields
@@ -42,9 +43,9 @@ const navItems = [
     icon: "material-symbols:palette"
   },
   {
-    key: "memory",
-    label: "Memory",
-    icon: "material-symbols:memory"
+    key: "notebook",
+    label: "Notebook",
+    icon: "material-symbols:book"
   },
   {
     key: "keybinds",
@@ -65,12 +66,12 @@ onMounted(async () => {
   userName.value = settingsManager.settings.user_name || "";
   occupation.value = settingsManager.settings.occupation || "";
   customInstructions.value = settingsManager.settings.custom_instructions || "";
-  globalMemoryEnabled.value = settingsManager.settings.global_memory_enabled === true;
+  globalMemoryEnabled.value = settingsManager.settings.notebook_memory_enabled === true;
   gptOssLimitTables.value = settingsManager.settings.gpt_oss_limit_tables === true;
   customApiKey.value = settingsManager.settings.custom_api_key || "";
 
-  // Load memory facts
-  await loadMemoryFacts();
+  // Load notebook metadata
+  await loadNotebookData();
 
   // Detect platform
   if (typeof window !== "undefined") {
@@ -92,8 +93,9 @@ watch(globalMemoryEnabled, (newVal) => {
 });
 
 // --- Functions ---
-async function loadMemoryFacts() {
-  memoryFacts.value = await listMemory();
+async function loadNotebookData() {
+  const notebook = await loadNotebook();
+  notebookMetadata.value = notebook.metadata;
 }
 
 function closeSettings() {
@@ -110,7 +112,7 @@ async function saveSettings() {
   settingsManager.setSetting("user_name", userName.value);
   settingsManager.setSetting("occupation", occupation.value);
   settingsManager.setSetting("custom_instructions", customInstructions.value);
-  settingsManager.setSetting("global_memory_enabled", globalMemoryEnabled.value);
+  settingsManager.setSetting("notebook_memory_enabled", globalMemoryEnabled.value);
   settingsManager.setSetting("gpt_oss_limit_tables", gptOssLimitTables.value);
   settingsManager.setSetting("custom_api_key", customApiKey.value.trim());
 
@@ -118,41 +120,29 @@ async function saveSettings() {
     user_name: userName.value,
     occupation: occupation.value,
     custom_instructions: customInstructions.value,
-    global_memory_enabled: globalMemoryEnabled.value,
+    notebook_memory_enabled: globalMemoryEnabled.value,
     gpt_oss_limit_tables: gptOssLimitTables.value,
     has_custom_api_key: !!customApiKey.value.trim()
   });
 
+  // Save settings and wait for completion before reloading
   await settingsManager.saveSettings();
 
-  // Reload memory facts after saving settings
-  await loadMemoryFacts();
+  // Reload notebook data after saving settings
+  await loadNotebookData();
 
   // Close settings and refresh the page
   closeSettings();
-  location.reload();
+
+  // Small delay to ensure all async operations complete before reload
+  setTimeout(() => {
+    location.reload();
+  }, 100);
 }
 
-async function removeMemoryFact(fact) {
-  try {
-    await deleteMemory(fact);
-    // Reload the memory facts after deletion
-    await loadMemoryFacts();
-  } catch (error) {
-    console.error("Error deleting memory fact:", error);
-  }
-}
-
-async function handleClearAllMemory() {
-  if (confirm("Are you sure you want to clear all memory? This cannot be undone.")) {
-    try {
-      await clearAllMemory();
-      // Reload the memory facts after clearing
-      await loadMemoryFacts();
-    } catch (error) {
-      console.error("Error clearing all memory:", error);
-    }
-  }
+function openNotebook() {
+  closeSettings();
+  navigateTo('/notebook');
 }
 </script>
 
@@ -279,17 +269,19 @@ async function handleClearAllMemory() {
             </div>
           </div>
 
-          <!-- Memory Tab -->
-          <div v-show="currTab === 'memory'" class="settings-section">
+          <!-- Notebook Tab -->
+          <div v-show="currTab === 'notebook'" class="settings-section">
             <div class="settings-content">
               <div class="content-header">
-                <h2>Memory</h2>
-                <p>Manage conversation memory</p>
+                <h2>Notebook (Preview)</h2>
+                <p>Your Notebook is a document that Libre maintains about you. It contains observations 
+                  about your personality, communication style, ongoing projects, and recent activity, all stored on your device. It is used to give Libre context about you.</p>
               </div>
+
               <div class="setting-item">
                 <div class="setting-info">
-                  <h3>Global Memory</h3>
-                  <p>Remember important facts about you across conversations</p>
+                  <h3>Enable Notebook</h3>
+                  <p>Allow the AI to remember important facts about you across conversations</p>
                 </div>
                 <div class="switch-container">
                   <SwitchRoot class="switch-root" :modelValue="globalMemoryEnabled"
@@ -299,28 +291,35 @@ async function handleClearAllMemory() {
                 </div>
               </div>
 
-              <!-- Memory Facts List -->
-              <div v-if="globalMemoryEnabled && memoryFacts.length > 0" class="memory-facts-section">
-                <h3>Remembered Facts</h3>
-                <div class="memory-facts-list">
-                  <div v-for="(fact, index) in memoryFacts" :key="index" class="memory-fact-item">
-                    <span class="memory-fact-text">{{ fact }}</span>
-                    <button @click="removeMemoryFact(fact)" class="delete-memory-btn" aria-label="Delete memory">
-                      <Icon icon="material-symbols:delete" width="18" height="18" />
-                    </button>
+              <div v-if="globalMemoryEnabled" class="notebook-actions-section">
+                <div class="notebook-status" v-if="notebookMetadata">
+                  <div class="status-item">
+                    <span class="status-label">Last updated:</span>
+                    <span class="status-value">{{ notebookMetadata.lastUpdated ? new Date(notebookMetadata.lastUpdated).toLocaleDateString() : 'Never' }}</span>
+                  </div>
+                  <div class="status-item">
+                    <span class="status-label">Updates:</span>
+                    <span class="status-value">{{ notebookMetadata.updateCount || 0 }}</span>
                   </div>
                 </div>
-                <div class="clear-memory-container">
-                  <button @click="handleClearAllMemory" class="clear-memory-btn">Clear All Memory</button>
+
+                <div class="notebook-buttons">
+                  <button @click="openNotebook" class="view-notebook-btn">
+                    <Icon icon="material-symbols:book" width="18" height="18" />
+                    View My Notebook
+                  </button>
+                </div>
+                
+                <div class="notebook-info">
+                  <p>
+                    The Notebook is automatically updated in the background based on your conversations. 
+                    It typically updates once per day or when you have several new conversations.
+                  </p>
                 </div>
               </div>
 
-              <div v-else-if="globalMemoryEnabled" class="no-memory-message">
-                <p>No memories stored yet. Start a conversation to build your memory.</p>
-              </div>
-
-              <div v-else class="memory-disabled-message">
-                <p>Global memory is currently disabled. Enable it to start remembering facts about you.</p>
+              <div v-else class="notebook-disabled-message">
+                <p>The Notebook is currently disabled. Enable it to let AI document your chats.</p>
               </div>
             </div>
           </div>
@@ -822,6 +821,124 @@ async function handleClearAllMemory() {
 
 .no-memory-message p,
 .memory-disabled-message p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Notebook Section Styles */
+.notebook-intro {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.notebook-intro p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.notebook-actions-section {
+  margin-top: 1.5rem;
+}
+
+.notebook-status {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.status-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-value {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.notebook-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.view-notebook-btn,
+.clear-notebook-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  height: 40px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-notebook-btn {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+}
+
+.view-notebook-btn:hover {
+  background: var(--primary-600);
+}
+
+.clear-notebook-btn {
+  background: var(--bg-primary);
+  color: var(--destructive);
+  border: 1px solid var(--destructive);
+}
+
+.clear-notebook-btn:hover {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+.notebook-info {
+  padding: 1rem;
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.notebook-info p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.notebook-disabled-message {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.notebook-disabled-message p {
   margin: 0;
   font-size: 0.875rem;
   color: var(--text-secondary);

@@ -2,6 +2,11 @@
  * @file message.js
  * @description Core logic for the Kira API Interface, handling Hack Club LLM endpoint configuration
  * and streaming responses using manual fetch() processing.
+ * 
+ * Tool Calling Architecture (Industry Standard):
+ * - One assistant message per turn contains ALL parts (content, tool_calls, tool_results)
+ * - Agent loop: Stream → Detect Tool Calls → Execute → Continue Stream
+ * - Clean separation between streaming accumulation and message formatting
  */
 
 import {
@@ -12,7 +17,6 @@ import {
 } from "~/composables/availableModels";
 import { useModels } from "~/composables/useModels";
 import { generateSystemPrompt } from "~/composables/systemPrompt";
-import { findRelevantMemories } from "~/composables/memory";
 import { toolManager } from "~/composables/toolsManager";
 import { getSessionToken } from "~/composables/useSession";
 
@@ -160,16 +164,135 @@ function formatMessageForAPI(msg) {
 }
 
 /**
+ * Accumulates streaming chunks and tracks tool calls
+ */
+class StreamAccumulator {
+  constructor() {
+    this.content = "";
+    this.reasoning = "";
+    this.toolCalls = new Map(); // index -> toolCall
+    this.hasToolCalls = false;
+    this.usage = null;
+    this.annotations = null;
+    this.images = [];
+    this.finished = false;
+    this.finishReason = null;
+  }
+
+  /**
+   * Process a streaming chunk from the API
+   */
+  processChunk(chunk) {
+    // Track finish reason
+    if (chunk.choices?.[0]?.finish_reason) {
+      this.finishReason = chunk.choices[0].finish_reason;
+    }
+
+    const delta = chunk.choices?.[0]?.delta;
+    if (!delta) return;
+
+    // Accumulate content
+    if (delta.content) {
+      this.content += delta.content;
+    }
+
+    // Accumulate reasoning
+    if (delta.reasoning && delta.reasoning.trim() !== "None") {
+      this.reasoning += delta.reasoning;
+    }
+
+    // Accumulate tool calls
+    if (delta.tool_calls) {
+      this.hasToolCalls = true;
+      for (const toolDelta of delta.tool_calls) {
+        const index = toolDelta.index;
+        const existing = this.toolCalls.get(index) || {
+          id: toolDelta.id,
+          type: toolDelta.type || "function",
+          function: { name: "", arguments: "" },
+        };
+
+        if (toolDelta.id) existing.id = toolDelta.id;
+        if (toolDelta.function?.name) {
+          existing.function.name = toolDelta.function.name;
+        }
+        if (toolDelta.function?.arguments) {
+          existing.function.arguments += toolDelta.function.arguments;
+        }
+
+        this.toolCalls.set(index, existing);
+      }
+    }
+
+    // Capture usage
+    if (chunk.usage) {
+      this.usage = chunk.usage;
+    }
+
+    // Capture annotations
+    if (chunk.annotations || chunk.choices?.[0]?.message?.annotations || chunk.choices?.[0]?.delta?.annotations) {
+      this.annotations = chunk.annotations || 
+                        chunk.choices?.[0]?.message?.annotations || 
+                        chunk.choices?.[0]?.delta?.annotations;
+    }
+
+    // Capture images
+    if (delta.images) {
+      this.images.push(...delta.images);
+    }
+  }
+
+  /**
+   * Get completed tool calls as an array
+   */
+  getCompletedToolCalls() {
+    const calls = [];
+    const indices = Array.from(this.toolCalls.keys()).sort((a, b) => a - b);
+    for (const index of indices) {
+      calls.push(this.toolCalls.get(index));
+    }
+    return calls;
+  }
+
+  /**
+   * Check if stream has meaningful content
+   */
+  hasContent() {
+    return (
+      this.content.trim().length > 0 ||
+      this.reasoning.trim().length > 0 ||
+      this.toolCalls.size > 0 ||
+      this.images.length > 0
+    );
+  }
+
+  /**
+   * Reset for next iteration
+   */
+  reset() {
+    this.content = "";
+    this.reasoning = "";
+    this.toolCalls.clear();
+    this.hasToolCalls = false;
+    this.usage = null;
+    this.annotations = null;
+    this.images = [];
+    this.finished = false;
+    this.finishReason = null;
+  }
+}
+
+/**
  * Main entry point for processing all incoming user messages for the API interface.
- * It determines the correct API configuration and streams the LLM response.
- *
+ * Uses an industry-standard agent loop: stream, detect tools, execute, continue.
+ * 
  * MESSAGE ASSEMBLY CONTRACT:
  * - `plainMessages` should contain conversation history WITHOUT the current user message
  * - This function ADDS the current user message to the API request
  * - This ensures no duplication between history and the current turn
- *
+ * 
  * The final messages array sent to the API is:
- *   [systemPrompt, ...plainMessages (history), { role: "user", content: query }]
+ *   [systemPrompt, ...plainMessages (history), { role: "user", content: query }, ...intermediateMessages]
  *
  * @param {string} query - The user's message (current turn)
  * @param {Array} plainMessages - Conversation history WITHOUT the current user message
@@ -178,12 +301,18 @@ function formatMessageForAPI(msg) {
  * @param {object} modelParameters - Object containing all configurable model parameters (temperature, top_p, seed, reasoning)
  * @param {object} settings - User settings object containing user_name, user_occupation, and custom_instructions
  * @param {string[]} toolNames - Array of available tool names
- * @param {boolean} isSearchEnabled - Whether the browser search tool is enabled
+ * @param {boolean} isSearchEnabled - Whether the Exa search tools are enabled
  * @param {boolean} isIncognito - Whether incognito mode is enabled
  * @param {Array} attachments - Array of file attachments [{ type: 'image'|'pdf', filename, dataUrl, mimeType }]
  * @yields {Object} A chunk object with content and/or reasoning
  * @property {string|null} content - The main content of the response chunk
  * @property {string|null} reasoning - Any reasoning information included in the response chunk
+ * @property {Array} tool_calls - Tool call deltas for UI updates
+ * @property {Object} tool_result - Tool execution result for UI updates
+ * @property {Object} usage - Token usage information
+ * @property {Array} annotations - PDF annotations for reuse
+ * @property {Array} images - Generated images
+ * @property {boolean} iterationComplete - Signals end of one agent iteration
  **/
 export async function* handleIncomingMessage(
   query,
@@ -246,66 +375,35 @@ export async function* handleIncomingMessage(
       selectedModelInfo = getModelById(selectedModel);
     }
 
-    // Load memory facts if memory is enabled and not in incognito mode
-    let memoryFacts = [];
-    if (settings.global_memory_enabled && !isIncognito) {
-      // Use semantic search to find relevant memories based on the user's query
-      // This retrieves all global memories + local memories above similarity threshold
-      // Pass message history for better contextual embeddings
-      memoryFacts = await findRelevantMemories(
-        query,
-        settings.memory_similarity_threshold || 0.65,
-        plainMessages,
-      );
-    }
-
     // Determine which tools are actually being used
-    // First, check if the selected model supports tool use (defaults to true if not specified)
-    const modelHasToolUse = selectedModelInfo?.tool_use !== false; // Default to true unless explicitly false
+    const modelHasToolUse = selectedModelInfo?.tool_use !== false;
 
     const enabledToolNames = [];
-    if (modelHasToolUse && settings.global_memory_enabled && !isIncognito) {
-      enabledToolNames.push(
-        "listMemory",
-        "addMemory",
-        "modifyMemory",
-        "deleteMemory",
-      );
-    }
 
-    // Enable search tool if enabled in settings/params
+    // Enable Exa search tools if search is enabled
     if (modelHasToolUse && isSearchEnabled) {
-      enabledToolNames.push("search");
+      enabledToolNames.push("search", "getPageContents");
     }
 
     // Generate system prompt based on settings and used tools
-    // In incognito mode, use empty settings to avoid customization
     const systemPrompt = await generateSystemPrompt(
       enabledToolNames,
       isIncognito ? {} : settings,
-      memoryFacts,
-      isIncognito, // Pass incognito mode state
-      modelHasToolUse, // Pass tool use capability
+      isIncognito,
+      modelHasToolUse,
     );
 
     // Build user message content based on attachments
     let userMessageContent;
-
     if (attachments && attachments.length > 0) {
-      // Multimodal message format with content parts
       const contentParts = [{ type: "text", text: query }];
-
       for (const attachment of attachments) {
         if (attachment.type === "image") {
-          // Image format for vision models
           contentParts.push({
             type: "image_url",
-            image_url: {
-              url: attachment.dataUrl,
-            },
+            image_url: { url: attachment.dataUrl },
           });
         } else if (attachment.type === "pdf") {
-          // PDF format - uses file-parser plugin with mistral-ocr
           contentParts.push({
             type: "file",
             file: {
@@ -315,65 +413,82 @@ export async function* handleIncomingMessage(
           });
         }
       }
-
       userMessageContent = contentParts;
     } else {
-      // Simple text message
       userMessageContent = query;
     }
 
     // Build base messages for this user turn
-    // History messages are formatted with full multimodal support (images, reasoning, tool calls)
     const baseMessages = [
       { role: "system", content: systemPrompt },
       ...plainMessages.map(formatMessageForAPI).filter((m) => m !== null),
       { role: "user", content: userMessageContent },
     ];
 
-    // Used only inside this turn for tool rounds
-    let intermediateMessages = []; // assistant(tool_calls) + tool messages from this turn
-
-    // Tools
+    // Tools configuration
     const enabledToolSchemas = enabledToolNames.length
       ? toolManager.getSchemasByNames(enabledToolNames)
       : [];
-
-    // Agent loop config
-    // Model supports tools only if it has tool_use enabled AND there are tools available
     const modelSupportsTools = modelHasToolUse && enabledToolSchemas.length > 0;
-    // No default limit - let models iterate as needed. User can set limit in settings if desired.
-    const maxToolIterations = settings.tool_max_iterations ?? Infinity;
+
+    // Agent loop configuration
+    const maxToolIterations = settings.tool_max_iterations ?? 10; // Reasonable default
     let iteration = 0;
 
-    while (true) {
-      // Build messages for this call
+    // Accumulator for this assistant turn
+    const accumulator = new StreamAccumulator();
+    
+    // Track if we've yielded initial content
+    let hasYieldedContent = false;
+
+    while (iteration < maxToolIterations) {
+      iteration++;
+
+      // Build messages for this call including any previous tool results
+      const intermediateMessages = [];
+      
+      // Add previous assistant message with tool calls if this is iteration > 1
+      if (iteration > 1 && accumulator.hasToolCalls) {
+        const previousToolCalls = accumulator.getCompletedToolCalls();
+        if (previousToolCalls.length > 0) {
+          intermediateMessages.push({
+            role: "assistant",
+            content: accumulator.content || "",
+            tool_calls: previousToolCalls.map((tc) => ({
+              id: tc.id,
+              type: tc.type,
+              function: {
+                name: tc.function.name,
+                arguments: tc.function.arguments,
+              },
+            })),
+          });
+        }
+      }
+
       const messagesForThisCall = [...baseMessages, ...intermediateMessages];
 
-      // Build request body for this call
-      const plugins = [];
-
+      // Build request body
       const requestBody = {
         model: selectedModel,
         messages: messagesForThisCall,
         stream: true,
-        ...(plugins.length > 0 && { plugins }),
         ...(modelSupportsTools && {
           tools: enabledToolSchemas,
           tool_choice: "auto",
         }),
-        // Add model parameters, but filter out invalid ones
         ...(modelParameters && {
           temperature: modelParameters.temperature,
           top_p: modelParameters.top_p,
           seed: modelParameters.seed,
+          max_tokens: modelParameters.max_tokens,
         }),
-        // Pass custom API key if set
         ...(settings.custom_api_key && {
           customApiKey: settings.custom_api_key,
         }),
       };
 
-      // Add reasoning parameters using the new buildReasoningParams helper
+      // Add reasoning parameters
       if (selectedModelInfo) {
         const userSettings = {
           reasoning_effort: modelParameters?.reasoning?.effort,
@@ -384,17 +499,14 @@ export async function* handleIncomingMessage(
           userSettings,
         );
 
-        // If there's an alternate model, use it
         if (alternateModel) {
           requestBody.model = alternateModel;
         }
 
-        // Add reasoning parameters if any
         if (reasoningParams) {
           requestBody.reasoning = reasoningParams;
         }
 
-        // Add provider restriction if model specifies allowed providers
         if (selectedModelInfo.providers && selectedModelInfo.providers.length > 0) {
           requestBody.provider = {
             order: selectedModelInfo.providers,
@@ -404,7 +516,7 @@ export async function* handleIncomingMessage(
 
       const sessionToken = await getSessionToken();
 
-      // Perform ONE streaming completion and inspect for tool_calls
+      // Make the API request
       const response = await fetch("/api/ai", {
         method: "POST",
         headers: {
@@ -418,26 +530,20 @@ export async function* handleIncomingMessage(
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.error?.message || "Unknown error";
-
         throw new Error(
           `API request failed with status ${response.status}: ${errorMessage}`,
         );
       }
 
+      // Process the stream
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-
-      // Tool call accumulation
-      const toolCallAccumulator = {};
-      let hadToolCalls = false;
-      let finishedReason = null;
-
-      // Reasoning tracking if needed
-      let reasoningStarted = false;
-      let reasoningStartTime = null;
-
-      // Stream timeout configuration (60 seconds of inactivity)
+      
+      // Reset accumulator for this iteration
+      accumulator.reset();
+      
+      // Stream timeout configuration
       const STREAM_TIMEOUT_MS = 60000;
       let streamTimeoutId = null;
 
@@ -453,12 +559,13 @@ export async function* handleIncomingMessage(
       };
 
       try {
-        resetStreamTimeout(); // Start the timeout
+        resetStreamTimeout();
+        
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          resetStreamTimeout(); // Reset timeout on each chunk received
+          resetStreamTimeout();
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
@@ -469,6 +576,7 @@ export async function* handleIncomingMessage(
 
             const data = line.slice(6);
             if (data === "[DONE]") {
+              accumulator.finished = true;
               break;
             }
 
@@ -479,6 +587,7 @@ export async function* handleIncomingMessage(
               continue;
             }
 
+            // Handle errors
             if (parsed.error) {
               yield {
                 content: `\n\n[ERROR: ${parsed.error.message}]`,
@@ -492,189 +601,132 @@ export async function* handleIncomingMessage(
               throw new Error(parsed.error.message || "API error");
             }
 
+            // Process the chunk
             if (parsed.choices && parsed.choices[0]) {
-              const choice = parsed.choices[0];
+              accumulator.processChunk(parsed);
 
-              // 1) Accumulate tool_calls
-              if (choice.delta?.tool_calls) {
-                hadToolCalls = true;
-                for (const toolCallDelta of choice.delta.tool_calls) {
-                  const index = toolCallDelta.index;
-                  const existing = toolCallAccumulator[index] || {
-                    id: toolCallDelta.id,
-                    type: toolCallDelta.type || "function",
-                    function: {
-                      name: "",
-                      arguments: "",
-                    },
-                  };
+              const delta = parsed.choices[0].delta;
 
-                  if (toolCallDelta.id) existing.id = toolCallDelta.id;
-                  if (toolCallDelta.function?.name) {
-                    existing.function.name = toolCallDelta.function.name;
-                  }
-                  if (toolCallDelta.function?.arguments) {
-                    existing.function.arguments +=
-                      toolCallDelta.function.arguments;
-                  }
-
-                  toolCallAccumulator[index] = existing;
-                }
-              }
-
-              // 2) Detect finish_reason
-              if (choice.finish_reason) {
-                finishedReason = choice.finish_reason;
-              }
-
-              // 3) Yield content
-              if (choice.delta?.content) {
-                // If we have reasoning enabled and we're getting text content,
-                // this means the reasoning phase is complete
-                if (
-                  modelParameters.reasoning?.enabled &&
-                  !reasoningStarted &&
-                  choice.delta.content
-                ) {
-                  reasoningStarted = true;
-                }
-
+              // Yield content updates
+              if (delta?.content) {
+                hasYieldedContent = true;
                 yield {
-                  content: choice.delta.content,
+                  content: delta.content,
                   reasoning: null,
-                  tool_calls: choice.delta?.tool_calls || [],
                 };
               }
 
-              // 4) Yield reasoning
-              if (choice.delta?.reasoning) {
-                // Track when reasoning starts
-                if (!reasoningStartTime) {
-                  reasoningStartTime = new Date();
-                }
-
+              // Yield reasoning updates
+              if (delta?.reasoning && delta.reasoning.trim() !== "None") {
                 yield {
                   content: null,
-                  reasoning: choice.delta.reasoning,
-                  tool_calls: choice.delta?.tool_calls || [],
+                  reasoning: delta.reasoning,
                 };
               }
 
-              // 5) Yield tool calls delta if present
-              if (choice.delta?.tool_calls) {
+              // Yield tool call updates for UI
+              if (delta?.tool_calls) {
                 yield {
                   content: null,
                   reasoning: null,
-                  tool_calls: choice.delta.tool_calls,
+                  tool_calls: delta.tool_calls,
                 };
               }
 
-              // 6) Yield usage if present
+              // Yield usage
               if (parsed.usage) {
                 yield {
                   content: null,
                   reasoning: null,
-                  tool_calls: [],
                   usage: parsed.usage,
                 };
               }
 
-              // 7) Capture annotations (for PDF reuse)
-              const annotations =
-                choice.message?.annotations ||
-                choice.delta?.annotations ||
-                parsed.annotations;
+              // Yield images
+              if (delta?.images) {
+                yield {
+                  content: delta.content !== undefined ? delta.content : null,
+                  reasoning: null,
+                  images: delta.images,
+                };
+              }
+
+              // Yield annotations
+              const annotations = delta?.annotations || parsed.annotations;
               if (annotations) {
                 yield {
                   content: null,
                   reasoning: null,
-                  tool_calls: [],
                   annotations: annotations,
                 };
               }
-
-              // First check delta (for streaming image chunks)
-              const images = choice.delta?.images;
-
-              if (images && images.length > 0) {
-                yield {
-                  content:
-                    choice.delta?.content !== undefined
-                      ? choice.delta.content
-                      : choice.message?.content !== undefined
-                        ? choice.message.content
-                        : null,
-                  reasoning: null,
-                  tool_calls: [],
-                  images: images,
-                };
-              }
             }
 
-            // If finish_reason is "tool_calls", we can stop consuming more
-            if (finishedReason === "tool_calls") {
-              break;
-            }
+            if (accumulator.finished) break;
           }
+
+          if (accumulator.finished) break;
         }
       } finally {
         clearStreamTimeout();
         reader.releaseLock();
       }
 
-      const completedToolCalls = Object.values(toolCallAccumulator);
+      // Check if we need to execute tools
+      const completedToolCalls = accumulator.getCompletedToolCalls();
 
-      if (!hadToolCalls || !modelSupportsTools) {
-        // This call ended with a normal answer ("stop", "length", etc.)
+      if (!accumulator.hasToolCalls || !modelSupportsTools || completedToolCalls.length === 0) {
+        // No tool calls - we're done
         break;
       }
 
-      // If we hit here, this call finished with tool_calls
-      iteration++;
-      if (iteration >= maxToolIterations) {
-        // Avoid infinite loops
-        break;
-      }
+      // Execute tools and get results
+      const toolResults = await executeTools(completedToolCalls, plainMessages);
 
-      // Execute tools locally and append tool messages
-      const toolResultMessages = await executeToolCallsLocally(
-        completedToolCalls,
-        plainMessages,
-      );
-
-      // Yield tool results so the UI can update the widgets
-      for (const toolMsg of toolResultMessages) {
+      // Yield tool results for UI updates
+      for (const result of toolResults) {
         yield {
+          content: null,
+          reasoning: null,
           tool_result: {
-            id: toolMsg.tool_call_id,
-            result: toolMsg.content,
+            id: result.tool_call_id,
+            name: result.name,
+            result: result.content,
           },
         };
       }
 
-      // Keep these for next iteration
-      intermediateMessages.push(
-        {
-          role: "assistant",
-          content: "", // Empty string instead of null to satisfy OpenRouter validation
-          tool_calls: completedToolCalls.map((tc) => ({
-            id: tc.id,
-            type: tc.type,
-            function: {
-              name: tc.function.name,
-              arguments: tc.function.arguments,
-            },
-          })),
-        },
-        ...toolResultMessages,
-      );
+      // Add tool results to intermediate messages for next iteration
+      for (const result of toolResults) {
+        baseMessages.push({
+          role: "tool",
+          tool_call_id: result.tool_call_id,
+          name: result.name,
+          content: result.content,
+        });
+      }
 
-      // Loop again: next iteration will call the model with updated messages
+      // Signal iteration complete
+      yield {
+        iterationComplete: true,
+        toolCallsExecuted: completedToolCalls.length,
+      };
     }
+
+    // Final yield with complete content
+    yield {
+      content: accumulator.content,
+      reasoning: accumulator.reasoning,
+      complete: true,
+      finalToolCalls: accumulator.getCompletedToolCalls(),
+      usage: accumulator.usage,
+      annotations: accumulator.annotations,
+    };
+
   } catch (error) {
     // Handle abort errors specifically
     if (error.name === "AbortError") {
-      yield { content: "\n\n[STREAM CANCELED]", reasoning: null };
+      yield { content: "\n\n[STREAM CANCELED]", reasoning: null, complete: true };
       return;
     }
 
@@ -688,31 +740,26 @@ export async function* handleIncomingMessage(
         message: errorMessage,
         rawError: error.toString(),
       },
+      complete: true,
     };
   }
 }
 
-// Helper function to execute tool calls locally with toolManager
-async function executeToolCallsLocally(
-  completedToolCalls,
-  messageHistory = []
-) {
-  const toolResultMessages = [];
+/**
+ * Execute tools and return results
+ */
+async function executeTools(toolCalls, messageHistory = []) {
+  const results = [];
 
-  for (const toolCall of completedToolCalls) {
+  for (const toolCall of toolCalls) {
     const name = toolCall.function.name;
     let args = {};
 
     try {
       args = JSON.parse(toolCall.function.arguments || "{}");
     } catch (err) {
-      console.error(
-        "Failed to parse tool arguments:",
-        toolCall.function.arguments,
-        err
-      );
-      // Return error to model instead of executing with empty/malformed args
-      toolResultMessages.push({
+      console.error("Failed to parse tool arguments:", toolCall.function.arguments, err);
+      results.push({
         role: "tool",
         tool_call_id: toolCall.id,
         name,
@@ -726,19 +773,18 @@ async function executeToolCallsLocally(
     const tool = toolManager.getTool(name);
     if (!tool) {
       console.warn(`Tool not found: ${name}`);
-      toolResultMessages.push({
+      results.push({
         role: "tool",
         tool_call_id: toolCall.id,
         name,
-        content: `{"error": "Unknown tool '${name}'"}`,
+        content: JSON.stringify({ error: `Unknown tool '${name}'` }),
       });
       continue;
     }
 
     try {
-      // Pass message history to tool executor for context
       const result = await tool.executor(args, messageHistory);
-      toolResultMessages.push({
+      results.push({
         role: "tool",
         tool_call_id: toolCall.id,
         name,
@@ -746,7 +792,7 @@ async function executeToolCallsLocally(
       });
     } catch (err) {
       console.error(`Error executing tool "${name}"`, err);
-      toolResultMessages.push({
+      results.push({
         role: "tool",
         tool_call_id: toolCall.id,
         name,
@@ -757,5 +803,8 @@ async function executeToolCallsLocally(
     }
   }
 
-  return toolResultMessages;
+  return results;
 }
+
+// Re-export for backward compatibility
+export { formatMessageForAPI };

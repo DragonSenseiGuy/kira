@@ -91,14 +91,20 @@ const {
 } = useConversation();
 
 // Override sendMessage to create conversation and navigate immediately
-async function sendMessage(message, originalMessage = null, attachments = []) {
+async function sendMessage(message, originalMessage = null, attachments = [], searchEnabled = false) {
   if ((!message.trim() && attachments.length === 0) || isLoading.value) return;
+
+  // Store search enabled state in settings for the conversation
+  if (settingsManager) {
+    settingsManager.settings.search_enabled = searchEnabled;
+    await settingsManager.saveSettings();
+  }
 
   if (isIncognito.value) {
     // If in incognito mode, navigate to the incognito route with the message
     // Note: Attachments in incognito mode are not supported for initial message
     // as we can't pass large base64 data via query params
-    await router.push({ path: '/incognito', query: { initialMessage: message } });
+    await router.push({ path: '/incognito', query: { initialMessage: message, searchEnabled: searchEnabled.toString() } });
   } else {
     // Create a new conversation with the initial message and attachments
     const conversationId = await createNewConversationWithMessage(message, attachments);

@@ -9,6 +9,8 @@
         <svg v-if="type === 'reasoning'" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
           <circle cx="12" cy="12" r="6"/>
         </svg>
+        <!-- Web Crawl icon -->
+        <Icon v-else-if="isWebCrawl" icon="material-symbols:web-asset" width="20" height="20" />
         <!-- Search icon -->
         <Icon v-else-if="isSearch" icon="material-symbols:search-rounded" width="20" height="20" />
         <!-- Memory icon -->
@@ -19,7 +21,10 @@
 
       <div class="chat-widget-info">
         <div class="chat-widget-name">
-          <template v-if="isSearch">
+          <template v-if="isWebCrawl">
+            <span class="chat-widget-search-label">Crawled Webpages</span>
+          </template>
+          <template v-else-if="isSearch">
             <span class="chat-widget-search-label">Search</span>
             <span class="chat-widget-search-separator"></span>
             <span class="chat-widget-search-query">{{ searchQuery }}</span>
@@ -44,6 +49,16 @@
       <!-- Reasoning content -->
       <div v-if="type === 'reasoning'" class="reasoning-content-area">
         <div class="reasoning-content markdown-content" v-html="renderedContent"></div>
+      </div>
+      <!-- Web Crawl results (getPageContents) -->
+      <div v-else-if="isWebCrawl" class="web-crawl-results">
+        <div v-for="(result, index) in webCrawlResults" :key="index" class="web-crawl-result-item">
+          <a :href="result.url" target="_blank" rel="noopener noreferrer" class="web-crawl-result-link">
+            <div class="web-crawl-result-title">{{ result.title || getDomain(result.url) }}</div>
+            <div class="web-crawl-result-domain">{{ getDomain(result.url) }}</div>
+            <div v-if="result.content" class="web-crawl-result-excerpt">{{ truncateContent(result.content, 200) }}</div>
+          </a>
+        </div>
       </div>
       <!-- Search results -->
       <div v-else-if="isSearch" class="search-results">
@@ -151,6 +166,19 @@ const isSearch = computed(() => {
   // Check if tool group (or single item in array) is search
   if (props.toolCalls && props.toolCalls.length > 0) {
     return props.toolCalls[0]?.function?.name === 'search';
+  }
+  return false;
+});
+
+const isWebCrawl = computed(() => {
+  if (props.type === 'reasoning') return false;
+  // Check if single tool call is getPageContents
+  if (props.toolCall) {
+    return props.toolCall?.function?.name === 'getPageContents';
+  }
+  // Check if tool group (or single item in array) is getPageContents
+  if (props.toolCalls && props.toolCalls.length > 0) {
+    return props.toolCalls[0]?.function?.name === 'getPageContents';
   }
   return false;
 });
@@ -405,6 +433,43 @@ const searchResults = computed(() => {
   return [];
 });
 
+const webCrawlResults = computed(() => {
+  if (!isWebCrawl.value) return [];
+
+  // Check toolCalls array first
+  if (props.toolCalls && props.toolCalls.length > 0) {
+    let allResults = [];
+    for (const tool of props.toolCalls) {
+      if (tool && tool.result) {
+        try {
+          const data = JSON.parse(tool.result);
+          if (data.results && Array.isArray(data.results)) {
+            allResults = allResults.concat(data.results);
+          }
+        } catch (e) {
+          console.error('Error parsing web crawl result:', e);
+        }
+      }
+    }
+    return allResults;
+  }
+  
+  // Fallback to single toolCall prop
+  if (props.toolCall && props.result) {
+    try {
+      const data = JSON.parse(props.result);
+      if (data.results && Array.isArray(data.results)) {
+        return data.results;
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  return [];
+});
+
 function getDomain(url) {
   try {
     return new URL(url).hostname.replace('www.', '');
@@ -412,8 +477,10 @@ function getDomain(url) {
     return url;
   }
 }
-</script>
 
-<style scoped>
-/* ChatWidget uses styles from base.css - .chat-widget-* classes */
-</style>
+function truncateContent(content, maxLength) {
+  if (!content) return '';
+  if (content.length <= maxLength) return content;
+  return content.substring(0, maxLength).trim() + '...';
+}
+</script>

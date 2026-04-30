@@ -13,6 +13,35 @@ All notable changes to Kira are documented here.
 
 ---
 
+## [1.2.0] - 2026-04-30
+
+### Added
+- Your Notebook is a complete redesign of our global memory system that centers around autonomous scheduled updates to your Notebook. The Notebook itself is managed behind-the-scenes and is a holistic overview of you. It's currently in the preview stage.
+- Added max_tokens parameter to alternative sidebar
+
+### Fixed
+- Fixed agentic tool calling (again), it is now more robust and reliable than ever
+
+### Removed
+- The old memory system is removed. I would have deprecated it instead, but practically nobody used it anyway so I wanted to keep the code clean without it.
+
+---
+
+## [1.1.0] - 2026-04-30
+
+### Added
+- Exa AI API support, with Exa's search API & web crawling API
+- Replaced media import button with a popover that allows you to toggle search/reasoning (on mobile) or import media. Planned to be expanded soon.
+
+### Changed
+- Removed search option from the alt sidebar and placed it as a button on the message form
+
+### Fixed
+- Calling several different types of tools sequentially no longer overwrites the previous tool call type, allowing for more complex/robust agentic scenarios
+
+### Removed
+- Removed deprecated search API 
+
 ## [1.0.0] - 2026-04-29
 
 ### Added
