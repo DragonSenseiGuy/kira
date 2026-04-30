@@ -177,7 +177,7 @@ function formatMessageForAPI(msg) {
  * @param {object} modelParameters - Object containing all configurable model parameters (temperature, top_p, seed, reasoning)
  * @param {object} settings - User settings object containing user_name, user_occupation, and custom_instructions
  * @param {string[]} toolNames - Array of available tool names
- * @param {boolean} isSearchEnabled - Whether the browser search tool is enabled
+ * @param {boolean} isSearchEnabled - Whether the Exa search tools are enabled
  * @param {boolean} isIncognito - Whether incognito mode is enabled
  * @param {Array} attachments - Array of file attachments [{ type: 'image'|'pdf', filename, dataUrl, mimeType }]
  * @yields {Object} A chunk object with content and/or reasoning
@@ -268,9 +268,9 @@ export async function* handleIncomingMessage(
       );
     }
 
-    // Enable search tool if enabled in settings/params
+    // Enable Exa search tools if search is enabled
     if (modelHasToolUse && isSearchEnabled) {
-      enabledToolNames.push("search");
+      enabledToolNames.push("search", "getPageContents");
     }
 
     // Generate system prompt based on settings and used tools

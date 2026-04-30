@@ -5,6 +5,7 @@
 
 // Import necessary functions
 import { addMemory, modifyMemory, deleteMemory, listMemory } from './memory';
+import { useSettings } from './useSettings';
 
 class ToolManager {
   constructor() {
@@ -79,6 +80,18 @@ class ToolManager {
    */
   getToolNames() {
     return Array.from(this.tools.keys());
+  }
+
+  /**
+   * Get the custom API key from settings
+   */
+  getApiKey() {
+    // Try to get from settings manager if available
+    if (typeof window !== 'undefined') {
+      const settingsManager = useSettings();
+      return settingsManager.settings?.custom_api_key;
+    }
+    return null;
   }
 
   /**
@@ -204,7 +217,7 @@ class ToolManager {
       }
     );
 
-    // Search Tool
+    // Exa Search Tool - calls server route with API key
     this.registerTool(
       'search',
       async (args) => {
@@ -212,18 +225,23 @@ class ToolManager {
           throw new Error('Search tool requires a "q" (query) argument');
         }
 
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+          throw new Error('API key is required for search');
+        }
+
         try {
           const params = new URLSearchParams({
             q: args.q,
-            count: args.count || 5, // Default to 5 results for AI to avoid context bloat
-            safesearch: args.safesearch || 'moderate',
+            numResults: args.numResults || 5
           });
 
-          if (args.freshness) {
-            params.append('freshness', args.freshness);
-          }
+          const response = await fetch(`/api/search?${params.toString()}`, {
+            headers: {
+              'X-API-Key': apiKey
+            }
+          });
 
-          const response = await fetch(`/api/search?${params.toString()}`);
           if (!response.ok) {
             throw new Error(`Search request failed with status ${response.status}`);
           }
@@ -231,7 +249,7 @@ class ToolManager {
           const data = await response.json();
 
           // Format results for the AI
-          if (!data.web || !data.web.results || data.web.results.length === 0) {
+          if (!data.results || data.results.length === 0) {
             return {
               results: [],
               message: "No results found for query."
@@ -239,11 +257,11 @@ class ToolManager {
           }
 
           return {
-            results: data.web.results.map(r => ({
+            results: data.results.map(r => ({
               title: r.title,
               url: r.url,
               description: r.description,
-              date: r.age // Some results might have age/date
+              date: r.date
             })),
             query: args.q
           };
@@ -257,7 +275,7 @@ class ToolManager {
         type: "function",
         function: {
           name: "search",
-          description: "Search the web for current information, news, or specific topics. Use this when you need information beyond your knowledge cutoff.",
+          description: "Search the web for current information, news, or specific topics using Exa AI search. Use this when you need information beyond your knowledge cutoff.",
           parameters: {
             type: "object",
             properties: {
@@ -265,17 +283,88 @@ class ToolManager {
                 type: "string",
                 description: "The search query"
               },
-              count: {
+              numResults: {
                 type: "integer",
                 description: "Number of results to return (default 5, max 10)",
                 maximum: 10
-              },
-              freshness: {
-                type: "string",
-                description: "Filter by time: 'pd' (24h), 'pw' (7d), 'pm' (31d), 'py' (365d). Use if user asks for 'recent' or 'latest' news."
               }
             },
             required: ["q"]
+          }
+        }
+      }
+    );
+
+    // Exa Page Contents Tool - calls server route with API key
+    this.registerTool(
+      'getPageContents',
+      async (args) => {
+        if (!args.urls || !Array.isArray(args.urls) || args.urls.length === 0) {
+          throw new Error('getPageContents tool requires a "urls" array argument');
+        }
+
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+          throw new Error('API key is required for page contents');
+        }
+
+        try {
+          const response = await fetch('/api/exa-contents', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': apiKey
+            },
+            body: JSON.stringify({
+              urls: args.urls.slice(0, 10) // Limit to 10 URLs
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Page contents request failed with status ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          // Format results for the AI
+          if (!data.results || data.results.length === 0) {
+            return {
+              results: [],
+              message: "Could not retrieve content for the provided URLs."
+            };
+          }
+
+          return {
+            results: data.results.map(r => ({
+              url: r.url,
+              title: r.title,
+              content: r.content,
+              publishedDate: r.publishedDate
+            }))
+          };
+
+        } catch (error) {
+          console.error("Page contents tool error:", error);
+          throw error;
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "getPageContents",
+          description: "Retrieve the full content of web pages using Exa AI. Use this to get detailed information from specific URLs found via search or provided by the user. Can fetch up to 10 pages at once.",
+          parameters: {
+            type: "object",
+            properties: {
+              urls: {
+                type: "array",
+                description: "Array of URLs to fetch content from (max 10)",
+                items: {
+                  type: "string"
+                }
+              }
+            },
+            required: ["urls"]
           }
         }
       }

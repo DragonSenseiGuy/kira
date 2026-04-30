@@ -44,21 +44,6 @@
           </div>
         </div>
 
-        <!-- Middleware Section -->
-        <div class="settings-group middleware-section">
-          <h3 class="section-title">Middleware</h3>
-          <div v-for="param in middlewareParameters" :key="param.name" class="setting-item"
-            @mouseenter="showTooltip($event, param.description)" @mouseleave="hideTooltip">
-            <div class="setting-header">
-              <label class="setting-label">{{ param.label }}</label>
-              <div class="switch-container">
-                <SwitchRoot class="switch-root" :modelValue="param.value.value" @update:modelValue="param.inputHandler">
-                  <SwitchThumb class="switch-thumb" />
-                </SwitchRoot>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -67,7 +52,7 @@
 <script setup>
 import { computed, watch, ref, onMounted, onUnmounted } from "vue";
 import { Icon } from "@iconify/vue";
-import { SliderRoot, SliderTrack, SliderRange, SliderThumb, SwitchRoot, SwitchThumb } from "reka-ui";
+import { SliderRoot, SliderTrack, SliderRange, SliderThumb } from "reka-ui";
 import DEFAULT_PARAMETERS from '@/composables/defaultParameters';
 
 const props = defineProps({
@@ -204,25 +189,6 @@ const seed = computed({
   }
 });
 
-const grounding = computed({
-  get: () => {
-    if (!props.settingsManager?.settings?.parameter_config) return DEFAULT_PARAMETERS.grounding;
-    return props.settingsManager.settings.parameter_config.grounding ?? DEFAULT_PARAMETERS.grounding;
-  },
-  set: (value) => {
-    if (props.settingsManager) {
-      // Ensure parameter_config exists
-      if (!props.settingsManager.settings.parameter_config) {
-        props.settingsManager.settings.parameter_config = { ...DEFAULT_PARAMETERS };
-      }
-
-      // Update the specific parameter
-      props.settingsManager.settings.parameter_config.grounding = value;
-      saveSettings();
-    }
-  }
-});
-
 // Watch for changes in parameter config and save settings
 watch(
   () => props.settingsManager?.settings?.parameter_config,
@@ -294,18 +260,6 @@ const parameters = [
     value: seed,
     description: 'If specified, our system will make a best effort to sample deterministically.',
     inputHandler: (e) => seed.value = e.target.value ? parseInt(e.target.value) : null
-  }
-];
-
-// Middleware parameters
-const middlewareParameters = [
-  {
-    name: 'grounding',
-    label: 'Web search',
-    type: 'boolean',
-    value: grounding,
-    description: 'Enable web search capabilities using Brave Search to provide factually accurate responses.',
-    inputHandler: (value) => grounding.value = value
   }
 ];
 </script>

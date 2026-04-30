@@ -477,6 +477,7 @@ function getPartClass(partType, index, parts) {
 }
 
 // Function to group adjacent reasoning and tool_group parts together
+// Sequential tools/reasoning are visually grouped but each tool gets its own widget
 function getPartGroups(parts) {
   if (!parts || parts.length === 0) return [];
 
@@ -588,12 +589,13 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
             <div class="message-content">
                   <!-- New Parts-Based Rendering -->
                   <div v-if="message.parts && message.parts.length > 0" class="message-parts-container">
-                    <template v-for="(group, groupIndex) in getPartGroups(message.parts)" :key="`group-${groupIndex}`">
+                    <template v-for="(group, groupIndex) in getPartGroups(message.parts)" :key="`group-${groupIndex}-${group.parts.map(p => p._id).join('-')}`">
+                      <!-- Mixed group (reasoning + tools) - sequential actions grouped together -->
                       <div
                         v-if="group.type === 'mixed'"
                         :class="['part-group-container', getPartGroupClass(group, groupIndex, getPartGroups(message.parts))]"
                       >
-                        <template v-for="(part, partIndex) in group.parts" :key="`part-${groupIndex}-${partIndex}`">
+                        <template v-for="(part, partIndex) in group.parts" :key="part._id || `part-${groupIndex}-${partIndex}`">
                           <!-- Reasoning Part inside group -->
                           <div v-if="part.type === 'reasoning'" class="part-reasoning inside-group">
                             <ChatWidget
@@ -603,7 +605,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                             />
                           </div>
 
-                          <!-- Tool Group Part inside group -->
+                          <!-- Tool Group Part inside group - each tool gets its own widget -->
                           <div v-else-if="part.type === 'tool_group'" class="part-tool-group inside-group">
                             <ChatWidget
                               type="tool"

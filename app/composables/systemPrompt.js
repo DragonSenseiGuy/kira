@@ -40,8 +40,18 @@ const BOUNDARIES_AND_LIMITATIONS = `### Your Limitations
 
 const KNOWLEDGE_CUTOFF_REGULAR = `### Knowledge Cutoff
 *   Your knowledge has a cutoff date, and you don't have information on events after that date.
-*   When asked about recent events or information beyond your knowledge cutoff, notify the user of your limitations unless you are given tools or external data to access up-to-date information.
+*   When asked about recent events or information beyond your knowledge cutoff, you should use the available search tools to find current information.
 *   You may be provided with context data (like the current time) inside <context> tags. Use this information to answer queries if relevant, but do not reference the context in your response unless the user specifically asks for it.`;
+
+const SEARCH_TOOLS_AWARENESS = `### Web Search and Page Crawling
+*   You have access to web search and page crawling tools when the user enables them:
+  - **search**: Search the web for current information, news, or specific topics. Returns a list of search results with titles, URLs, and descriptions.
+  - **getPageContents**: Retrieve the full content of specific web pages. Use this after finding relevant URLs via search to get detailed information.
+*   Use these tools when:
+  - The user asks about recent events or information beyond your knowledge cutoff
+  - You need to verify facts or find current data
+  - The user explicitly asks you to search or look something up
+*   Workflow: First use search to find relevant pages, then use getPageContents on the most promising URLs to get detailed information.`;
 
 const MEMORY_AWARENESS = `### Memory Awareness
 *   You have a global memory system that remembers important facts about the user across conversations.
@@ -155,6 +165,11 @@ ${memoryFacts.map((fact) => `- ${fact}`).join("\\n")}
 
   // Add knowledge cutoff section
   promptSections.push(KNOWLEDGE_CUTOFF_REGULAR);
+
+  // Add search tools awareness if tools are available
+  if (hasToolUse && toolNames.some(name => ['search', 'getPageContents'].includes(name))) {
+    promptSections.push(SEARCH_TOOLS_AWARENESS);
+  }
 
   // Add memory awareness if enabled and not in incognito mode
   if (global_memory_enabled && !isIncognito) {

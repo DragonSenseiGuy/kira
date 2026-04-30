@@ -13,6 +13,21 @@ All notable changes to Libre Assistant are documented here.
 
 ---
 
+## [1.1.0] - 2026-04-30
+
+### Added
+- Exa AI API support, with Exa's search API & web crawling API
+- Replaced media import button with a popover that allows you to toggle search/reasoning (on mobile) or import media. Planned to be expanded soon.
+
+### Changed
+- Removed search option from the alt sidebar and placed it as a button on the message form
+
+### Fixed
+- Calling several different types of tools sequentially no longer overwrites the previous tool call type, allowing for more complex/robust agentic scenarios
+
+### Removed
+- Removed deprecated search API 
+
 ## [1.0.0] - 2026-04-29
 
 ### Added

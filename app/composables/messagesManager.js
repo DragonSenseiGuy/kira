@@ -199,11 +199,12 @@ export function useMessagesManager(chatPanel) {
    * @param {string} message - The user's message
    * @param {string} originalMessage - The original user message (before any reasoning prepends)
    * @param {Array} attachments - Optional array of file attachments
+   * @param {boolean} searchEnabled - Whether search is enabled for this message
    * @param {Object} options - Optional settings
    * @param {boolean} options.skipUserMessage - If true, don't add user message (already exists in messages array)
    * @param {string} options.parentId - Optional explicit parent ID for the assistant message
    */
-  async function sendMessage(message, originalMessage = null, attachments = [], options = {}) {
+  async function sendMessage(message, originalMessage = null, attachments = [], searchEnabled = false, options = {}) {
     const { skipUserMessage = false, parentId: explicitParentId = null } = options;
 
     if ((!message.trim() && attachments.length === 0) || isLoading.value) return;
@@ -317,19 +318,39 @@ export function useMessagesManager(chatPanel) {
         model_parameters,
         settingsManager.settings,
         selectedModelDetails.extra_functions || [],
-        settingsManager.settings.parameter_config?.grounding ?? DEFAULT_PARAMETERS.grounding,
+        searchEnabled,
         isIncognito.value,
         attachments
       );
 
-      // Helper to update message with Vue reactivity
+      // Helper to update message with Vue reactivity - creates completely new objects
       const updateMessageReactivity = () => {
+        const lastIndex = messages.value.length - 1;
+        const currentMsg = messages.value[lastIndex];
+        
+        // Get fresh immutable copies from partsBuilder
+        const newParts = partsBuilder.toReactiveArray();
+        const newTools = partsBuilder.getAllTools();
+        
+        // Create a completely new message object with all new references
         const updatedMsg = {
-          ...assistantMsg,
-          parts: partsBuilder.toReactiveArray(),
-          tool_calls: partsBuilder.getAllTools(),
+          ...currentMsg,
+          id: currentMsg.id, // Keep same ID
+          parts: newParts,
+          tool_calls: newTools,
+          content: assistantMsg.content,
+          reasoning: assistantMsg.reasoning,
+          // Ensure timestamp and other fields are copied
+          timestamp: currentMsg.timestamp,
+          apiCallTime: currentMsg.apiCallTime,
+          firstTokenTime: assistantMsg.firstTokenTime,
+          completionTime: assistantMsg.completionTime,
         };
-        messages.value.splice(messages.value.length - 1, 1, updatedMsg);
+        
+        // Create completely new messages array
+        const newMessages = [...messages.value];
+        newMessages[lastIndex] = updatedMsg;
+        messages.value = newMessages;
       };
 
       // RAF batching: schedule ONE UI update per frame instead of per chunk
@@ -420,7 +441,7 @@ export function useMessagesManager(chatPanel) {
       }
 
       // Store final parts on assistantMsg for persistence (BEFORE final UI update)
-      assistantMsg.parts = partsBuilder.toArray();
+      assistantMsg.parts = partsBuilder.getParts();
       assistantMsg.tool_calls = partsBuilder.getAllTools();
 
       // Final flush after stream completes to ensure all content is rendered
@@ -438,7 +459,7 @@ export function useMessagesManager(chatPanel) {
 
       // Ensure parts are stored from partsBuilder (in case of early error)
       if (!assistantMsg.parts || assistantMsg.parts.length === 0) {
-        assistantMsg.parts = partsBuilder.toArray();
+        assistantMsg.parts = partsBuilder.getParts();
         assistantMsg.tool_calls = partsBuilder.getAllTools();
       }
 
@@ -450,10 +471,10 @@ export function useMessagesManager(chatPanel) {
       // If there are images but no content part, add content part at the beginning
       if (partsBuilder.hasImagePart() && !partsBuilder.hasContentPart() && assistantMsg.content) {
         partsBuilder.ensureContentPartFirst(assistantMsg.content);
-        assistantMsg.parts = partsBuilder.toArray();
+        assistantMsg.parts = partsBuilder.getParts();
       } else {
         // Final sync of parts to assistantMsg before completing
-        assistantMsg.parts = partsBuilder.toArray();
+        assistantMsg.parts = partsBuilder.getParts();
         assistantMsg.tool_calls = partsBuilder.getAllTools();
       }
 
@@ -520,7 +541,7 @@ export function useMessagesManager(chatPanel) {
 
         const errorUpdates = {
           content: assistantMsg.content + errorSuffix,
-          parts: partsBuilder.toArray(),
+          parts: partsBuilder.getParts(),
           error: true,
           errorDetails: assistantMsg.errorDetails
         };
@@ -614,7 +635,9 @@ export function useMessagesManager(chatPanel) {
     }
 
     // Trigger AI response for the new branch
-    await sendMessage(newContent, null, attachments, { skipUserMessage: true });
+    // Use search_enabled setting from settings manager
+    const searchEnabled = settingsManager.settings?.search_enabled ?? false;
+    await sendMessage(newContent, null, attachments, searchEnabled, { skipUserMessage: true });
   }
 
   /**
@@ -650,7 +673,9 @@ export function useMessagesManager(chatPanel) {
     }
 
     // Send the message using the parent user message's content
-    await sendMessage(userMsg.content, null, userMsg.attachments || [], {
+    // Use search_enabled setting from settings manager
+    const searchEnabled = settingsManager.settings?.search_enabled ?? false;
+    await sendMessage(userMsg.content, null, userMsg.attachments || [], searchEnabled, {
       skipUserMessage: true,
       parentId: userMsg.id
     });

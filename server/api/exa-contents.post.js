@@ -1,7 +1,7 @@
-import { defineEventHandler, getQuery, getHeader } from 'h3';
+import { defineEventHandler, readBody, getHeader } from 'h3';
 
 export default defineEventHandler(async (event) => {
-    const query = getQuery(event);
+    const body = await readBody(event);
     
     // Get API key from header
     const apiKey = getHeader(event, 'x-api-key');
@@ -13,32 +13,34 @@ export default defineEventHandler(async (event) => {
         });
     }
 
-    const { q, numResults = 5 } = query;
+    const { urls } = body;
 
-    if (!q) {
+    if (!urls || !Array.isArray(urls) || urls.length === 0) {
         throw createError({
             statusCode: 400,
-            statusMessage: 'Query parameter "q" is required.'
+            statusMessage: 'Request body must include a "urls" array with at least one URL.'
         });
     }
 
+    // Limit to 10 URLs max
+    const limitedUrls = urls.slice(0, 10);
+
     try {
-        const response = await fetch('https://ai.hackclub.com/proxy/v1/exa/search', {
+        const response = await fetch('https://ai.hackclub.com/proxy/v1/exa/contents', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                query: q,
-                numResults: Math.min(parseInt(numResults) || 5, 10)
+                urls: limitedUrls
             })
         });
 
         if (!response.ok) {
             throw createError({
                 statusCode: response.status,
-                statusMessage: `Exa Search API failed: ${response.statusText}`
+                statusMessage: `Exa Contents API failed: ${response.statusText}`
             });
         }
 
@@ -47,16 +49,15 @@ export default defineEventHandler(async (event) => {
         // Transform Exa API response to match expected format
         return {
             results: data.results?.map(r => ({
-                title: r.title || '',
                 url: r.url || '',
-                description: r.text || r.snippet || '',
-                date: r.publishedDate || null
-            })) || [],
-            query: q
+                title: r.title || '',
+                content: r.text || '',
+                publishedDate: r.publishedDate || null
+            })) || []
         };
 
     } catch (error) {
-        console.error('Exa Search API Error:', error);
+        console.error('Exa Contents API Error:', error);
         throw createError({
             statusCode: error.statusCode || 500,
             statusMessage: error.statusMessage || 'Internal Server Error'
