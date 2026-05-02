@@ -42,7 +42,7 @@ import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
 import { useDark } from "@vueuse/core";
 import { useRoute, navigateTo } from '#app';
-import { useHead } from '@unhead/vue';
+import { useHead } from '#imports';
 
 import { availableModels } from '~/composables/availableModels';
 import { useSettings } from '~/composables/useSettings';

@@ -160,27 +160,6 @@ const isSearchEnabled = computed({
   }
 });
 
-
-// Computed for web search (grounding) toggle
-const searchEnabled = computed({
-  get: () => {
-    if (!props.settingsManager?.settings?.parameter_config) return false;
-    return props.settingsManager.settings.parameter_config.grounding ?? false;
-  },
-  set: (value) => {
-    if (!props.settingsManager) return;
-    if (!props.settingsManager.settings.parameter_config) {
-      props.settingsManager.settings.parameter_config = { ...DEFAULT_PARAMETERS };
-    }
-    props.settingsManager.settings.parameter_config.grounding = value;
-    props.settingsManager.saveSettings();
-  }
-});
-
-function toggleSearch() {
-  searchEnabled.value = !searchEnabled.value;
-}
-
 // Watch the selected model and load the appropriate reasoning effort setting
 watch(
   () => [props.selectedModelId, props.settingsManager?.settings?.model_settings],
@@ -194,17 +173,6 @@ watch(
       } else {
         reasoningEffort.value = "default";
       }
-    }
-  },
-  { immediate: true }
-);
-
-// Watch for search_enabled setting changes
-watch(
-  () => props.settingsManager?.settings?.search_enabled,
-  (newValue) => {
-    if (newValue !== undefined) {
-      searchEnabled.value = newValue;
     }
   },
   { immediate: true }

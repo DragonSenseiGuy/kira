@@ -1,6 +1,6 @@
 import { ref, computed, onMounted, watch, toRaw } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useHead } from '@unhead/vue';
+import { useHead } from '#imports';
 import { createConversation as storeCreateConversation } from './storeConversations';
 import { useSettings } from './useSettings';
 import { useMessagesManager } from './messagesManager';
