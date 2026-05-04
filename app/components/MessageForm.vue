@@ -6,8 +6,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  PopoverRoot,
+  PopoverTrigger,
+  PopoverContent,
 } from "reka-ui";
-import { useWindowSize } from "@vueuse/core";
+import { useWindowSize, onKeyStroke, useMagicKeys } from "@vueuse/core";
 import Logo from "./Logo.vue";
 import ModelSelectorPopover from "./ModelSelectorPopover.vue";
 import BottomSheetModelSelector from "./BottomSheetModelSelector.vue";
@@ -42,6 +45,9 @@ const keys = useMagicKeys();
 
 // Local state for reasoning effort
 const reasoningEffort = ref();
+
+// Local state for search enabled
+const searchEnabled = ref(false);
 
 // --- Reactive State ---
 const inputMessage = ref("");
@@ -128,32 +134,31 @@ const defaultReasoningEffort = computed(() => {
   return getDefaultReasoningEffort(selectedModel.value);
 });
 
+
 // Computed property to check if reasoning is currently enabled based on the model's configuration
 const isReasoningEnabled = computed(() => {
   if (!selectedModel.value) return false;
   return checkReasoningEnabled(selectedModel.value, reasoningEffort.value);
 });
 
-
-// Computed for web search (grounding) toggle
-const searchEnabled = computed({
+// Computed property to check if search is currently enabled
+const isSearchEnabled = computed({
   get: () => {
-    if (!props.settingsManager?.settings?.parameter_config) return false;
-    return props.settingsManager.settings.parameter_config.grounding ?? false;
+    // Get from settings manager if available, otherwise use local state
+    if (props.settingsManager?.settings?.search_enabled !== undefined) {
+      return props.settingsManager.settings.search_enabled;
+    }
+    return searchEnabled.value;
   },
   set: (value) => {
-    if (!props.settingsManager) return;
-    if (!props.settingsManager.settings.parameter_config) {
-      props.settingsManager.settings.parameter_config = { ...DEFAULT_PARAMETERS };
+    searchEnabled.value = value;
+    // Update settings manager if available
+    if (props.settingsManager) {
+      props.settingsManager.settings.search_enabled = value;
+      props.settingsManager.saveSettings();
     }
-    props.settingsManager.settings.parameter_config.grounding = value;
-    props.settingsManager.saveSettings();
   }
 });
-
-function toggleSearch() {
-  searchEnabled.value = !searchEnabled.value;
-}
 
 // Watch the selected model and load the appropriate reasoning effort setting
 watch(
@@ -255,8 +260,8 @@ function handleEnterKey(event) {
  * Emits the message to the parent, then clears the input.
  */
 async function submitMessage() {
-  // Emit the message to parent component
-  emit("send-message", inputMessage.value, inputMessage.value, toRaw(attachments.value));
+  // Emit the message to parent component, including search enabled state
+  emit("send-message", inputMessage.value, inputMessage.value, toRaw(attachments.value), isSearchEnabled.value);
   inputMessage.value = "";
   // Clear attachments after sending
   clearAttachments();
@@ -321,6 +326,13 @@ function toggleReasoning() {
     props.settingsManager.setModelSetting(props.selectedModelId, "reasoning_effort", reasoningEffort.value);
     props.settingsManager.saveSettings();
   }
+}
+
+/**
+ * Toggles the search state
+ */
+function toggleSearch() {
+  isSearchEnabled.value = !isSearchEnabled.value;
 }
 
 /**
@@ -491,7 +503,7 @@ onKeyStroke("/", (e) => {
 })
 
 // Expose the setMessage function to be called from the parent component
-defineExpose({ setMessage, toggleReasoning, setReasoningEffort, $el: messageFormRoot });
+defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $el: messageFormRoot });
 </script>
 
 <template>
@@ -559,44 +571,129 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, $el: messageForm
       ></textarea>
 
       <div class="input-actions">
-        <!-- Attachment button (plus icon) - PDFs work with any model, images require vision -->
-        <button
-          type="button"
-          class="feature-button attachment-btn"
-          @click="openFilePicker"
-          :disabled="isLoading"
-          :aria-label="supportsVision ? 'Attach image or PDF' : 'Attach PDF'"
-          :title="supportsVision ? 'Attach image or PDF' : 'Attach PDF (images require vision model)'"
-        >
-          <Icon icon="material-symbols:add" width="22" height="22" />
-        </button>
+        <!-- Plus button popover menu - contains toggles and attach media -->
+        <PopoverRoot>
+          <PopoverTrigger as-child>
+            <button
+              type="button"
+              class="feature-button attachment-btn"
+              :disabled="isLoading"
+              aria-label="Open attachment menu"
+            >
+              <Icon icon="material-symbols:add" width="22" height="22" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent 
+            class="popover-dropdown attachment-popover" 
+            side="top" 
+            align="start"
+            :side-offset="8"
+          >
+            <!-- Mobile: Search toggle -->
+            <button
+              v-if="isMobile"
+              type="button"
+              class="popover-toggle-item"
+              :class="{ 'toggle-enabled': isSearchEnabled }"
+              @click="toggleSearch"
+            >
+              <Icon icon="material-symbols:globe" width="20" height="20" />
+              <span class="toggle-label">Search</span>
+              <Icon 
+                v-if="isSearchEnabled" 
+                icon="material-symbols:check" 
+                width="18" 
+                height="18" 
+                class="toggle-status"
+              />
+            </button>
 
-        <!-- Web search toggle -->
-        <button
-          type="button"
-          class="feature-button search-btn"
-          :class="{ 'feature-active': searchEnabled }"
-          @click="toggleSearch"
-          :disabled="isLoading"
-          aria-label="Toggle web search"
-          title="Toggle web search"
-        >
-          <Icon icon="material-symbols:search" width="18" height="18" />
-          <span class="feature-label">Search</span>
-        </button>
+            <!-- Mobile: Reasoning toggle (simple on/off) -->
+            <button 
+              v-if="isMobile && selectedModel && shouldShowReasoningToggle && supportsReasoning"
+              type="button"
+              class="popover-toggle-item"
+              :class="{ 'toggle-enabled': isReasoningEnabled }"
+              @click="toggleReasoning"
+            >
+              <Icon icon="tabler:brain" width="20" height="20" />
+              <span class="toggle-label">Reasoning</span>
+              <Icon 
+                v-if="isReasoningEnabled" 
+                icon="material-symbols:check" 
+                width="18" 
+                height="18" 
+                class="toggle-status"
+              />
+            </button>
 
-        <!-- Reasoning toggle for models that should show a reasoning toggle -->
-        <button v-if="selectedModel && shouldShowReasoningToggle && supportsReasoning"
+            <!-- Mobile: Reasoning effort submenu (for models with effort options) -->
+            <DropdownMenuRoot v-if="isMobile && selectedModel && shouldShowEffortSelector">
+              <DropdownMenuTrigger class="popover-toggle-item reasoning-submenu-trigger">
+                <Icon icon="tabler:brain" width="20" height="20" />
+                <span class="toggle-label">{{ reasoningEffort.charAt(0).toUpperCase() + reasoningEffort.slice(1) }}</span>
+                <Icon icon="material-symbols:chevron-right" width="18" height="18" class="submenu-arrow" />
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent class="popover-dropdown reasoning-effort-dropdown" side="right" align="start"
+                :side-offset="8">
+                <div class="dropdown-scroll-container">
+                  <DropdownMenuItem 
+                    v-for="option in reasoningEffortOptions" 
+                    :key="option" 
+                    class="reasoning-effort-item"
+                    :class="{ selected: option === reasoningEffort }" 
+                    @click="() => setReasoningEffort(option)"
+                  >
+                    <span>{{ option.charAt(0).toUpperCase() + option.slice(1) }}</span>
+                    <Icon 
+                      v-if="option === reasoningEffort" 
+                      icon="material-symbols:check" 
+                      width="16" 
+                      height="16" 
+                    />
+                  </DropdownMenuItem>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenuRoot>
+
+            <!-- Divider (mobile only, when there are toggles) -->
+            <div v-if="isMobile && (supportsReasoning || shouldShowEffortSelector)" class="popover-divider"></div>
+
+            <!-- Attach media button (both mobile and desktop) -->
+            <button
+              type="button"
+              class="popover-attach-btn"
+              @click="openFilePicker"
+            >
+              <Icon icon="material-symbols:attach-file" width="20" height="20" />
+              <span>Attach {{ supportsVision ? 'image or PDF' : 'PDF' }}</span>
+            </button>
+          </PopoverContent>
+        </PopoverRoot>
+
+        <!-- Desktop: Search toggle button -->
+        <button
+          v-if="!isMobile"
           type="button" class="feature-button search-toggle-btn"
-          :class="{ 'search-enabled': isReasoningEnabled }" @click="toggleReasoning"
-          :aria-label="isReasoningEnabled ? 'Disable reasoning' : 'Enable reasoning'">
-          <Icon icon="material-symbols:lightbulb" width="22" height="22" />
-          <span class="search-label">Reasoning</span>
+          :class="{ 'search-enabled': isSearchEnabled }" @click="toggleSearch"
+          :aria-label="isSearchEnabled ? 'Disable search' : 'Enable search'">
+          <Icon icon="material-symbols:globe" width="22" height="22" />
+          <span class="search-label">Search</span>
         </button>
 
-        <!-- Reasoning effort dropdown for models that support reasoning effort -->
-        <DropdownMenuRoot v-else-if="selectedModel && shouldShowEffortSelector">
-          <DropdownMenuTrigger class="feature-button search-toggle-btn">
+        <!-- Desktop: Reasoning toggle for models that should show a reasoning toggle -->
+        <button v-if="!isMobile && selectedModel && shouldShowReasoningToggle && supportsReasoning"
+          type="button" class="feature-button reasoning-toggle-btn"
+          :class="{ 'reasoning-enabled': isReasoningEnabled }" @click="toggleReasoning"
+          :aria-label="isReasoningEnabled ? 'Disable reasoning' : 'Enable reasoning'">
+          <Icon icon="tabler:brain" width="22" height="22" />
+          <span class="reasoning-label">Reasoning</span>
+        </button>
+
+        <!-- Desktop: Reasoning effort dropdown for models that support reasoning effort -->
+        <DropdownMenuRoot v-if="!isMobile && selectedModel && shouldShowEffortSelector">
+          <DropdownMenuTrigger class="feature-button reasoning-toggle-btn">
             <Icon icon="material-symbols:lightbulb" width="22" height="22" />
             <span>{{ reasoningEffort.charAt(0).toUpperCase() + reasoningEffort.slice(1) }}</span>
           </DropdownMenuTrigger>
@@ -795,6 +892,17 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, $el: messageForm
 }
 
 .search-toggle-btn.search-enabled:hover:not(:disabled) {
+  background-color: var(--primary-600);
+  border-color: var(--primary-600);
+}
+
+.reasoning-toggle-btn.reasoning-enabled {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.reasoning-toggle-btn.reasoning-enabled:hover:not(:disabled) {
   background-color: var(--primary-600);
   border-color: var(--primary-600);
 }
@@ -1050,5 +1158,141 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, $el: messageForm
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Attachment popover styles */
+.attachment-popover {
+  min-width: 200px;
+  padding: 8px;
+}
+
+.popover-toggle-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.popover-toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95em;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.popover-toggle-item:hover {
+  background: var(--btn-hover);
+}
+
+.popover-toggle-item.toggle-enabled {
+  color: var(--primary);
+}
+
+.popover-toggle-item.toggle-enabled:hover {
+  background: var(--btn-hover);
+}
+
+.toggle-label {
+  flex: 1;
+  text-align: left;
+}
+
+.toggle-status {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.popover-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+}
+
+.popover-attach-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95em;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.popover-attach-btn:hover {
+  background: var(--btn-hover);
+}
+
+.popover-toggle-item.reasoning-submenu-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95em;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.popover-toggle-item.reasoning-submenu-trigger:hover {
+  background: var(--btn-hover);
+}
+
+.submenu-arrow {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+/* Mobile reasoning effort dropdown - match toggle styles */
+.attachment-popover .reasoning-effort-dropdown .reasoning-effort-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95em;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.attachment-popover .reasoning-effort-dropdown .reasoning-effort-item:hover {
+  background: var(--btn-hover);
+}
+
+.attachment-popover .reasoning-effort-dropdown .reasoning-effort-item.selected {
+  background: transparent;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.attachment-popover .reasoning-effort-dropdown .reasoning-effort-item.selected:hover {
+  background: var(--btn-hover);
 }
 </style>

@@ -42,7 +42,7 @@ import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
 import { useDark } from "@vueuse/core";
 import { useRoute, navigateTo } from '#app';
-import { useHead } from '@unhead/vue';
+import { useHead } from '#imports';
 
 import { availableModels } from '~/composables/availableModels';
 import { useSettings } from '~/composables/useSettings';
@@ -114,7 +114,9 @@ onMounted(async () => {
     // since the user message was already added by createNewConversationWithMessage
     const userMessage = messages.value[0].content;
     const userAttachments = messages.value[0].attachments || [];
-    await sendMessage(userMessage, null, userAttachments, { skipUserMessage: true });
+    // Get search enabled setting
+    const searchEnabled = settingsManager.settings?.search_enabled ?? false;
+    await sendMessage(userMessage, null, userAttachments, searchEnabled, { skipUserMessage: true });
   }
 });
 

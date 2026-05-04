@@ -83,6 +83,7 @@ export function getSiblingInfo(messages, messageId) {
 /**
  * Gets the visible messages for a given branch path.
  * The branch path is an array of indices indicating which branch to follow at each fork.
+ * The first element can optionally be the root index (for when there are multiple root messages).
  * @param {Array} messages - All messages in the conversation
  * @param {Array<number>} branchPath - Array of branch indices to follow
  * @returns {Array} Messages visible in the current branch path
@@ -96,11 +97,15 @@ export function getMessagesForBranchPath(messages, branchPath = []) {
     const roots = getRootMessages(messages);
     if (roots.length === 0) return [];
 
-    // Pick the first root (there should typically only be one for a conversation start)
-    let currentMessage = roots[0];
+    // Pick the root - use branchPath[0] if there are multiple roots, otherwise use 0
+    // If there's only one root, branchPath[0] refers to the first fork after the root
+    const hasMultipleRoots = roots.length > 1;
+    const rootIndex = hasMultipleRoots ? (branchPath[0] ?? 0) : 0;
+    let currentMessage = roots[Math.min(rootIndex, roots.length - 1)];
     result.push(currentMessage);
 
-    let pathIndex = 0;
+    // Adjust path index based on whether we used branchPath[0] for root selection
+    let pathIndex = hasMultipleRoots ? 1 : 0;
 
     while (currentMessage) {
         // Find children of current message
@@ -150,6 +155,19 @@ export function calculateBranchPath(messages, targetMessageId) {
         currentMessage = currentMessage.parentId
             ? messages.find(m => m.id === currentMessage.parentId)
             : null;
+    }
+
+    // Check if the first message in the chain is a root message
+    // and if there are multiple roots - we need to include the root index
+    const firstMessage = chain[0];
+    if (!firstMessage.parentId) {
+        const roots = getRootMessages(messages);
+        if (roots.length > 1) {
+            const rootIndex = roots.findIndex(r => r.id === firstMessage.id);
+            if (rootIndex > 0) {
+                path.push(rootIndex);
+            }
+        }
     }
 
     // Now walk forward and record branch choices at each fork
@@ -319,6 +337,26 @@ function generateId() {
 }
 
 /**
+ * Gets sibling information for root messages
+ * @param {Array} messages - All messages
+ * @param {string} messageId - The root message to get info for
+ * @returns {Object|null} { current: number, total: number } or null if not a root or only one root
+ */
+export function getRootSiblingInfo(messages, messageId) {
+    const message = messages.find(m => m.id === messageId);
+    if (!message || message.parentId) return null; // Not a root message
+
+    const roots = getRootMessages(messages);
+    if (roots.length <= 1) return null; // No branching at root level
+
+    const currentIndex = roots.findIndex(r => r.id === messageId);
+    return {
+        current: currentIndex >= 0 ? currentIndex : 0,
+        total: roots.length
+    };
+}
+
+/**
  * Builds a map of message ID to sibling info for UI rendering
  * @param {Array} messages - All messages
  * @param {Array} visibleMessages - Currently visible messages in branch path
@@ -329,6 +367,20 @@ export function buildSiblingInfoMap(messages, visibleMessages) {
     let forkIndex = 0;
 
     for (const msg of visibleMessages) {
+        // Check for root-level siblings first
+        const rootSiblingInfo = getRootSiblingInfo(messages, msg.id);
+        if (rootSiblingInfo) {
+            infoMap.set(msg.id, {
+                current: rootSiblingInfo.current,
+                total: rootSiblingInfo.total,
+                forkIndex: forkIndex,
+                siblings: getRootMessages(messages).map(r => r.id)
+            });
+            forkIndex++;
+            continue;
+        }
+
+        // Otherwise check for normal siblings
         const siblings = getSiblings(messages, msg.id);
 
         if (siblings.length > 1) {

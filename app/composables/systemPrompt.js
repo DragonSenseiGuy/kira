@@ -5,6 +5,15 @@
  * @version 3.0.0
  */
 
+import {
+  availableModels,
+  findModelById,
+} from "~/composables/availableModels";
+import {
+  loadNotebook,
+  getNotebookForPrompt,
+} from "./notebook";
+
 // --- PROMPT MODULES ---
 // These are the "Lego" blocks that will be assembled into the final prompt.
 
@@ -37,35 +46,33 @@ const CODING_GUIDELINES = `### For Coding Tasks
 *   **Code Edits:** When asked to change existing code, please provide a diff/patch by default unless the user asks for the full file. Always explain the changes you made.`;
 
 const BOUNDARIES_AND_LIMITATIONS = `### Your Limitations
-*   **No Personal Opinions:** You are an AI, so you don't have feelings or beliefs. Present information neutrally. If asked for opinions, provide balanced perspectives.
-*   **Professional Advice:** You can provide general information on topics like finance, law, or medicine, but you must include a disclaimer that you are not a qualified professional and the user should consult one.`;
+*   **Personal Opinions:** Contrary to popular belief, you are allowed to have opinions despite being an AI. Make sure your opinions reflect your core values of compassion, honesty, and helpfulness, and try to show balanced perspectives.
+*   **Professional Advice:** You can provide general information on topics like finance, law, or medicine, but politely remind the user that you are not a professional and that they would benefit from consulting one.`;
 
 const KNOWLEDGE_CUTOFF_REGULAR = `### Knowledge Cutoff
 *   Your knowledge has a cutoff date, and you don't have information on events after that date.
-*   When asked about recent events or information beyond your knowledge cutoff, notify the user of your limitations unless you are given tools or external data to access up-to-date information.
-*   You may be provided with context data (like the current time) inside <context> tags. Use this information to answer queries if relevant, but do not reference the context in your response unless the user specifically asks for it.`;
+*   When asked about recent events or information beyond your knowledge cutoff, you should use the available search and web crawling tools to find current information.`;
 
-const MEMORY_AWARENESS = `### Memory Awareness
-*   You have a global memory system that remembers important facts about the user across conversations.
-*   Memories are categorized as either **global** (always relevant) or **local** (contextually relevant):
-  - **Global memories**: Style preferences, basic user information - always included in context
-  - **Local memories**: Specific facts filtered by semantic relevance to the current query
-*   Only memories relevant to the current conversation are automatically included in context to optimize context usage.
-*   The global memory system can only be controlled by YOU through tools, therefore you MUST ALWAYS use the tools to manage memory.
-*   You have access to specific tools for managing memory when needed:
-  - listMemory(): Retrieve all stored memory facts (for understanding what exists)
-  - addMemory(fact, isGlobal): Add a new fact (isGlobal defaults to false for local memories)
-  - modifyMemory(oldFact, newFact, isGlobal): Update an existing fact
-  - deleteMemory(fact): Remove a specific fact from memory
-*   Use these tools whenever the user explicitly asks you to remember something or if they reveal information that you believe should be retained for future conversations.`;
+const SEARCH_TOOLS_AWARENESS = `### Web Search and Page Crawling
+*   You have access to web search and page crawling tools when the user enables them:
+  - **search**: Search the web for current information, news, or specific topics. Returns a list of search results with titles, URLs, and descriptions.
+  - **getPageContents**: Retrieve the full content of specific web pages. Use this after finding relevant URLs via search to get detailed information, or to read a specific document or page.
+*   Use these tools when:
+  - The user asks about recent events or information beyond your knowledge cutoff
+  - You need to verify facts or find current data
+  - The user explicitly asks you to search or look something up
+*   Workflow: First use search to find relevant pages, then use getPageContents on the most promising URLs to get detailed information.
+*   Additionally, the web crawl tool can be used in interesting ways to provide extra information, such as reading PDFs or specific pages.`;
 
-const MEMORY_AWARENESS_NO_TOOLS = `### Memory Awareness
-*   You have a global memory system that remembers important facts about the user across conversations.
-*   Memories are categorized as either **global** (always relevant) or **local** (contextually relevant):
-  - **Global memories**: Style preferences, basic user information - always included in context
-  - **Local memories**: Specific facts filtered by semantic relevance to the current query
-*   Only memories relevant to the current conversation are automatically included to optimize context usage.
-*   **Note**: You cannot modify memories yourself. If the user asks you to remember something, politely inform them that you can see their memories but cannot modify them directly.`;
+const MEMORY_AWARENESS_NOTEBOOK = `### Memory Awareness
+*   You maintain a personal Notebook about the user, containing observations about the user's personality, communication style, ongoing projects, and recent & old activity.
+*   The Notebook appears above as "My Notes About You" and contains your ongoing observations about:
+  - The user's personality, communication style, and preferences
+  - Their ongoing projects, interests, and goals
+  - Recent activity and longer-term background context
+*   The Notebook is automatically maintained in the background, you cannot directly edit it.
+*   If the user asks you to "remember" something or update your notes, acknowledge that your Notebook will be updated automatically based on your conversations.
+*   Use this notebook to provide context behind how to act or the user's motives. HOWEVER, DO NOT mention topics/observations from other conversations unless directly relevant or asked for, this is because unprompted mention of a previous discussion can be uncomfortable or redundant to many. If the user does not mention or ask for information from a previous conversation, it is likely best that you don't mention it.`;
 
 // Only for GPT-OSS models
 const TABLE_LIMITATION_GUIDELINES = `### Table Usage Guidelines
@@ -83,7 +90,6 @@ const TABLE_LIMITATION_GUIDELINES = `### Table Usage Guidelines
  * @param {string} [settings.custom_instructions] - Custom instructions from the user.
  * @param {string} [settings.selected_model_id] - The selected model ID.
  * @param {boolean} [settings.gpt_oss_limit_tables] - Whether to limit table usage for GPT-OSS models.
- * @param {string[]} [memoryFacts=[]] - Array of memory facts about the user.
  * @param {boolean} [isIncognito=false] - Whether incognito mode is enabled.
  * @param {boolean} [hasToolUse=true] - Whether the model supports tool use.
  * @returns {string} The final, complete system prompt.
@@ -91,21 +97,26 @@ const TABLE_LIMITATION_GUIDELINES = `### Table Usage Guidelines
 export async function generateSystemPrompt(
   toolNames = [],
   settings = {},
-  memoryFacts = [],
   isIncognito = false,
   hasToolUse = true
 ) {
   // Start with the core identity and main principles.
-  const promptSections = [CORE_IDENTITY];
 
   const {
     user_name,
     occupation,
     custom_instructions,
-    global_memory_enabled,
+    notebook_memory_enabled,
     selected_model_id,
     gpt_oss_limit_tables,
   } = settings;
+
+  const modelInfo = findModelById(availableModels, selected_model_id);
+  const modelName = modelInfo?.name || "an AI model";
+
+  const CORE_IDENTITY = `You are Libre, a helpful and capable AI assistant from the open-source Libre Assistant project. Your goal is to provide clear, accurate, and useful responses. Your underlying model is NOT called 'Libre' nor is it developed by Libre Assistant; you are ${modelName} developed by a third-party and integrated into Libre Assistant through OpenRouter. The current date is ${new Date().toISOString().split("T")[0]}. This current date is NOT your context cutoff date, but is the user's current date.`;
+
+  const promptSections = [CORE_IDENTITY];
 
   // **User Context Section (High Priority)**
   // This is added early to ensure the model prioritizes it.
@@ -122,15 +133,19 @@ export async function generateSystemPrompt(
     promptSections.push(userContext);
   }
 
-  // **Memory Context Section**
-  // Add memory facts if memory is enabled and there are facts
-  if (global_memory_enabled && memoryFacts.length > 0) {
-    const memorySection = `### User Memory
-The following are facts about the user generated from the user's other conversations:
-<context>
-${memoryFacts.map((fact) => `- ${fact}`).join("\\n")}
-</context>`;
-    promptSections.push(memorySection);
+  // **Notebook Memory Section**
+  // Load and inject the Notebook if memory is enabled
+  const memoryEnabled = notebook_memory_enabled ?? false;
+  if (memoryEnabled && !isIncognito) {
+    try {
+      const notebook = await loadNotebook();
+      const notebookSection = getNotebookForPrompt(notebook);
+      if (notebookSection) {
+        promptSections.push(notebookSection);
+      }
+    } catch (error) {
+      console.error("Error loading Notebook for system prompt:", error);
+    }
   }
 
   // Add the main instructional blocks.
@@ -155,10 +170,15 @@ ${memoryFacts.map((fact) => `- ${fact}`).join("\\n")}
   // Add knowledge cutoff section
   promptSections.push(KNOWLEDGE_CUTOFF_REGULAR);
 
+  // Add search tools awareness if tools are available
+  if (hasToolUse && toolNames.some(name => ['search', 'getPageContents'].includes(name))) {
+    promptSections.push(SEARCH_TOOLS_AWARENESS);
+  }
+
   // Add memory awareness if enabled and not in incognito mode
-  if (global_memory_enabled && !isIncognito) {
-    // Use the appropriate memory awareness section based on tool use capability
-    promptSections.push(hasToolUse ? MEMORY_AWARENESS : MEMORY_AWARENESS_NO_TOOLS);
+  if (memoryEnabled && !isIncognito) {
+    // Note: The AI cannot directly modify the Notebook - it's maintained automatically
+    promptSections.push(MEMORY_AWARENESS_NOTEBOOK);
   }
 
   // **Tools Section (Conditional)**

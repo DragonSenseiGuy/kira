@@ -4,14 +4,11 @@ import localforage from 'localforage';
 import { createConversation as createNewConversation, storeMessages, deleteConversation as deleteConv, updateBranchPath, loadConversation } from './storeConversations';
 import { handleIncomingMessage } from './message';
 import { availableModels, findModelById, normalizeReasoningConfig, getDefaultReasoningEffort } from './availableModels';
-import { useModels } from './useModels';
-import { addMemory, modifyMemory, deleteMemory } from './memory';
 import DEFAULT_PARAMETERS from './defaultParameters';
 import { useSettings } from './useSettings';
 import { useGlobalIncognito } from './useGlobalIncognito';
 import { emitter } from './emitter';
 import { PartsBuilder, TimingTracker } from './partsBuilder';
-import { useRateLimiter } from './rateLimiter';
 import {
   getMessagesForBranchPath,
   createBranch,
@@ -46,7 +43,6 @@ export function useMessagesManager(chatPanel) {
   const isTyping = ref(false);
   const chatLoading = ref(false);
 
-
   // Computed properties
   const visibleMessages = computed(() => {
     if (isIncognito.value) return messages.value;
@@ -67,15 +63,13 @@ export function useMessagesManager(chatPanel) {
     }
   };
 
-  // Handle conversation deletion - navigate to new conversation when current one is deleted
+  // Handle conversation deletion
   const handleConversationDeleted = ({ conversationId }) => {
     if (currConvo.value === conversationId && !isIncognito.value) {
-      // Clear current conversation state (if not already cleared by deleteConversation)
       currConvo.value = '';
       messages.value = [];
       conversationTitle.value = '';
       branchPath.value = [];
-      // Navigate to new conversation
       router.push('/');
     }
   };
@@ -90,14 +84,13 @@ export function useMessagesManager(chatPanel) {
     emitter.off('conversationDeleted', handleConversationDeleted);
   });
 
-  // Method to update chat panel reference (for dynamic pages)
+  // Method to update chat panel reference
   function setChatPanel(newChatPanel) {
     chatPanel.value = newChatPanel;
   }
 
   /**
    * Generates a unique ID for messages
-   * @returns {string} Unique ID
    */
   function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
@@ -105,13 +98,10 @@ export function useMessagesManager(chatPanel) {
 
   /**
    * Adds a user message to the messages array
-   * @param {string} content - The user's message content
-   * @param {Array} attachments - Optional array of file attachments
    */
   function addUserMessage(content, attachments = []) {
     if (!content.trim() && attachments.length === 0) return;
 
-    // Determine parent message (the last message in the currently visible branch)
     const parentId = visibleMessages.value.length > 0
       ? visibleMessages.value[visibleMessages.value.length - 1].id
       : null;
@@ -130,12 +120,11 @@ export function useMessagesManager(chatPanel) {
       timestamp: new Date(),
       complete: true,
       parentId: parentId,
-      branchIndex: 0 // Default to first branch when adding a new message
+      branchIndex: 0
     };
 
     messages.value.push(userMessage);
 
-    // If not in incognito, update branch path to include this new message if needed
     if (!isIncognito.value) {
       branchPath.value = calculateBranchPath(messages.value, userMessage.id);
     }
@@ -143,10 +132,8 @@ export function useMessagesManager(chatPanel) {
 
   /**
    * Creates a new assistant message and adds it to the messages array
-   * @returns {Object} The created assistant message object
    */
   function createAssistantMessage() {
-    // Determine parent message (the last message in the currently visible branch)
     const parentId = visibleMessages.value.length > 0
       ? visibleMessages.value[visibleMessages.value.length - 1].id
       : null;
@@ -157,24 +144,23 @@ export function useMessagesManager(chatPanel) {
       reasoning: "",
       content: "",
       tool_calls: [],
+      parts: [], // Structured parts: reasoning, content, tool_group, image
       timestamp: new Date(),
       complete: false,
       parentId: parentId,
       branchIndex: 0,
-      // New timing properties
-      apiCallTime: new Date(), // Time when the API was called
-      firstTokenTime: null,    // Time when the first token was received
-      completionTime: null,    // Time when the message was completed
-      // Token counting - now using actual counts from OpenRouter API
-      tokenCount: 0,           // Completion tokens (generated tokens)
-      totalTokens: 0,          // Total tokens (prompt + completion)
-      promptTokens: 0,         // Prompt tokens (input tokens)
+      apiCallTime: new Date(),
+      firstTokenTime: null,
+      completionTime: null,
+      tokenCount: 0,
+      totalTokens: 0,
+      promptTokens: 0,
       reasoningStartTime: null,
       reasoningEndTime: null,
       reasoningDuration: null,
       error: false,
       errorDetails: null,
-      annotations: null  // For PDF parsing reuse
+      annotations: null
     };
 
     messages.value.push(assistantMsg);
@@ -183,70 +169,45 @@ export function useMessagesManager(chatPanel) {
 
   /**
    * Updates an assistant message with new content
-   * @param {Object} message - The message to update
-   * @param {Object} updates - The updates to apply
    */
   function updateAssistantMessage(message, updates) {
     const index = messages.value.findIndex(m => m.id === message.id);
     if (index !== -1) {
-      // Update the local object too, to keep it in sync with the array
       Object.assign(message, updates);
-      // Use Vue's array mutation method to ensure reactivity
       messages.value.splice(index, 1, { ...messages.value[index], ...updates });
     }
   }
 
   /**
    * Sends a message to the AI and handles the response
-   * @param {string} message - The user's message
-   * @param {string} originalMessage - The original user message (before any reasoning prepends)
-   * @param {Array} attachments - Optional array of file attachments
-   * @param {Object} options - Optional settings
-   * @param {boolean} options.skipUserMessage - If true, don't add user message (already exists in messages array)
-   * @param {string} options.parentId - Optional explicit parent ID for the assistant message
    */
-  async function sendMessage(message, originalMessage = null, attachments = [], options = {}) {
+  async function sendMessage(message, originalMessage = null, attachments = [], searchEnabled = false, options = {}) {
     const { skipUserMessage = false, parentId: explicitParentId = null } = options;
 
     if ((!message.trim() && attachments.length === 0) || isLoading.value) return;
 
-    // Check rate limit (only if not using custom API key)
+    // Check if API key is provided
     if (!settingsManager.settings.custom_api_key) {
-      const rateLimiter = useRateLimiter();
-      const selectedModelId = settingsManager.settings.selected_model_id;
-      const limitCheck = rateLimiter.checkLimit(selectedModelId);
-
-      if (!limitCheck.canSend) {
-        // Create a temporary message to show the rate limit error
-        const tempAssistantMsg = createAssistantMessage();
-        updateAssistantMessage(tempAssistantMsg, {
-          content: `⚠️ **Rate Limit Reached**\n\n${limitCheck.error}\n\nYou can add your own Hack Club API key in Settings → General to bypass rate limits.`,
-          complete: true,
-          error: true,
-          errorDetails: { name: 'RateLimitError', message: limitCheck.error }
-        });
-        return;
-      }
-
-      // Record the request
-      rateLimiter.recordRequest(selectedModelId);
+      const tempAssistantMsg = createAssistantMessage();
+      updateAssistantMessage(tempAssistantMsg, {
+        content: `⚠️ **API Key Required**\n\nPlease add your own API key in Settings → General to use models.`,
+        complete: true,
+        error: true,
+        errorDetails: { name: 'APIKeyRequired', message: 'API key is required to use models' }
+      });
+      return;
     }
 
     controller.value = new AbortController();
     isLoading.value = true;
     isTyping.value = false;
 
-    // Add user message using the original message (without /no_think prepended)
-    // Skip if the message was already added (e.g., for initial messages from createNewConversationWithMessage)
     const messageToStore = originalMessage !== null ? originalMessage : message;
     if (!skipUserMessage) {
       addUserMessage(messageToStore, attachments);
     }
 
-    // Create assistant message
     const assistantMsg = createAssistantMessage();
-
-    // If explicit parent was provided, override the default parent
     if (explicitParentId) {
       assistantMsg.parentId = explicitParentId;
     }
@@ -261,7 +222,6 @@ export function useMessagesManager(chatPanel) {
     }
 
     await nextTick();
-    // Use requestAnimationFrame for more reliable scrolling
     requestAnimationFrame(() => {
       chatPanel?.value?.scrollToEnd("smooth");
     });
@@ -300,24 +260,18 @@ export function useMessagesManager(chatPanel) {
       }
     };
 
-    // Initialize parts builder and timing tracker (outside try so they're accessible in finally)
+    // Initialize parts builder and timing tracker
     const partsBuilder = new PartsBuilder();
     const timing = new TimingTracker(assistantMsg);
 
+    // Track tool calls and their results
+    let currentToolCalls = [];
+    let hasExecutedTools = false;
+
     try {
-      // Build conversation history for the API.
-      // CRITICAL: History must NOT include the current user message - handleIncomingMessage adds it.
-      // 
-      // For normal messages: visibleMessages = [...history, userMsg we just added, assistantMsg]
-      // For edits/regenerates: visibleMessages = [...history, existing userMsg, assistantMsg]
-      //
-      // In both cases, we need history WITHOUT the user message for this turn
-      // because handleIncomingMessage will add the user message from the `message` param.
-      
+      // Build conversation history for the API
       const historyForAPI = visibleMessages.value.filter(msg => {
-        // Exclude incomplete messages (the assistant placeholder we just created)
         if (!msg.complete) return false;
-        // Exclude the current user message - it's always the last user message in visibleMessages
         if (msg.role === 'user') {
           const lastUserMsg = [...visibleMessages.value].reverse().find(m => m.role === 'user');
           if (lastUserMsg && msg.id === lastUserMsg.id) return false;
@@ -333,28 +287,18 @@ export function useMessagesManager(chatPanel) {
         model_parameters,
         settingsManager.settings,
         selectedModelDetails.extra_functions || [],
-        settingsManager.settings.parameter_config?.grounding ?? DEFAULT_PARAMETERS.grounding,
+        searchEnabled,
         isIncognito.value,
         attachments
       );
 
-      // Helper to update message with Vue reactivity
-      const updateMessageReactivity = () => {
-        const updatedMsg = {
-          ...assistantMsg,
-          parts: partsBuilder.toReactiveArray(),
-          tool_calls: partsBuilder.getAllTools(),
-        };
-        messages.value.splice(messages.value.length - 1, 1, updatedMsg);
-      };
-
-      // RAF batching: schedule ONE UI update per frame instead of per chunk
+      // RAF batching for UI updates
       let rafScheduled = false;
       const scheduleUIUpdate = () => {
         if (!rafScheduled) {
           rafScheduled = true;
           requestAnimationFrame(() => {
-            updateMessageReactivity();
+            syncAssistantMessage(assistantMsg, partsBuilder);
             if (chatPanel?.value?.isAtBottom) {
               chatPanel.value.scrollToEnd("smooth");
             }
@@ -364,8 +308,8 @@ export function useMessagesManager(chatPanel) {
       };
 
       for await (const chunk of streamGenerator) {
-        // Process content (fast accumulation, no Vue updates)
-        if (chunk.content) {
+        // Process content - skip if this is the final complete chunk (content already accumulated)
+        if (chunk.content && !chunk.complete) {
           partsBuilder.appendContent(chunk.content);
           assistantMsg.content = (assistantMsg.content || '') + chunk.content;
           timing.markFirstToken();
@@ -379,17 +323,14 @@ export function useMessagesManager(chatPanel) {
           }
         }
 
-        // Process reasoning
-        if (chunk.reasoning && chunk.reasoning.trim() !== 'None') {
+        // Process reasoning - skip if this is the final complete chunk (reasoning already accumulated)
+        if (chunk.reasoning && chunk.reasoning.trim() !== 'None' && !chunk.complete) {
           partsBuilder.appendReasoning(chunk.reasoning);
-
-          // Update legacy reasoning field
           if (assistantMsg.reasoning.trim() === '' && chunk.reasoning.trim() !== '') {
             assistantMsg.reasoning = chunk.reasoning;
           } else {
             assistantMsg.reasoning += chunk.reasoning;
           }
-
           timing.markFirstToken();
           timing.startReasoning();
         }
@@ -399,15 +340,34 @@ export function useMessagesManager(chatPanel) {
           for (const tool of chunk.tool_calls) {
             const toolType = tool.type || 'function';
             partsBuilder.addOrUpdateTool(toolType, tool);
+            
+            // Track tool calls
+            if (tool.id && !currentToolCalls.find(tc => tc.id === tool.id)) {
+              currentToolCalls.push({
+                id: tool.id,
+                type: toolType,
+                function: {
+                  name: tool.function?.name || '',
+                  arguments: tool.function?.arguments || ''
+                }
+              });
+            }
           }
         }
 
         // Process tool results
         if (chunk.tool_result) {
           partsBuilder.setToolResult(chunk.tool_result.id, chunk.tool_result.result);
+          hasExecutedTools = true;
+          
+          // Update currentToolCalls with results
+          const toolCall = currentToolCalls.find(tc => tc.id === chunk.tool_result.id);
+          if (toolCall) {
+            toolCall.result = chunk.tool_result.result;
+          }
         }
 
-        // Process usage information from OpenRouter
+        // Process usage
         if (chunk.usage) {
           if (chunk.usage.completion_tokens !== undefined) {
             assistantMsg.tokenCount = chunk.usage.completion_tokens;
@@ -420,123 +380,61 @@ export function useMessagesManager(chatPanel) {
           }
         }
 
-        // Process annotations from OpenRouter (for PDF reuse)
+        // Process annotations
         if (chunk.annotations) {
           assistantMsg.annotations = chunk.annotations;
         }
 
-        // Process errors from the stream
+        // Process errors
         if (chunk.error && chunk.errorDetails) {
           assistantMsg.error = true;
           assistantMsg.errorDetails = chunk.errorDetails;
         }
 
-        // Schedule batched UI update (will run once per frame, not per chunk)
+        // Schedule UI update
         scheduleUIUpdate();
       }
 
-      // Store final parts on assistantMsg for persistence (BEFORE final UI update)
-      assistantMsg.parts = partsBuilder.toArray();
-      assistantMsg.tool_calls = partsBuilder.getAllTools();
-
-      // Final flush after stream completes to ensure all content is rendered
-      updateMessageReactivity();
+      // Final sync
+      syncAssistantMessage(assistantMsg, partsBuilder, true);
 
     } catch (error) {
       console.error('Error in stream processing:', error);
-      // Capture error details for UI display
       assistantMsg.error = true;
       assistantMsg.errorDetails = {
         name: error.name || 'Error',
         message: error.message || 'An unexpected error occurred'
       };
     } finally {
+      // Ensure parts are stored from partsBuilder
+      syncAssistantMessage(assistantMsg, partsBuilder, true);
 
-      // Ensure parts are stored from partsBuilder (in case of early error)
-      if (!assistantMsg.parts || assistantMsg.parts.length === 0) {
-        assistantMsg.parts = partsBuilder.toArray();
-        assistantMsg.tool_calls = partsBuilder.getAllTools();
-      }
-
-      // Discard reasoning that is entirely whitespace
+      // Discard empty reasoning
       if (assistantMsg.reasoning?.trim() === '') {
         assistantMsg.reasoning = '';
       }
 
-      // If there are images but no content part, add content part at the beginning
-      if (partsBuilder.hasImagePart() && !partsBuilder.hasContentPart() && assistantMsg.content) {
-        partsBuilder.ensureContentPartFirst(assistantMsg.content);
-        assistantMsg.parts = partsBuilder.toArray();
-      } else {
-        // Final sync of parts to assistantMsg before completing
-        assistantMsg.parts = partsBuilder.toArray();
-        assistantMsg.tool_calls = partsBuilder.getAllTools();
-      }
-
-      // Mark message as complete and set completion time
+      // Mark message as complete
       const finalUpdates = {
         complete: true,
         completionTime: new Date(),
-        reasoningDuration: timing.calculateReasoningDuration()
+        reasoningDuration: timing.calculateReasoningDuration(),
+        tool_calls: currentToolCalls
       };
 
-      // Update local object so RAF doesn't overwrite with stale 'complete: false'
       Object.assign(assistantMsg, finalUpdates);
       updateAssistantMessage(assistantMsg, finalUpdates);
 
-      // Process any memory commands from the completed message content
-      if (assistantMsg.content) {
-        // Look for memory command patterns in the content
-        const memoryCommandPattern = /\{[^}]*"memory_action"[^}]*\}/g;
-        const matches = assistantMsg.content.match(memoryCommandPattern);
-
-        if (matches) {
-          for (const match of matches) {
-            try {
-              const command = JSON.parse(match);
-              if (command.memory_action) {
-                switch (command.memory_action) {
-                  case 'add':
-                    if (command.fact) {
-                      await addMemory(command.fact);
-                    }
-                    break;
-                  case 'modify':
-                    if (command.old_fact && command.new_fact) {
-                      await modifyMemory(command.old_fact, command.new_fact);
-                    }
-                    break;
-                  case 'delete':
-                    if (command.fact) {
-                      await deleteMemory(command.fact);
-                    }
-                    break;
-                  case 'list':
-                    // list action doesn't require processing here,
-                    // since the facts are already available in context
-                    break;
-                  default:
-                    console.log(`Unknown memory action: ${command.memory_action}`);
-                }
-              }
-            } catch (error) {
-              console.error(`Error parsing memory command: ${match}`, error);
-            }
-          }
-        }
-      }
-
-      // Handle error display - show errors even if there's partial content
+      // Handle error display
       if (assistantMsg.error && assistantMsg.errorDetails) {
         const errorSuffix = `\n\n---\n⚠️ **Error:** ${assistantMsg.errorDetails.message}` +
           (assistantMsg.errorDetails.status ? ` (HTTP ${assistantMsg.errorDetails.status})` : '');
-
-        // IMPORTANT: Also update partsBuilder so the UI/parts array stays in sync with content string
+        
         partsBuilder.appendContent(errorSuffix);
-
+        
         const errorUpdates = {
           content: assistantMsg.content + errorSuffix,
-          parts: partsBuilder.toArray(),
+          parts: partsBuilder.getParts(),
           error: true,
           errorDetails: assistantMsg.errorDetails
         };
@@ -554,19 +452,37 @@ export function useMessagesManager(chatPanel) {
     }
   }
 
+  /**
+   * Sync assistant message with parts builder state
+   */
+  function syncAssistantMessage(message, partsBuilder, finalize = false) {
+    if (finalize) {
+      partsBuilder.finalizeContent();
+      partsBuilder.finalizeReasoning();
+    }
+    
+    const newParts = partsBuilder.getParts();
+    const newTools = partsBuilder.getAllTools();
+    
+    message.parts = newParts;
+    message.tool_calls = newTools;
+    
+    // Update the message in the array
+    const index = messages.value.findIndex(m => m.id === message.id);
+    if (index !== -1) {
+      messages.value.splice(index, 1, { ...messages.value[index], parts: newParts, tool_calls: newTools });
+    }
+  }
 
   /**
    * Changes the current conversation
-   * @param {string} id - Conversation ID to load
    */
   async function changeConversation(id) {
-    if (isIncognito.value) {
-      return;
-    }
+    if (isIncognito.value) return;
 
     chatLoading.value = true;
     messages.value = [];
-    branchPath.value = []; // Reset branch path
+    branchPath.value = [];
     currConvo.value = id;
 
     const conv = await loadConversation(id);
@@ -581,7 +497,7 @@ export function useMessagesManager(chatPanel) {
             reasoningStartTime: msg.reasoningStartTime ? new Date(msg.reasoningStartTime) : null,
             reasoningEndTime: msg.reasoningEndTime ? new Date(msg.reasoningEndTime) : null,
             tool_calls: msg.tool_calls || [],
-            // Initialize new token fields if they don't exist (for backward compatibility)
+            parts: msg.parts || [],
             tokenCount: msg.tokenCount || 0,
             totalTokens: msg.totalTokens || 0,
             promptTokens: msg.promptTokens || 0
@@ -590,9 +506,6 @@ export function useMessagesManager(chatPanel) {
         return msg;
       });
       branchPath.value = conv.branchPath || [];
-    } else {
-      messages.value = [];
-      branchPath.value = [];
     }
 
     conversationTitle.value = conv?.title || '';
@@ -601,15 +514,13 @@ export function useMessagesManager(chatPanel) {
 
   /**
    * Edits a user message and creates a new branch
-   * @param {string} messageId - The ID of the message to edit
-   * @param {string} newContent - The new content for the message
-   * @param {Array} attachments - Optional new attachments
    */
-  async function editUserMessage(messageId, newContent, attachments = []) {
+  async function editUserMessage(messageId, newContent, newAttachments = null) {
     const existingMsg = messages.value.find(m => m.id === messageId);
     if (!existingMsg) return;
 
-    // Create a branch from this message with new content
+    const attachments = newAttachments !== null ? newAttachments : (existingMsg.attachments || []);
+
     const branchResult = createBranch(messages.value, messageId, {
       role: "user",
       content: newContent,
@@ -620,32 +531,27 @@ export function useMessagesManager(chatPanel) {
     messages.value = branchResult.messages;
     branchPath.value = branchResult.branchPath;
 
-    // Persist changes
     if (!isIncognito.value) {
       await storeMessages(currConvo.value, toRaw(messages.value), new Date());
       await updateBranchPath(currConvo.value, [...toRaw(branchPath.value)]);
     }
 
-    // Trigger AI response for the new branch
-    await sendMessage(newContent, null, attachments, { skipUserMessage: true });
+    const searchEnabled = settingsManager.settings?.search_enabled ?? false;
+    await sendMessage(newContent, null, attachments, searchEnabled, { skipUserMessage: true });
   }
 
   /**
    * Regenerates an assistant message and creates a new branch
-   * @param {string} messageId - The assistant message to regenerate
    */
   async function regenerateAssistantMessage(messageId) {
     const assistantMsg = messages.value.find(m => m.id === messageId);
     if (!assistantMsg || assistantMsg.role !== 'assistant') return;
 
-    // Find the parent user message to get the prompt
     const userMsg = messages.value.find(m => m.id === assistantMsg.parentId);
     if (!userMsg) return;
 
-    // First, let's update the branch path to fork at this point
     const visibleChain = getMessagesForBranchPath(messages.value, branchPath.value);
 
-    // CreateBranch logic for the assistant message
     const branchResult = createBranch(messages.value, assistantMsg.id, {
       role: "assistant",
       content: "",
@@ -653,7 +559,6 @@ export function useMessagesManager(chatPanel) {
       timestamp: new Date()
     });
 
-    // Remove the placeholder message createBranch added, sendMessage will create its own
     const tempMsgId = branchResult.newMessage.id;
     messages.value = branchResult.messages.filter(m => m.id !== tempMsgId);
     branchPath.value = branchResult.branchPath;
@@ -662,8 +567,8 @@ export function useMessagesManager(chatPanel) {
       await updateBranchPath(currConvo.value, [...toRaw(branchPath.value)]);
     }
 
-    // Send the message using the parent user message's content
-    await sendMessage(userMsg.content, null, userMsg.attachments || [], {
+    const searchEnabled = settingsManager.settings?.search_enabled ?? false;
+    await sendMessage(userMsg.content, null, userMsg.attachments || [], searchEnabled, {
       skipUserMessage: true,
       parentId: userMsg.id
     });
@@ -671,15 +576,12 @@ export function useMessagesManager(chatPanel) {
 
   /**
    * Navigates to a different branch
-   * @param {string} messageId - The message ID at the fork
-   * @param {number} direction - -1 for previous, 1 for next
    */
   async function navigateBranch(messageId, direction) {
     const info = branchInfo.value.get(messageId);
     if (!info) return;
 
     const newIndex = (info.current + direction + info.total) % info.total;
-
     branchPath.value = switchBranch(branchPath.value, info.forkIndex, newIndex);
 
     if (!isIncognito.value) {
@@ -689,12 +591,9 @@ export function useMessagesManager(chatPanel) {
 
   /**
    * Deletes a conversation
-   * @param {string} id - Conversation ID to delete
    */
   async function deleteConversation(id) {
-    if (isIncognito.value) {
-      return;
-    }
+    if (isIncognito.value) return;
 
     await deleteConv(id);
     if (currConvo.value === id) {

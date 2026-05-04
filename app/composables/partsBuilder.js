@@ -1,314 +1,424 @@
 /**
  * PartsBuilder - Manages the structured parts array for assistant messages
  * 
- * Encapsulates all parts management logic:
- * - Creating and grouping parts (reasoning, content, tool_groups, images)
- * - Ensuring consecutive same-type parts are grouped correctly
- * - Providing a clean API for adding/updating content
- * 
- * Part Types:
- * - 'content': Text content { type: 'content', content: string }
- * - 'reasoning': Thinking/reasoning { type: 'reasoning', content: string }
- * - 'tool_group': Group of tools { type: 'tool_group', toolType: string, tools: array }
- * - 'image': Generated images { type: 'image', images: array }
+ * Design Principles:
+ * 1. IMMUTABILITY: All updates create new objects, never mutate existing ones
+ * 2. UUID-BASED: Each part has a unique ID for reliable tracking
+ * 3. APPEND-ONLY: Parts are only added, never replaced (except for content updates within a part)
+ * 4. CLEAR SEPARATION: Each part type gets its own part
+ * 5. TOOL TRACKING: Tools are tracked by their API index to handle streaming correctly
  */
-export class PartsBuilder {
-    constructor() {
-        this.parts = [];
-    }
 
-    /**
-     * Get the last part in the array
-     * @returns {Object|null} The last part or null if empty
-     */
-    getLastPart() {
-        return this.parts[this.parts.length - 1] || null;
-    }
-
-    /**
-     * Get or create a part of the specified type
-     * @param {string} type - Part type: 'content', 'reasoning', 'tool_group', 'image'
-     * @param {string|null} toolType - For tool_groups, the type of tools in this group
-     * @returns {Object} The existing or newly created part
-     */
-    getOrCreatePart(type, toolType = null) {
-        const lastPart = this.getLastPart();
-
-        if (type === 'tool_group') {
-            // Tool groups must match both type and toolType to be reused
-            if (lastPart?.type === 'tool_group' && lastPart.toolType === toolType) {
-                return lastPart;
-            }
-            const newPart = { type: 'tool_group', toolType, tools: [] };
-            this.parts.push(newPart);
-            return newPart;
-        }
-
-        if (type === 'image') {
-            // Consecutive images should be grouped together
-            if (lastPart?.type === 'image') {
-                return lastPart;
-            }
-            const newPart = { type: 'image', images: [] };
-            this.parts.push(newPart);
-            return newPart;
-        }
-
-        // For content and reasoning - reuse if same type
-        if (lastPart?.type === type) {
-            return lastPart;
-        }
-        const newPart = { type, content: '' };
-        this.parts.push(newPart);
-        return newPart;
-    }
-
-    /**
-     * Append text content to the current or new content part
-     * @param {string} text - Text to append
-     * @returns {Object} The content part that was updated
-     */
-    appendContent(text) {
-        if (!text) return null;
-        const part = this.getOrCreatePart('content');
-        part.content += text;
-        return part;
-    }
-
-    /**
-     * Append reasoning text, handling whitespace-only content properly
-     * @param {string} text - Reasoning text to append
-     * @returns {Object} The reasoning part that was updated
-     */
-    appendReasoning(text) {
-        if (!text || text.trim() === 'None') return null;
-
-        const part = this.getOrCreatePart('reasoning');
-
-        // If existing content is only whitespace and new text has content,
-        // replace instead of append to avoid leading whitespace
-        if (part.content.trim() === '' && text.trim() !== '') {
-            part.content = text;
-        } else {
-            part.content += text;
-        }
-        return part;
-    }
-
-    /**
-     * Add an image to the current or new image part
-     * @param {string} url - Image URL (can be base64 data URL)
-     * @param {string|null} revisedPrompt - Optional revised prompt from the model
-     * @returns {Object} The image part that was updated
-     */
-    addImage(url, revisedPrompt = null) {
-        if (!url) return null;
-        const part = this.getOrCreatePart('image');
-        part.images.push({
-            url,
-            revised_prompt: revisedPrompt
-        });
-        return part;
-    }
-
-    /**
-     * Process an image object from the API response
-     * Handles various image formats from different models
-     * @param {Object} image - Image object from API
-     * @returns {Object|null} The image part that was updated, or null if no valid URL
-     */
-    processImage(image) {
-        // Handle different image format variations
-        const url = image.image_url?.url || image.url;
-        const revisedPrompt = image.revised_prompt || null;
-
-        if (url) {
-            return this.addImage(url, revisedPrompt);
-        }
-        return null;
-    }
-
-    /**
-     * Add or update a tool in a tool group
-     * @param {string} toolType - Type of the tool (e.g., 'function')
-     * @param {Object} toolData - Tool data with index, id, type, function
-     * @returns {Object} The tool that was added or updated
-     */
-    addOrUpdateTool(toolType, toolData) {
-        const part = this.getOrCreatePart('tool_group', toolType);
-        const existingTool = part.tools.find(t => t.index === toolData.index);
-
-        if (existingTool) {
-            // Update existing tool with new data
-            if (toolData.function?.name) {
-                existingTool.function.name = toolData.function.name;
-            }
-            if (toolData.function?.arguments) {
-                existingTool.function.arguments += toolData.function.arguments;
-            }
-            if (toolData.id) {
-                existingTool.id = toolData.id;
-            }
-            if (toolData.type) {
-                existingTool.type = toolData.type;
-            }
-            return existingTool;
-        }
-
-        // Create new tool entry
-        const newTool = {
-            index: toolData.index,
-            id: toolData.id || null,
-            type: toolData.type || 'function',
-            function: {
-                name: toolData.function?.name || '',
-                arguments: toolData.function?.arguments || ''
-            }
-        };
-        part.tools.push(newTool);
-        return newTool;
-    }
-
-    /**
-     * Set the result for a tool by its ID
-     * @param {string} toolId - The tool's ID
-     * @param {any} result - The result to set
-     * @returns {boolean} True if tool was found and updated
-     */
-    setToolResult(toolId, result) {
-        for (const part of this.parts) {
-            if (part.type === 'tool_group') {
-                const tool = part.tools.find(t => t.id === toolId);
-                if (tool) {
-                    tool.result = result;
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Get all tools as a flat array (for backward compatibility with tool_calls)
-     * @returns {Array} Flat array of all tools
-     */
-    getAllTools() {
-        return this.parts
-            .filter(p => p.type === 'tool_group')
-            .flatMap(p => p.tools);
-    }
-
-    /**
-     * Check if any parts exist
-     * @returns {boolean} True if there are parts
-     */
-    hasParts() {
-        return this.parts.length > 0;
-    }
-
-    /**
-     * Check if a content part exists
-     * @returns {boolean} True if a content part exists
-     */
-    hasContentPart() {
-        return this.parts.some(p => p.type === 'content');
-    }
-
-    /**
-     * Check if an image part exists
-     * @returns {boolean} True if an image part exists
-     */
-    hasImagePart() {
-        return this.parts.some(p => p.type === 'image');
-    }
-
-    /**
-     * Add a content part at the beginning if needed (for image-only responses)
-     * @param {string} content - Content to add
-     */
-    ensureContentPartFirst(content) {
-        if (this.hasImagePart() && !this.hasContentPart() && content) {
-            this.parts.unshift({ type: 'content', content });
-        }
-    }
-
-    /**
-     * Get a shallow copy of the parts array
-     * @returns {Array} Shallow copy of parts
-     */
-    toArray() {
-        return [...this.parts];
-    }
-
-    /**
-     * Create a deep copy suitable for Vue reactivity updates
-     * This ensures Vue detects changes in nested objects
-     * @returns {Array} Deep copy of parts with new object references
-     */
-    toReactiveArray() {
-        return this.parts.map(part => {
-            if (part.type === 'tool_group') {
-                return { ...part, tools: [...part.tools] };
-            }
-            if (part.type === 'image') {
-                return { ...part, images: [...part.images] };
-            }
-            return { ...part };
-        });
-    }
+/**
+ * Generate a unique ID
+ */
+function generateId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**
- * TimingTracker - Tracks timing information for message streaming
- * 
- * Manages first token time, reasoning timing, and provides
- * a clean interface for timing-related updates.
+ * Deep clone an object
+ */
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+export class PartsBuilder {
+  constructor() {
+    this.parts = [];
+    this.partMap = new Map(); // Map of partId -> part
+    this.toolIndexToPartId = new Map(); // Map of apiIndex -> partId
+    this.toolIdToPartId = new Map(); // Map of toolId -> partId
+    this.completedToolIds = new Set(); // Set of tool IDs that have results
+    this.nextToolIndex = 0; // Global counter for tool indices
+  }
+
+  /**
+   * Mark a tool as completed (has received result)
+   */
+  markToolCompleted(toolId) {
+    if (toolId) {
+      this.completedToolIds.add(toolId);
+    }
+  }
+
+  /**
+   * Check if a tool is completed
+   */
+  isToolCompleted(toolId) {
+    return toolId ? this.completedToolIds.has(toolId) : false;
+  }
+
+  /**
+   * Get a snapshot of all parts (immutable copy)
+   */
+  getParts() {
+    return deepClone(this.parts);
+  }
+
+  /**
+   * Get all tools as a flat array (for backward compatibility)
+   */
+  getAllTools() {
+    return this.parts
+      .filter(p => p.type === 'tool_group')
+      .flatMap(p => p.tools);
+  }
+
+  /**
+   * Append text content
+   */
+  appendContent(text) {
+    if (!text) return this.getParts();
+    
+    const contentPart = this.parts.find(p => p.type === 'content' && !p._finalized);
+    
+    if (contentPart) {
+      const updatedPart = { ...contentPart, content: contentPart.content + text };
+      this._replacePart(contentPart._id, updatedPart);
+    } else {
+      this._addPart({
+        _id: generateId(),
+        type: 'content',
+        content: text,
+        _finalized: false
+      });
+    }
+    
+    return this.getParts();
+  }
+
+  /**
+   * Finalize the current content part
+   */
+  finalizeContent() {
+    const contentPart = this.parts.find(p => p.type === 'content' && !p._finalized);
+    if (contentPart) {
+      this._replacePart(contentPart._id, { ...contentPart, _finalized: true });
+    }
+    return this.getParts();
+  }
+
+  /**
+   * Append reasoning text
+   */
+  appendReasoning(text) {
+    if (!text || text.trim() === 'None') return this.getParts();
+    
+    const reasoningPart = this.parts.find(p => p.type === 'reasoning' && !p._finalized);
+    
+    if (reasoningPart) {
+      const updatedPart = { ...reasoningPart, content: reasoningPart.content + text };
+      this._replacePart(reasoningPart._id, updatedPart);
+    } else {
+      this._addPart({
+        _id: generateId(),
+        type: 'reasoning',
+        content: text,
+        _finalized: false
+      });
+    }
+    
+    return this.getParts();
+  }
+
+  /**
+   * Finalize the current reasoning part
+   */
+  finalizeReasoning() {
+    const reasoningPart = this.parts.find(p => p.type === 'reasoning' && !p._finalized);
+    if (reasoningPart) {
+      this._replacePart(reasoningPart._id, { ...reasoningPart, _finalized: true });
+    }
+    return this.getParts();
+  }
+
+  /**
+   * Add or update a tool
+   * 
+   * Logic:
+   * 1. Finalize any open content part (tools separate content segments)
+   * 2. If tool has an ID we've seen before -> update existing tool
+   * 3. If API index is mapped AND the mapped tool hasn't completed -> update that part
+   * 4. Otherwise -> create new tool part
+   * 
+   * This handles:
+   * - Streaming chunks for the same tool
+   * - Multiple tools in sequence
+   * - Different tool types in the same turn
+   * - Content before and after tools (e.g., content -> tool -> content)
+   */
+  addOrUpdateTool(toolType, toolData) {
+    // CRITICAL: Finalize any open content part before adding a tool
+    // This ensures content segments are properly separated by tool calls
+    // e.g., "reason -> search -> content -> crawl -> content" creates two separate content parts
+    this.finalizeContent();
+    
+    const apiIndex = toolData.index;
+    const toolId = toolData.id;
+    
+    // Case 1: Tool has an ID we've seen before - update it
+    if (toolId && this.toolIdToPartId.has(toolId)) {
+      const partId = this.toolIdToPartId.get(toolId);
+      const part = this.partMap.get(partId);
+      
+      if (part && part.type === 'tool_group') {
+        const tool = part.tools[0];
+        if (tool) {
+          const updatedTool = {
+            ...tool,
+            type: toolData.type || tool.type,
+            function: {
+              name: toolData.function?.name || tool.function.name,
+              arguments: tool.function.arguments + (toolData.function?.arguments || '')
+            }
+          };
+          
+          this._replacePart(partId, { ...part, tools: [updatedTool] });
+          return this.getParts();
+        }
+      }
+    }
+    
+    // Case 2: API index is mapped AND the tool hasn't completed yet - update existing
+    if (apiIndex !== undefined && this.toolIndexToPartId.has(apiIndex)) {
+      const partId = this.toolIndexToPartId.get(apiIndex);
+      const part = this.partMap.get(partId);
+      
+      if (part && part.type === 'tool_group') {
+        const tool = part.tools[0];
+        const isCompleted = tool?.id && this.completedToolIds.has(tool.id);
+        
+        // Only update if not completed
+        if (!isCompleted) {
+          const updatedTool = {
+            ...tool,
+            id: toolId || tool.id,
+            type: toolData.type || tool.type,
+            function: {
+              name: toolData.function?.name || tool.function.name,
+              arguments: tool.function.arguments + (toolData.function?.arguments || '')
+            }
+          };
+          
+          this._replacePart(partId, { ...part, tools: [updatedTool] });
+          
+          if (toolId) {
+            this.toolIdToPartId.set(toolId, partId);
+          }
+          return this.getParts();
+        }
+        // Tool has completed - this is a new tool with the same index (new iteration)
+        // Fall through to create new tool
+      }
+    }
+    
+    // Case 3: Create new tool part
+    const globalIndex = this.nextToolIndex++;
+    const newToolId = toolId || `tool-${globalIndex}`;
+    
+    const newPart = {
+      _id: generateId(),
+      type: 'tool_group',
+      toolType: toolType,
+      tools: [{
+        index: globalIndex,
+        id: newToolId,
+        type: toolData.type || 'function',
+        function: {
+          name: toolData.function?.name || '',
+          arguments: toolData.function?.arguments || ''
+        },
+        result: null
+      }]
+    };
+    
+    this._addPart(newPart);
+    this.toolIndexToPartId.set(apiIndex, newPart._id);
+    
+    if (toolId) {
+      this.toolIdToPartId.set(toolId, newPart._id);
+    }
+    
+    return this.getParts();
+  }
+
+  /**
+   * Set the result for a tool by its ID
+   */
+  setToolResult(toolId, result) {
+    const partId = this.toolIdToPartId.get(toolId);
+    
+    if (partId) {
+      const part = this.partMap.get(partId);
+      if (part && part.type === 'tool_group') {
+        const tool = part.tools[0];
+        if (tool && tool.id === toolId) {
+          const updatedTool = { ...tool, result };
+          this._replacePart(partId, { ...part, tools: [updatedTool] });
+          this.markToolCompleted(toolId);
+          return true;
+        }
+      }
+    }
+    
+    // Fallback: search all parts
+    for (const part of this.parts) {
+      if (part.type === 'tool_group') {
+        const tool = part.tools.find(t => t.id === toolId);
+        if (tool) {
+          const updatedTool = { ...tool, result };
+          this._replacePart(part._id, { ...part, tools: [updatedTool] });
+          this.markToolCompleted(toolId);
+          this.toolIdToPartId.set(toolId, part._id);
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Add an image
+   */
+  addImage(url, revisedPrompt = null) {
+    if (!url) return this.getParts();
+    
+    const imagePart = this.parts.find(p => p.type === 'image');
+    
+    if (imagePart) {
+      const updatedPart = {
+        ...imagePart,
+        images: [...imagePart.images, { url, revised_prompt: revisedPrompt }]
+      };
+      this._replacePart(imagePart._id, updatedPart);
+    } else {
+      this._addPart({
+        _id: generateId(),
+        type: 'image',
+        images: [{ url, revised_prompt: revisedPrompt }]
+      });
+    }
+    
+    return this.getParts();
+  }
+
+  /**
+   * Process image data from API
+   */
+  processImage(imageData) {
+    const url = imageData.image_url?.url || imageData.url;
+    const revisedPrompt = imageData.revised_prompt || null;
+    
+    if (url) {
+      return this.addImage(url, revisedPrompt);
+    }
+    return this.getParts();
+  }
+
+  /**
+   * Ensure content part exists at the beginning
+   */
+  ensureContentPartFirst(content) {
+    if (this.parts.some(p => p.type === 'content') || !content) {
+      return this.getParts();
+    }
+    
+    const newPart = {
+      _id: generateId(),
+      type: 'content',
+      content: content,
+      _finalized: true
+    };
+    
+    this.parts = [newPart, ...this.parts];
+    this.partMap.set(newPart._id, newPart);
+    
+    return this.getParts();
+  }
+
+  /**
+   * Internal: Add a part
+   */
+  _addPart(part) {
+    this.parts = [...this.parts, part];
+    this.partMap.set(part._id, part);
+  }
+
+  /**
+   * Internal: Replace a part
+   */
+  _replacePart(partId, newPart) {
+    const index = this.parts.findIndex(p => p._id === partId);
+    if (index === -1) return;
+    
+    this.parts = [
+      ...this.parts.slice(0, index),
+      newPart,
+      ...this.parts.slice(index + 1)
+    ];
+    
+    this.partMap.set(partId, newPart);
+  }
+
+  /**
+   * Check if parts exist
+   */
+  hasParts() {
+    return this.parts.length > 0;
+  }
+
+  hasContentPart() {
+    return this.parts.some(p => p.type === 'content');
+  }
+
+  hasImagePart() {
+    return this.parts.some(p => p.type === 'image');
+  }
+
+  /**
+   * Create a reactive-ready copy for Vue
+   */
+  toReactiveArray() {
+    return this.parts.map(part => deepClone(part));
+  }
+}
+
+/**
+ * TimingTracker - Tracks timing information
  */
 export class TimingTracker {
-    constructor(message) {
-        this.message = message;
-        this.firstTokenReceived = false;
-    }
+  constructor(message) {
+    this.message = message;
+    this.firstTokenReceived = false;
+  }
 
-    /**
-     * Mark that the first token has been received
-     */
-    markFirstToken() {
-        if (!this.firstTokenReceived) {
-            this.message.firstTokenTime = new Date();
-            this.firstTokenReceived = true;
-        }
+  markFirstToken() {
+    if (!this.firstTokenReceived) {
+      this.message.firstTokenTime = new Date();
+      this.firstTokenReceived = true;
     }
+  }
 
-    /**
-     * Start reasoning timing if not already started
-     */
-    startReasoning() {
-        if (this.message.reasoningStartTime === null) {
-            this.message.reasoningStartTime = new Date();
-        }
+  startReasoning() {
+    if (this.message.reasoningStartTime === null) {
+      this.message.reasoningStartTime = new Date();
     }
+  }
 
-    /**
-     * End reasoning timing (called when content starts)
-     */
-    endReasoning() {
-        if (this.message.reasoningStartTime !== null &&
-            this.message.reasoningEndTime === null) {
-            this.message.reasoningEndTime = new Date();
-        }
+  endReasoning() {
+    if (this.message.reasoningStartTime !== null &&
+        this.message.reasoningEndTime === null) {
+      this.message.reasoningEndTime = new Date();
     }
+  }
 
-    /**
-     * Calculate the reasoning duration
-     * @returns {number|null} Duration in milliseconds or null
-     */
-    calculateReasoningDuration() {
-        if (this.message.reasoningStartTime === null) {
-            return null;
-        }
-
-        const endTime = this.message.reasoningEndTime || new Date();
-        return endTime.getTime() - this.message.reasoningStartTime.getTime();
+  calculateReasoningDuration() {
+    if (this.message.reasoningStartTime === null) {
+      return null;
     }
+    const endTime = this.message.reasoningEndTime || new Date();
+    return endTime.getTime() - this.message.reasoningStartTime.getTime();
+  }
 }

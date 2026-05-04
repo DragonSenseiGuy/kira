@@ -44,21 +44,6 @@
           </div>
         </div>
 
-        <!-- Middleware Section -->
-        <div class="settings-group middleware-section">
-          <h3 class="section-title">Middleware</h3>
-          <div v-for="param in middlewareParameters" :key="param.name" class="setting-item"
-            @mouseenter="showTooltip($event, param.description)" @mouseleave="hideTooltip">
-            <div class="setting-header">
-              <label class="setting-label">{{ param.label }}</label>
-              <div class="switch-container">
-                <SwitchRoot class="switch-root" :modelValue="param.value.value" @update:modelValue="param.inputHandler">
-                  <SwitchThumb class="switch-thumb" />
-                </SwitchRoot>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -67,7 +52,7 @@
 <script setup>
 import { computed, watch, ref, onMounted, onUnmounted } from "vue";
 import { Icon } from "@iconify/vue";
-import { SliderRoot, SliderTrack, SliderRange, SliderThumb, SwitchRoot, SwitchThumb } from "reka-ui";
+import { SliderRoot, SliderTrack, SliderRange, SliderThumb } from "reka-ui";
 import DEFAULT_PARAMETERS from '@/composables/defaultParameters';
 
 const props = defineProps({
@@ -185,6 +170,11 @@ function handleTopPChange(value) {
   topP.value = value[0];
 }
 
+function handleMaxTokensChange(value) {
+  // Extract the first value from the array
+  maxTokens.value = value[0];
+}
+
 const seed = computed({
   get: () => {
     if (!props.settingsManager?.settings?.parameter_config) return DEFAULT_PARAMETERS.seed;
@@ -203,6 +193,26 @@ const seed = computed({
     }
   }
 });
+
+const maxTokens = computed({
+  get: () => {
+    if (!props.settingsManager?.settings?.parameter_config) return DEFAULT_PARAMETERS.max_tokens;
+    return props.settingsManager.settings.parameter_config.max_tokens ?? DEFAULT_PARAMETERS.max_tokens;
+  },
+  set: (value) => {
+    if (props.settingsManager) {
+      // Ensure parameter_config exists
+      if (!props.settingsManager.settings.parameter_config) {
+        props.settingsManager.settings.parameter_config = { ...DEFAULT_PARAMETERS };
+      }
+
+      // Update the specific parameter
+      props.settingsManager.settings.parameter_config.max_tokens = value;
+      saveSettings();
+    }
+  }
+});
+
 
 // Watch for changes in parameter config and save settings
 watch(
@@ -269,6 +279,18 @@ const parameters = [
     sliderHandler: handleTopPChange
   },
   {
+    name: 'max_tokens',
+    label: 'Max Tokens',
+    type: 'slider',
+    value: maxTokens,
+    min: 256,
+    max: 65536,
+    step: 256,
+    description: 'Maximum number of tokens to generate. Lower values help when you have limited API credits.',
+    inputHandler: (e) => maxTokens.value = parseInt(e.target.value),
+    sliderHandler: handleMaxTokensChange
+  },
+  {
     name: 'seed',
     label: 'Seed',
     type: 'seed',
@@ -277,9 +299,6 @@ const parameters = [
     inputHandler: (e) => seed.value = e.target.value ? parseInt(e.target.value) : null
   }
 ];
-
-// Middleware parameters
-const middlewareParameters = [];
 </script>
 
 <style scoped>

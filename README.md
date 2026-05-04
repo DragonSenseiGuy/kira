@@ -5,17 +5,17 @@ Kira does **not** sell or store user information, and all chat & user data is st
 
 ## Features
 
-- All data is stored locally on your device. No data is stored on the internet.
-- Full Markdown & LaTeX Support.
+- All data is stored locally on your device. No data is stored on the internet
+- Full Markdown & LaTeX Support
 - Image generation support
-- Document upload support
-- Detailed code-blocks, including syntax highlighting, downloading, and a copy button.
-- Customizable with name, occupation, and custom instructions.
-- Free web search tools through [search.hackclub.com](https://search.hackclub.com).
-- Reasoning effort customizability.
-- Incognito mode to prevent chat history from being saved.
-- Global memory to remember user details/preferences/opinions across chats.
-- Parameter configuration panel with temperature, top_p, seed options, and a web search toggle.
+- Document analysis support
+- Detailed code-blocks, including syntax highlighting, downloading, and copying
+- Personalizable with name, occupation, and custom instructions
+- Web search & web crawling tools
+- Reasoning effort customizability
+- Incognito mode to prevent chat history from being saved
+- Global memory to remember user details/preferences/opinions across chats
+- Parameter configuration panel with temperature, top_p, seed options, and a web search toggle
 - Conversation branching with message editing/regenerating
 
 ## Todo
@@ -35,6 +35,13 @@ Please suggest more ideas in the Issues tab.
 git clone https://github.com/Mostlime12195/Libre-Assistant.git
 cd libre-assistant
 ```
+
+### Set Environment Variables
+
+```env
+NUXT_SESSION_SECRET
+```
+`NUXT_SESSION_SECRET` is required for sessions to function
 
 ### Install Dependencies
 

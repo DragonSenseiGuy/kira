@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <Suspense>
+    <Suspense v-if="sidebarOpen !== null">
       <AppSidebar :curr-convo="route.params.id" :messages="[]" :is-open="sidebarOpen"
         @close-sidebar="sidebarOpen = false" @toggle-sidebar="toggleSidebar"
         :is-dark="isDark" @delete-conversation="handleDeleteConversation"
@@ -87,7 +87,7 @@ const mod = isMac ? keys.meta : keys.ctrl;
 const route = useRoute(); // Get current route
 const router = useRouter();
 
-const sidebarOpen = ref(true); // Set to false initially, will be updated in onMounted
+const sidebarOpen = ref(null); // null = indeterminate, will be set in onMounted based on screen width
 const parameterConfigPanelOpen = ref(false);
 const isSettingsOpen = ref(false);
 const settingsInitialTab = ref('general'); // Controls which tab opens in settings panel

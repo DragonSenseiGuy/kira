@@ -39,7 +39,7 @@ import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
 import { useDark } from "@vueuse/core";
 import { useRoute, useRouter } from '#app';
-import { useHead } from '@unhead/vue';
+import { useHead } from '#imports';
 
 import { availableModels } from '~/composables/availableModels';
 import { useSettings } from '~/composables/useSettings';
@@ -106,12 +106,14 @@ onMounted(async () => {
   if (route.query.initialMessage) {
     // Send the initial message in incognito mode
     const initialMessage = route.query.initialMessage;
+    // Get search enabled from query (for consistency with regular mode)
+    const searchEnabled = route.query.searchEnabled === 'true';
     // Clear the query parameter to avoid resending on refresh
     await router.replace('/incognito');
 
     // Send the initial message to get AI response
     // In incognito, we use regular sendMessage which will add the user message
-    await sendMessage(initialMessage);
+    await sendMessage(initialMessage, null, [], searchEnabled);
   }
 });
 

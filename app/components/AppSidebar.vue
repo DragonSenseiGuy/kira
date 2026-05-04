@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onBeforeUnmount, onMounted, nextTick } from "vue";
+import { ref, onBeforeUnmount, onMounted, nextTick, computed } from "vue";
 import { Icon } from "@iconify/vue";
 import { useRouter, useRoute } from "vue-router";
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
 } from "reka-ui";
 import { useConversationsList } from "~/composables/useConversationsList";
+import { useSettings } from "~/composables/useSettings";
 
 const emit = defineEmits([
   "reloadSettings",
@@ -20,6 +21,10 @@ const props = defineProps(["currConvo", "messages", "isDark", "isOpen"]);
 
 const router = useRouter();
 const route = useRoute();
+
+// Use settings to check for API key
+const settingsManager = useSettings();
+const hasApiKey = computed(() => !!settingsManager.settings.custom_api_key);
 
 // Use the conversations list composable
 const {
@@ -208,6 +213,18 @@ function handleNewConversation() {
           </template>
         </div>
       </div>
+      <!-- API Key Warning -->
+      <div v-if="!hasApiKey" class="api-key-warning">
+        <Icon icon="material-symbols:warning" width="20" height="20" />
+        <div class="warning-content">
+          <span class="warning-title">API Key Required</span>
+          <span class="warning-text">Add your API key in settings</span>
+        </div>
+        <button class="warning-button" @click="$emit('openSettings')" aria-label="Open settings">
+          <Icon icon="material-symbols:arrow-forward" width="18" height="18" />
+        </button>
+      </div>
+
       <div class="sidebar-footer">
         <button class="login-btn">
           <Icon icon="material-symbols:login-rounded" width="18" height="18" />
@@ -682,5 +699,65 @@ function handleNewConversation() {
   .conversation-button {
     font-size: 0.9em;
   }
+}
+
+/* API Key Warning */
+.api-key-warning {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 16px 16px 16px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+}
+
+.api-key-warning > svg {
+  flex-shrink: 0;
+  color: var(--warning);
+}
+
+.warning-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.warning-title {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.warning-text {
+  font-size: 0.75em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.warning-button {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--btn-hover);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.15s, color 0.15s;
+}
+
+.warning-button:hover {
+  background: var(--border);
+  color: var(--warning);
 }
 </style>
