@@ -4,6 +4,7 @@ import { migrateMessages } from "./branchManager";
 import { getSessionToken } from "~/composables/useSession";
 import { useSettings } from "~/composables/useSettings";
 import { deleteChatSummary } from "./chatSummarizer";
+import { useCloudSync } from "~/composables/useCloudSync";
 
 /**
  * Serializes a message object for storage, removing Vue reactivity proxies
@@ -80,6 +81,14 @@ export async function createConversation(plainMessages, lastUpdated, customApiKe
 
     emitter.emit("updateConversations");
     console.log("Conversation saved successfully with Untitled title!");
+
+    // Sync to cloud in background
+    const { cloudCreateConversation } = useCloudSync();
+    cloudCreateConversation(conversationId, {
+      title,
+      messages: rawMessages,
+      branchPath: [],
+    });
 
     generateTitleInBackground(conversationId, plainMessages, lastUpdated, customApiKey);
 
@@ -159,6 +168,10 @@ async function generateTitleInBackground(conversationId, plainMessages, lastUpda
       emitter.emit("updateConversations");
       emitter.emit("conversationTitleUpdated", { conversationId, title: newTitle });
       console.log(`Title updated for conversation ${conversationId}: ${newTitle}`);
+
+      // Sync title update to cloud
+      const { syncConversation } = useCloudSync();
+      syncConversation(conversationId, conversation);
     }
   } catch (error) {
     console.error("Error generating title in background:", error);
@@ -193,6 +206,14 @@ export async function storeMessages(
   updatedMetadata.push({ id: conversationId, title, lastUpdated });
   await localforage.setItem("conversations_metadata", updatedMetadata);
 
+  // Sync to cloud in background
+  const { syncConversation } = useCloudSync();
+  syncConversation(conversationId, {
+    title,
+    messages: rawMessages,
+    branchPath,
+  });
+
   console.log("Conversation saved successfully!");
 }
 
@@ -207,6 +228,10 @@ export async function deleteConversation(conversationId) {
   const metadata = (await localforage.getItem("conversations_metadata")) || [];
   const updatedMetadata = metadata.filter((m) => m.id !== conversationId);
   await localforage.setItem("conversations_metadata", updatedMetadata);
+
+  // Sync deletion to cloud
+  const { cloudDeleteConversation } = useCloudSync();
+  cloudDeleteConversation(conversationId);
 
   // Emit an event so that the sidebar updates its list.
   emitter.emit("updateConversations");

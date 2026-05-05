@@ -80,6 +80,7 @@ export default defineNuxtConfig({
     // Private config that only the server can access
     hackclubSearchApiKey: '',
     sessionSecret: '',
+    databaseUrl: '', // Set via NUXT_DATABASE_URL env variable
     // Public config that is exposed to the client
     public: {}
   }
