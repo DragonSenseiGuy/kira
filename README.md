@@ -82,13 +82,3 @@ npm version 1.2.3
 ```
 
 All notable changes to this project are documented in the [CHANGELOG.md](./CHANGELOG.md) file.
-
-## License
-
-This project is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/).
-
-- You may view and modify the source code, but all modifications must remain open under the same license.
-- Commercial use is not permitted.
-- Forks are permitted only for the purpose of contributing back to this project.
-
-See the [LICENSE](./LICENSE) file for the full license text.
