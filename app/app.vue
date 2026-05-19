@@ -6,18 +6,30 @@
   </div>
 </template>
 
+<script>
+definePageMeta({
+  middleware: 'auth'
+})
+</script>
+
 <script setup>
 import { onMounted } from 'vue';
 // Import the main CSS file to ensure all styling is loaded
 import './assets/main.css';
 import { runNotebookPipeline } from '~/composables/notebookPipeline';
 import { useSettings } from '~/composables/useSettings';
+import { useAuth } from '~/composables/useAuth';
 
-// Initialize settings to get API key for pipeline
-const settingsManager = useSettings();
+// Initialize auth
+const { initAuth } = useAuth();
 
-// Run Notebook pipeline on app mount (non-blocking)
-onMounted(() => {
+onMounted(async () => {
+  // Initialize authentication
+  await initAuth();
+
+  // Initialize settings to get API key for pipeline
+  const settingsManager = useSettings();
+
   // Delay slightly to let the app fully initialize
   setTimeout(() => {
     const apiKey = settingsManager.settings?.custom_api_key;

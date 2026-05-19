@@ -81,6 +81,7 @@ export default defineNuxtConfig({
     hackclubSearchApiKey: '',
     sessionSecret: '',
     databaseUrl: '', // Set via NUXT_DATABASE_URL env variable
+    appPassword: '', // Set via NUXT_APP_PASSWORD env variable
     // Public config that is exposed to the client
     public: {}
   }
