@@ -8,8 +8,11 @@ export default defineEventHandler(async (event) => {
   const customApiKey = body.customApiKey;
   delete body.customApiKey; // Remove from body before passing to OpenAI
 
-  // Require user to provide their own API key
-  if (!customApiKey) {
+  // Use user-provided key, or fall back to server-configured key
+  const config = useRuntimeConfig();
+  const apiKey = customApiKey || config.openaiApiKey;
+
+  if (!apiKey) {
     event.node.res.statusCode = 401;
     event.node.res.setHeader('Content-Type', 'application/json');
     event.node.res.end(JSON.stringify({
@@ -21,8 +24,6 @@ export default defineEventHandler(async (event) => {
     }));
     return;
   }
-
-  const apiKey = customApiKey;
 
   const openai = new OpenAI({
     apiKey: apiKey || '',

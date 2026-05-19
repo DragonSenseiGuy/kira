@@ -80,6 +80,8 @@ export default defineNuxtConfig({
     // Private config that only the server can access
     hackclubSearchApiKey: '',
     sessionSecret: '',
+    appPassword: '', // Set via NUXT_APP_PASSWORD env variable
+    openaiApiKey: '', // Set via NUXT_OPENAI_API_KEY env variable - shared API key for all users
     // Public config that is exposed to the client
     public: {}
   }
