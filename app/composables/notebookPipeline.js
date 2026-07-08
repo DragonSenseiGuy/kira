@@ -417,7 +417,7 @@ Write the updated Notebook content.`;
         "x-session-token": sessionToken,
       },
       body: JSON.stringify({
-        model: "anthropic/claude-3.5-haiku", // Capable but faster model
+        model: "anthropic/claude-sonnet-5", // Capable but faster model
         messages: [
           {
             role: "system",
