@@ -388,42 +388,6 @@ export async function* handleIncomingMessage(
       throw new Error("Missing required parameters for handleIncomingMessage");
     }
 
-    // Check if API is up and has available quota
-    try {
-      const healthResponse = await fetch("/api/api_health");
-      const health = await healthResponse.json();
-
-      // Check for various unavailability conditions
-      if (
-        health.status === "down" ||
-        health.dailyKeyUsageRemaining <= 0 ||
-        health.balanceRemaining <= 0
-      ) {
-        let message = "⚠️ **Service Unavailable**\n\n";
-
-        if (
-          health.dailyKeyUsageRemaining !== undefined &&
-          health.dailyKeyUsageRemaining <= 0
-        ) {
-          message +=
-            "Daily API budget exhausted. Try again tomorrow or add your own API key in Settings → General.";
-        } else if (
-          health.balanceRemaining !== undefined &&
-          health.balanceRemaining <= 0
-        ) {
-          message += "API balance depleted. Service temporarily unavailable.";
-        } else {
-          message += "Service temporarily unavailable. Please try again later.";
-        }
-
-        yield { content: message, reasoning: null };
-        return;
-      }
-    } catch (error) {
-      console.error("Health check failed:", error);
-      // We'll continue anyway, in case it was just the health check endpoint failing
-    }
-
     // Find the selected model info (check hardcoded first, then dynamic)
     let selectedModelInfo = findModelById(availableModels, selectedModel);
     if (!selectedModelInfo) {

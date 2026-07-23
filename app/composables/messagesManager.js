@@ -9,6 +9,14 @@ import { useSettings } from './useSettings';
 import { useGlobalIncognito } from './useGlobalIncognito';
 import { emitter } from './emitter';
 import { PartsBuilder, TimingTracker } from './partsBuilder';
+import { buildApiHistory } from './contextCompressor';
+import {
+  maybeAutoCompress,
+  refreshCompressionState,
+  getCachedValidSummaries,
+  loadCompressionState,
+  clearCompressionState,
+} from './contextCompressionPipeline';
 import {
   getMessagesForBranchPath,
   createBranch,
@@ -65,6 +73,7 @@ export function useMessagesManager(chatPanel) {
 
   // Handle conversation deletion
   const handleConversationDeleted = ({ conversationId }) => {
+    clearCompressionState(conversationId);
     if (currConvo.value === conversationId && !isIncognito.value) {
       currConvo.value = '';
       messages.value = [];
@@ -93,7 +102,7 @@ export function useMessagesManager(chatPanel) {
    * Generates a unique ID for messages
    */
   function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+    return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
   }
 
   /**
@@ -179,6 +188,29 @@ export function useMessagesManager(chatPanel) {
   }
 
   /**
+   * Fire-and-forget auto compression trigger. Runs after the user sends a
+   * message and again after the assistant finishes, so the context is kept
+   * compact regardless of which side of the turn pushed it over the threshold.
+   */
+  function triggerAutoCompression() {
+    if (isIncognito.value || !currConvo.value) return;
+
+    const convoId = currConvo.value;
+    const settingsSnapshot = settingsManager.settings;
+    refreshCompressionState(convoId, visibleMessages.value, settingsSnapshot);
+    maybeAutoCompress({
+      conversationId: convoId,
+      getVisibleMessages: () => visibleMessages.value,
+      settings: settingsSnapshot,
+      apiKey: settingsSnapshot.custom_api_key,
+      branchPath: branchPath.value.slice(),
+      isIncognito: isIncognito.value,
+    }).catch((error) => {
+      console.error("[messagesManager] auto compression failed:", error);
+    });
+  }
+
+  /**
    * Sends a message to the AI and handles the response
    */
   async function sendMessage(message, originalMessage = null, attachments = [], searchEnabled = false, options = {}) {
@@ -220,6 +252,10 @@ export function useMessagesManager(chatPanel) {
         conversationTitle.value = convData?.title || "";
       }
     }
+
+    // Fire-and-forget: auto-compress after the user message is added, in
+    // case the user turn itself pushed the context over the threshold.
+    triggerAutoCompression();
 
     await nextTick();
     requestAnimationFrame(() => {
@@ -271,7 +307,7 @@ export function useMessagesManager(chatPanel) {
     try {
       // Build conversation history for the API
       // Tool results are now stored in assistant message parts, not as separate messages
-      const historyForAPI = visibleMessages.value.filter(msg => {
+      const rawHistory = visibleMessages.value.filter(msg => {
         if (!msg.complete) return false;
         if (msg.role === 'tool') return false; // Skip tool messages - they're in assistant parts
         if (msg.role === 'user') {
@@ -280,6 +316,13 @@ export function useMessagesManager(chatPanel) {
         }
         return true;
       });
+
+      // Apply context compression: swap spans covered by valid sidecar
+      // summaries for labeled summary messages. Skipped in incognito
+      // mode (where nothing is persisted or compressed).
+      const historyForAPI = isIncognito.value
+        ? rawHistory
+        : buildApiHistory(rawHistory, getCachedValidSummaries(currConvo.value));
 
       const streamGenerator = handleIncomingMessage(
         message,
@@ -339,10 +382,17 @@ export function useMessagesManager(chatPanel) {
 
         // Process tool calls
         if (chunk.tool_calls && chunk.tool_calls.length > 0) {
+          // Tool calls separate reasoning segments the same way they separate content segments.
+          // Close out the current reasoning part in the parts builder (defensive - addOrUpdateTool
+          // also finalizes reasoning internally) and reset the flat-string accumulator so the
+          // next reasoning chunk starts a fresh segment.
+          partsBuilder.finalizeReasoning();
+          assistantMsg.reasoning = '';
+
           for (const tool of chunk.tool_calls) {
             const toolType = tool.type || 'function';
             partsBuilder.addOrUpdateTool(toolType, tool);
-            
+
             // Track tool calls
             if (tool.id && !currentToolCalls.find(tc => tc.id === tool.id)) {
               currentToolCalls.push({
@@ -454,6 +504,10 @@ export function useMessagesManager(chatPanel) {
       if (!isIncognito.value) {
         await storeMessages(currConvo.value, toRaw(messages.value), new Date());
       }
+
+      // Fire-and-forget: auto-compress after the assistant turn completes,
+      // in case the assistant response pushed the context over the threshold.
+      triggerAutoCompression();
     }
   }
 
@@ -515,6 +569,12 @@ export function useMessagesManager(chatPanel) {
 
     conversationTitle.value = conv?.title || '';
     chatLoading.value = false;
+
+    // Load compression sidecar and derive threshold/summary state.
+    if (id) {
+      await loadCompressionState(id);
+      refreshCompressionState(id, visibleMessages.value, settingsManager.settings);
+    }
   }
 
   /**

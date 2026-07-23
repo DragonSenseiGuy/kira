@@ -3,6 +3,11 @@ import { reactive } from "vue";
 import { availableModels, findModelById, DEFAULT_MODEL_ID } from './availableModels';
 import { useModels } from './useModels';
 import DEFAULT_PARAMETERS from './defaultParameters';
+import {
+  DEFAULT_COMPRESSION_MODEL,
+  DEFAULT_THRESHOLD_TOKENS,
+  DEFAULT_KEEP_RECENT_TOKENS,
+} from './contextCompressor';
 
 /**
  * Manages application settings for the Kira Interface.
@@ -15,7 +20,7 @@ class Settings {
     // Use a reactive reference for settings to improve reactivity
     const settings = reactive({
       // Version marker for future migrations
-      version: 2,
+      version: 5,
 
       // --- User Profile Settings ---
       user_name: null, // User's name
@@ -23,7 +28,13 @@ class Settings {
       custom_instructions: null, // Custom instructions for Kira
 
       // --- Memory Settings ---
-      notebook_memory_enabled: false, // Whether Notebook/memory is enabled (new unified setting)
+      notepad_enabled: false, // Whether the Notepad memory system is enabled
+
+      // --- Context Compression Settings ---
+      context_compression_enabled: true, // Auto-compress older context past the threshold
+      context_compression_model: DEFAULT_COMPRESSION_MODEL, // Cheap summarizer model
+      context_compression_threshold_tokens: DEFAULT_THRESHOLD_TOKENS, // Compress once effective context exceeds this
+      context_compression_keep_recent_tokens: DEFAULT_KEEP_RECENT_TOKENS, // How much recent context always stays verbatim
 
       // --- Model Settings ---
       selected_model_id: DEFAULT_MODEL_ID, // Default model ID
@@ -49,8 +60,12 @@ class Settings {
 
     // Create a non-reactive copy of default settings to avoid circular references
     this.defaultSettings = {
-      version: 2,
-      notebook_memory_enabled: false, // Whether Notebook/memory is enabled (new unified setting)
+      version: 5,
+      notepad_enabled: false, // Whether the Notepad memory system is enabled
+      context_compression_enabled: true, // Auto-compress older context past the threshold
+      context_compression_model: DEFAULT_COMPRESSION_MODEL, // Cheap summarizer model
+      context_compression_threshold_tokens: DEFAULT_THRESHOLD_TOKENS, // Compress once effective context exceeds this
+      context_compression_keep_recent_tokens: DEFAULT_KEEP_RECENT_TOKENS, // How much recent context always stays verbatim
       selected_model_id: DEFAULT_MODEL_ID, // Default model ID
       search_enabled: false, // Default value for search setting
       model_settings: {}, // Default value for model settings
@@ -120,6 +135,24 @@ class Settings {
         if (mergedSettings.selected_model_id === "moonshotai/kimi-k2-instruct-0905" || !mergedSettings.selected_model_id) {
           mergedSettings.selected_model_id = DEFAULT_MODEL_ID;
         }
+
+        // Migration: v2 → v3 — rename the old notebook_memory_enabled
+        // setting to notepad_enabled. The user-facing name changed and
+        // the old storage key was retired.
+        if (
+          mergedSettings.notebook_memory_enabled !== undefined &&
+          mergedSettings.notepad_enabled === undefined
+        ) {
+          mergedSettings.notepad_enabled = !!mergedSettings.notebook_memory_enabled;
+        }
+        delete mergedSettings.notebook_memory_enabled;
+
+        // Migration: v4 → v5 — chunk-based compression settings were
+        // replaced by threshold-based ones (auto compression + manual
+        // compress button). Drop the retired keys; enabled/model carry over.
+        delete mergedSettings.context_compression_chunk_size;
+        delete mergedSettings.context_compression_min_chunk_tokens;
+        delete mergedSettings.context_compression_keep_recent_chunks;
 
         // Migration: If search_enabled is true and grounding parameter doesn't exist yet,
         // set grounding to true to preserve user's previous search preference

@@ -14,7 +14,10 @@ Kira does **not** sell or store user information, and all chat & user data is st
 - Web search & web crawling tools
 - Reasoning effort customizability
 - Incognito mode to prevent chat history from being saved
-- Global memory to remember user details/preferences/opinions across chats
+- Notepad: an autonomously maintained, locally stored memory document that remembers your details/preferences/projects across chats
+- Automatic and manual context compression to keep long conversations cheap without losing history
+- Full zip backup & restore (conversations, branches, attachments, Notepad, settings), per-chat export, and OpenWebUI chat import
+- Persistent per-conversation drafts, so unsent prompts survive switching chats
 - Parameter configuration panel with temperature, top_p, seed options, and a web search toggle
 - Conversation branching with message editing/regenerating
 
@@ -32,8 +35,8 @@ Please suggest more ideas in the Issues tab.
 ### Clone Project and Move into Its Folder
 
 ```sh
-git clone https://github.com/Mostlime12195/Libre-Assistant.git
-cd libre-assistant
+git clone https://github.com/DragonSenseiGuy/kira.git
+cd kira
 ```
 
 ### Set Environment Variables

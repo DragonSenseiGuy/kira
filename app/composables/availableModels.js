@@ -114,7 +114,50 @@ export function showReasoningEffortSelector(model) {
  */
 export function getDefaultReasoningEffort(model) {
   const config = normalizeReasoningConfig(model);
+
+  // Toggleable models start disabled when defaultEnabled is explicitly false
+  if (config.toggleable && config.defaultEnabled === false) {
+    return 'none';
+  }
+
+  // Toggleable models without an effort config default to the generic "on" state
+  if (config.toggleable && !config.effort) {
+    return 'default';
+  }
+
   return config.effort?.default || 'default';
+}
+
+/**
+ * Get the list of reasoning effort options that should appear in the UI.
+ * For toggleable models with effort levels, "none" (shown as "Off") is
+ * prepended so reasoning can be turned off from the same dropdown.
+ * @param {Object} model - The model object
+ * @returns {Array<string>} Effort options for the dropdown
+ */
+export function getReasoningEffortOptions(model) {
+  const config = normalizeReasoningConfig(model);
+  if (!config.supported || !config.effort || !Array.isArray(config.effort.levels)) {
+    return [];
+  }
+  const options = [...config.effort.levels];
+  if (config.toggleable) {
+    options.unshift('none');
+  }
+  return options;
+}
+
+/**
+ * Format a reasoning effort value for display in the UI.
+ * @param {string} value - The raw effort value
+ * @returns {string} Human-readable label
+ */
+export function formatReasoningLabel(value) {
+  if (value === 'none') return 'Off';
+  if (!value) return '';
+  if (value === 'default') return 'Default';
+  if (value === 'xhigh') return 'XHigh';
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 /**
@@ -148,25 +191,37 @@ export function buildReasoningParams(model, userSettings) {
     return { reasoningParams: null, alternateModel: null };
   }
   
-  const effort = userSettings?.reasoning_effort || config.effort?.default || 'default';
+  const effort = userSettings?.reasoning_effort ?? config.effort?.default ?? 'default';
   const isEnabled = effort !== 'none';
-  
+
   // Model routing: return alternate model when enabled
   if (config.alternateModel && isEnabled) {
-    return { 
+    return {
       reasoningParams: null,
-      alternateModel: config.alternateModel 
+      alternateModel: config.alternateModel
     };
   }
-  
-  // Toggleable: send enabled flag
+
+  // Toggleable: send enabled flag, and include effort when configured
   if (config.toggleable) {
+    if (!isEnabled) {
+      return {
+        reasoningParams: { enabled: false },
+        alternateModel: null
+      };
+    }
+    if (config.effort && effort !== 'default') {
+      return {
+        reasoningParams: { enabled: true, effort: effort },
+        alternateModel: null
+      };
+    }
     return {
-      reasoningParams: { enabled: isEnabled },
+      reasoningParams: { enabled: true },
       alternateModel: null
     };
   }
-  
+
   // Always-on + effort: only send effort, NOT enabled
   if (config.effort && effort !== 'default') {
     return {
@@ -174,9 +229,25 @@ export function buildReasoningParams(model, userSettings) {
       alternateModel: null
     };
   }
-  
+
   // Always-on without effort: send nothing (API handles automatically)
   return { reasoningParams: null, alternateModel: null };
+}
+
+/**
+ * Check if a model supports tool use (e.g., search, function calling).
+ *
+ * Defaults to true when the property is not specified on the model, matching
+ * the existing server-side check in `message.js`
+ * (`selectedModelInfo?.tool_use !== false`). This keeps the UI consistent
+ * with the request pipeline: if a model is missing the `tool_use` field, it
+ * is treated as tool-capable.
+ *
+ * @param {Object} model - The model object
+ * @returns {boolean}
+ */
+export function supportsToolUse(model) {
+  return model?.tool_use !== false;
 }
 
 /**
@@ -207,9 +278,47 @@ export const availableModels = [
     logo: "/ai_logos/anthropic.svg",
     models: [
       {
+        id: "anthropic/claude-fable-5",
+        name: "Claude Fable 5",
+        description: "State-of-the-art Anthropic Sonnet model for compelx reasoning and agentic tasks.",
+        reasoning: {
+          supported: true,
+          toggleable: true,
+          effort: {
+            levels: ["low", "medium", "high", "xhigh"],
+            default: "low",
+          },
+        },
+        vision: true,
+      },
+      {
+        id: "anthropic/claude-sonnet-5",
+        name: "Claude Sonnet 5",
+        description: "Strongest Anthropic Sonnet model for effecient agentic tasks.",
+        reasoning: {
+          supported: true,
+          toggleable: true,
+          effort: {
+            levels: ["low", "medium", "high", "xhigh"],
+            default: "low",
+          },
+        },
+        vision: true,
+      },
+      {
+        id: "anthropic/claude-opus-4.8",
+        name: "Claude Opus 4.8",
+        description: "Strong Anthropic model for complex reasoning and analysis.",
+        reasoning: {
+          supported: true,
+          toggleable: true,
+        },
+        vision: true,
+      },
+      {
         id: "anthropic/claude-opus-4.7",
         name: "Claude Opus 4.7",
-        description: "Most capable Anthropic model for complex reasoning and analysis.",
+        description: "Capable Anthropic model for complex reasoning and analysis.",
         reasoning: {
           supported: true,
           toggleable: true,
@@ -281,7 +390,7 @@ export const availableModels = [
         tool_use: true,
         reasoning: {
           supported: true,
-          toggleable: false,
+          toggleable: true,
         },
         extra_functions: [],
         extra_parameters: {}
@@ -316,6 +425,20 @@ export const availableModels = [
     logo: "/ai_logos/gemini.svg",
     models: [
       {
+        id: "google/gemini-3.5-flash",
+        name: "Gemini 3.5 Flash",
+        description: "Preview of frontier-level fast model, distilled from Gemini 3 Pro and optimized for speed.",
+        reasoning: {
+          supported: true,
+          toggleable: false,
+          effort: {
+            levels: ['minimal', 'low', 'medium', 'high'],
+            default: 'medium'
+          }
+        },
+        vision: true,
+      },
+      {
         id: "google/gemini-3-flash-preview",
         name: "Gemini 3 Flash Preview",
         description: "Preview of frontier-level fast model, distilled from Gemini 3 Pro and optimized for speed.",
@@ -324,7 +447,7 @@ export const availableModels = [
           toggleable: false,
           effort: {
             levels: ['minimal', 'low', 'medium', 'high'],
-            default: 'medium'
+            default: 'high'
           }
         },
         vision: true,
@@ -345,7 +468,7 @@ export const availableModels = [
       },
       {
         id: "google/gemini-2.5-flash-lite-preview-09-2025",
-        name: "Gemini 2.5 Flash Lite Preview",
+        name: "Gemini 2.5 Flash Lite",
         description: "Lightweight variant of Gemini 2.5 Flash optimized for speed.",
         reasoning: {
           supported: true,
@@ -380,13 +503,50 @@ export const availableModels = [
     ]
   },
   {
+    category: "Liquid AI",
+    logo: "/ai_logos/liquid.svg",
+    models: [
+      {
+        id: "liquid/lfm-2-24b-a2b",
+        name: "LFM2 24B A2B",
+        description: "Cheap yet versatile open-weights model.",
+        tool_use: false,
+        vision: false,
+        reasoning: {
+          supported: false,
+        },
+      },
+    ]
+  },
+  {
     category: "Moonshot AI",
     logo: "/ai_logos/moonshot.svg",
     models: [
       {
+        id: "moonshotai/kimi-k3",
+        name: "Kimi K3",
+        description: "SOTA open-weights model.",
+        vision: true,
+        reasoning: {
+          supported: true,
+          toggleable: false
+        },
+      },
+      {
+        id: "moonshotai/kimi-k2.7-code",
+        name: "Kimi K2.7 Code",
+        description: "Frontier open-weights coding model.",
+        vision: true,
+        providers: ["moonshotai/int4"],
+        reasoning: {
+          supported: true,
+          toggleable: false
+        },
+      },
+      {
         id: "moonshotai/kimi-k2.6",
         name: "Kimi K2.6",
-        description: "SOTA open-weights model with exceptional EQ, coding, and agentic abilities.",
+        description: "open-weights model with exceptional EQ, coding, and agentic abilities.",
         vision: true,
         providers: ["moonshotai/int4"],
         reasoning: {
@@ -425,30 +585,48 @@ export const availableModels = [
     logo: "/ai_logos/minimax.svg",
     models: [
       {
+        id: "minimax/minimax-m3",
+        name: "MiniMax M3",
+        description: "Frontier coding model with 1M token context window and enhanced architecture.",
+        vision: true,
+        reasoning: {
+          supported: true,
+          toggleable: true,
+        },
+      },
+      {
         id: "minimax/minimax-m2.7",
         name: "MiniMax M2.7",
-        description: "Latest frontier open-weights coding model with enhanced capabilities.",
+        description: "Open-weights coding model.",
         reasoning: {
           supported: true,
-          toggleable: false,
+          toggleable: true,
+        },
+      },
+    ],
+  },
+  {
+    category: "Mistral",
+    logo: "/ai_logos/mistral.svg",
+    models: [
+      {
+        id: "mistralai/mistral-medium-3-5",
+        name: "Mistral Medium 3.5",
+        description: "Open-weights medium Mistral model with multimodality.",
+        vision: true,
+        reasoning: {
+          supported: true,
+          toggleable: true,
         },
       },
       {
-        id: "minimax/minimax-m2.5",
-        name: "MiniMax M2.5",
-        description: "Frontier open-weights coding model",
+        id: "mistralai/mistral-small-2603",
+        name: "Mistral Small 4",
+        description: "Open-weights small Mistral model with multimodality.",
+        vision: true,
         reasoning: {
           supported: true,
-          toggleable: false,
-        },
-      },
-      {
-        id: "minimax/minimax-m2.1",
-        name: "MiniMax M2.1",
-        description: "High-quality open-weights coding model",
-        reasoning: {
-          supported: true,
-          toggleable: false,
+          toggleable: true,
         },
       },
     ],
@@ -458,9 +636,22 @@ export const availableModels = [
     logo: "/ai_logos/openai.svg",
     models: [
       {
-        id: "openai/gpt-5.5",
-        name: "GPT-5.5",
-        description: "Latest GPT-5 model with advanced reasoning and capabilities.",
+        id: "openai/gpt-5.6-sol",
+        name: "GPT-5.6 Sol",
+        description: "Largest GPT-5.6 model with advanced reasoning and capabilities.",
+        reasoning: {
+          supported: true,
+          toggleable: false,
+          effort: {
+            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
+            default: 'low'
+          }
+        },
+      },
+      {
+        id: "openai/gpt-5.6-terra",
+        name: "GPT-5.6 Terra",
+        description: "Medium-sized GPT-5.6 model cheaper than GPT-5.5 at the same quality.",
         reasoning: {
           supported: true,
           toggleable: false,
@@ -471,22 +662,9 @@ export const availableModels = [
         },
       },
       {
-        id: "openai/gpt-5.4",
-        name: "GPT-5.4",
-        description: "Advanced GPT-5 model with strong reasoning capabilities.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-5.4-mini",
-        name: "GPT-5.4 Mini",
-        description: "Lightweight variant of GPT-5.4 optimized for speed.",
+        id: "openai/gpt-5.6-luna",
+        name: "GPT-5.6 Luna",
+        description: "Smallest GPT-5.6 model for cheap & fast tasks.",
         reasoning: {
           supported: true,
           toggleable: false,
@@ -510,14 +688,6 @@ export const availableModels = [
         },
       },
       {
-        id: "openai/gpt-5.3-chat",
-        name: "GPT-5.3 Chat",
-        description: "GPT-5.3 optimized for conversational interactions.",
-        reasoning: {
-          supported: false,
-        },
-      },
-      {
         id: "openai/gpt-5.3-codex",
         name: "GPT-5.3 Codex",
         description: "GPT-5.3 specialized for code generation and understanding.",
@@ -531,42 +701,12 @@ export const availableModels = [
         },
       },
       {
-        id: "openai/gpt-5.2",
-        name: "GPT-5.2",
-        description: "Previous generation GPT-5 model with strong all-around performance.",
+        id: "openai/gpt-3.5-turbo-0613",
+        name: "GPT-3.5 Turbo 0613",
+        description: "Old and useless model, but here if you want a blast from the past!",
+        tool_use: false,
         reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-oss-120b",
-        name: "GPT OSS 120B",
-        description: "High-performance open-weights model with exceptional STEM capabilities.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['low', 'medium', 'high'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-5-mini",
-        name: "GPT-5 Mini",
-        description: "Streamlined version of GPT-5 optimized for lightweight tasks.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['low', 'medium', 'high'],
-            default: 'medium'
-          }
+          supported: false,
         },
       },
     ],
@@ -593,6 +733,16 @@ export const availableModels = [
     logo: "/ai_logos/qwen.svg",
     models: [
       {
+        id: "qwen/qwen3.7-plus",
+        name: "Qwen3.7 Plus",
+        description: "Capable Qwen model with multimodality.",
+        vision: true,
+        reasoning: {
+          supported: true,
+          toggleable: true,
+        },
+      },
+      {
         id: "qwen/qwen3.5-397b-a17b",
         name: "Qwen3.5 397B A17B",
         description: "Cutting-edge open-weight model with multimodality.",
@@ -611,30 +761,6 @@ export const availableModels = [
           supported: false
         },
       },
-      {
-        id: "qwen/qwen3-next-80b-a3b-instruct",
-        name: "Qwen 3 Next 80B A3B Instruct",
-        description: "Highly efficient experimental model that punches above its weight.",
-        reasoning: {
-          supported: false
-        },
-      },
-    ],
-  },
-  {
-    category: "XAI",
-    logo: "/ai_logos/xai.svg",
-    models: [
-      {
-        id: "x-ai/grok-4.1-fast",
-        name: "Grok 4.1 Fast",
-        description: "Fast model with great agentic capabilities and limited censorship.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      }
     ],
   },
   {
@@ -642,9 +768,19 @@ export const availableModels = [
     logo: "/ai_logos/zai.svg",
     models: [
       {
+        id: "z-ai/glm-5.2",
+        name: "GLM 5.2",
+        description: "Frontier open-weight model excelling at coding and math",
+        reasoning: {
+          supported: true,
+          toggleable: true,
+          defaultEnabled: true
+        },
+      },
+      {
         id: "z-ai/glm-5.1",
         name: "GLM 5.1",
-        description: "Frontier open-weight model excelling at coding and math",
+        description: "Strong open-weight model excelling at coding and math",
         reasoning: {
           supported: true,
           toggleable: true,
@@ -675,16 +811,6 @@ export const availableModels = [
         id: "z-ai/glm-4.7-flash",
         name: "GLM 4.7 Flash",
         description: "SOTA 30B-class model with excellent agentic capabilities",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "z-ai/glm-4.6",
-        name: "GLM 4.6",
-        description: "Reliable bilingual model for reasoning and tool use.",
         reasoning: {
           supported: true,
           toggleable: true,

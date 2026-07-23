@@ -1,6 +1,6 @@
 // Must be less than SESSION_TTL_MS (8 min) in server/api/session.post.js
 const REFRESH_BUFFER_MS = 60 * 1000; // Refresh 60s before expiry
-const SESSION_STORAGE_KEY = "__libre_session_v1";
+const SESSION_STORAGE_KEY = "__kira_session_v1";
 
 let _sessionToken = null;
 let _expiresAt = 0;

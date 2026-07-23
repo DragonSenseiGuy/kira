@@ -4,6 +4,7 @@ import { migrateMessages } from "./branchManager";
 import { getSessionToken } from "~/composables/useSession";
 import { useSettings } from "~/composables/useSettings";
 import { deleteChatSummary } from "./chatSummarizer";
+import { deleteContextSummary } from "./contextCompressor";
 
 /**
  * Serializes a message object for storage, removing Vue reactivity proxies
@@ -203,6 +204,9 @@ export async function deleteConversation(conversationId) {
   // Delete the chat summary for this conversation
   await deleteChatSummary(conversationId);
 
+  // Delete the context-compression sidecar for this conversation
+  await deleteContextSummary(conversationId);
+
   // Update metadata by filtering out the deleted conversation.
   const metadata = (await localforage.getItem("conversations_metadata")) || [];
   const updatedMetadata = metadata.filter((m) => m.id !== conversationId);
@@ -241,16 +245,52 @@ export async function updateBranchPath(conversationId, branchPath) {
  * @param {string} conversationId - The conversation ID
  * @returns {Object|null} The conversation data with migrated messages, or null if not found
  */
+/**
+ * Removes legacy `context_summary` marker messages left behind by the
+ * old in-chat compression implementation. Those markers lost their
+ * summary fields on persist (serializeMessage never kept them), so
+ * they are unrecoverable husks. Any message orphaned by the removal
+ * is re-parented to the marker's parent.
+ *
+ * @param {Array} messages
+ * @returns {{messages: Array, stripped: boolean}}
+ */
+function stripLegacySummaryMarkers(messages) {
+  if (!Array.isArray(messages)) return { messages, stripped: false };
+
+  const huskParentById = new Map();
+  for (const msg of messages) {
+    if (msg && msg.role === "context_summary") {
+      huskParentById.set(msg.id, msg.parentId ?? null);
+    }
+  }
+  if (huskParentById.size === 0) return { messages, stripped: false };
+
+  const cleaned = messages
+    .filter((msg) => msg && !huskParentById.has(msg.id))
+    .map((msg) =>
+      huskParentById.has(msg.parentId)
+        ? { ...msg, parentId: huskParentById.get(msg.parentId) }
+        : msg,
+    );
+  return { messages: cleaned, stripped: true };
+}
+
 export async function loadConversation(conversationId) {
   const data = await localforage.getItem(`conversation_${conversationId}`);
   if (!data) return null;
 
+  // Strip legacy context_summary husks left by the old compressor.
+  const { messages: strippedMessages, stripped } = stripLegacySummaryMarkers(
+    data.messages,
+  );
+
   // Migrate messages if they don't have branching metadata
-  const needsMigration = data.messages?.length > 0 &&
-    data.messages[0].parentId === undefined;
+  const needsMigration = strippedMessages?.length > 0 &&
+    strippedMessages[0].parentId === undefined;
 
   if (needsMigration) {
-    const migratedMessages = migrateMessages(data.messages);
+    const migratedMessages = migrateMessages(strippedMessages);
     // Save the migrated data
     await localforage.setItem(`conversation_${conversationId}`, {
       ...data,
@@ -264,8 +304,16 @@ export async function loadConversation(conversationId) {
     };
   }
 
+  if (stripped) {
+    await localforage.setItem(`conversation_${conversationId}`, {
+      ...data,
+      messages: strippedMessages,
+    });
+  }
+
   return {
     ...data,
+    messages: strippedMessages,
     branchPath: data.branchPath ?? [],
   };
 }

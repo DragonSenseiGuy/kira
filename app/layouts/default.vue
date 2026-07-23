@@ -20,9 +20,11 @@
       :class="{ 'sidebar-open': sidebarOpen, 'parameter-config-open': parameterConfigPanelOpen }">
       <TopBar :is-scrolled-top="isScrolledTop" :toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen"
         :is-incognito="isIncognito" :show-incognito-button="!route.params.id && messages.length === 0" :messages="messages"
-        :parameter-config-open="parameterConfigPanelOpen"
+        :parameter-config-open="parameterConfigPanelOpen" :conversation-id="route.params.id"
+        :can-export="canExport"
         @toggle-incognito="toggleIncognito"
-        @toggle-parameter-config="parameterConfigPanelOpen = !parameterConfigPanelOpen" />
+        @toggle-parameter-config="parameterConfigPanelOpen = !parameterConfigPanelOpen"
+        @export-chat="handleExportChat" />
 
       <!-- Chat panel from the current page -->
       <slot />
@@ -59,6 +61,11 @@ import AppSidebar from '~/components/AppSidebar.vue'
 import SettingsPanel from '~/components/SettingsPanel.vue'
 import ParameterConfigPanel from '~/components/ParameterConfigPanel.vue'
 import TopBar from '~/components/TopBar.vue'
+import {
+  exportSingleChatToZip,
+  triggerDownload,
+  generateSingleChatExportFilename,
+} from '~/composables/importExport';
 
 // Inject Vercel's analytics and performance insights
 inject();
@@ -119,6 +126,9 @@ const currConvo = ref(route.params.id || ''); // Current conversation ID
 const conversationTitle = ref(''); // Current conversation title
 const isTyping = ref(false); // Typing state
 
+// Show the per-chat export button only when viewing a specific chat
+const canExport = computed(() => !!route.params.id && route.path !== '/incognito');
+
 // Use the global scroll status instead of local state
 const isScrolledTop = computed(() => getIsScrolledTop.value); // Track if chat is scrolled to the top
 
@@ -150,37 +160,35 @@ function openSettingsPanel(tabKey = 'general') {
 }
 
 function handleParameterConfigSave(params) {
-  console.log("Parameter config saved:", params);
-  // The settings are already saved in the ParameterConfigPanel component
-  // This function can be used for any additional actions needed after saving
+  // The settings are already saved in the ParameterConfigPanel component.
+  // Hook kept for any future additional actions (e.g. analytics).
 }
 
 function handleDeleteConversation(id) {
-  // This will be handled in the page components, but we can emit an event
-  console.log("Delete conversation:", id);
+  // Pages own the actual delete logic; this is a placeholder for layout-level hooks.
 }
 
 function handleNewConversation() {
-  // This will be handled by navigating to the /new route
   router.push('/');
-  console.log("New conversation requested");
 }
 
-
+async function handleExportChat() {
+  const id = route.params.id;
+  if (!id || typeof id !== 'string') return;
+  try {
+    const blob = await exportSingleChatToZip(id);
+    const filename = generateSingleChatExportFilename(id);
+    triggerDownload(blob, filename);
+  } catch (error) {
+    console.error('[layout] Failed to export chat:', error);
+  }
+}
 
 /**
  * Toggles incognito mode
  */
 function toggleIncognito() {
   globalToggleIncognito();
-}
-
-/**
- * Sends a message
- */
-function sendMessage(message, originalMessage = null) {
-  // This will be implemented based on actual needs
-  console.log("Sending message:", message);
 }
 
 //-- Keyboard shortcuts

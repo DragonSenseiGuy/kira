@@ -5,7 +5,14 @@ import { useSettings } from "@/composables/useSettings";
 import { useDark, useToggle } from "@vueuse/core";
 import { SwitchRoot, SwitchThumb } from "reka-ui";
 import { Icon } from "@iconify/vue";
-import { loadNotebook } from "@/composables/notebook";
+import { loadNotepad } from "@/composables/notepad";
+import {
+  DEFAULT_COMPRESSION_MODEL,
+  DEFAULT_THRESHOLD_TOKENS,
+  DEFAULT_KEEP_RECENT_TOKENS,
+} from "@/composables/contextCompressor";
+import ExportMenu from "@/components/ExportMenu.vue";
+import ImportMenu from "@/components/ImportMenu.vue";
 
 // Define props and emits
 const props = defineProps(["isOpen", "initialTab"]);
@@ -16,10 +23,20 @@ const settingsManager = useSettings();
 const currTab = ref("general");
 const isDark = useDark();
 const toggleDark = useToggle(isDark);
-const globalMemoryEnabled = ref(false);
+const notepadEnabled = ref(false);
 const gptOssLimitTables = ref(false);
-const notebookMetadata = ref(null);
+const notepadMetadata = ref(null);
 const isMac = ref(false);
+
+// Context compression settings
+const contextCompressionEnabled = ref(true);
+const contextCompressionModel = ref(DEFAULT_COMPRESSION_MODEL);
+const contextCompressionThresholdTokens = ref(DEFAULT_THRESHOLD_TOKENS);
+const contextCompressionKeepRecentTokens = ref(DEFAULT_KEEP_RECENT_TOKENS);
+
+// Data menu toggles
+const isExportMenuOpen = ref(false);
+const isImportMenuOpen = ref(false);
 
 // User profile fields
 const userName = ref("");
@@ -43,9 +60,19 @@ const navItems = [
     icon: "material-symbols:palette"
   },
   {
-    key: "notebook",
-    label: "Notebook",
+    key: "notepad",
+    label: "Notepad",
     icon: "material-symbols:book"
+  },
+  {
+    key: "contextCompression",
+    label: "Auto Context Compression",
+    icon: "material-symbols:compress"
+  },
+  {
+    key: "data",
+    label: "Data",
+    icon: "material-symbols:database"
   },
   {
     key: "keybinds",
@@ -61,17 +88,26 @@ const navItems = [
 
 // --- Lifecycle Hooks ---
 onMounted(async () => {
-  await settingsManager.loadSettings();
-  console.log("Loaded settings:", settingsManager.settings);
+  // Settings are loaded by the shared Settings instance; just wait
+  // until they're available before reading them.
+  if (!settingsManager.isLoaded) {
+    await settingsManager.loadSettings();
+  }
   userName.value = settingsManager.settings.user_name || "";
   occupation.value = settingsManager.settings.occupation || "";
   customInstructions.value = settingsManager.settings.custom_instructions || "";
-  globalMemoryEnabled.value = settingsManager.settings.notebook_memory_enabled === true;
+  notepadEnabled.value = settingsManager.settings.notepad_enabled === true;
   gptOssLimitTables.value = settingsManager.settings.gpt_oss_limit_tables === true;
   customApiKey.value = settingsManager.settings.custom_api_key || "";
 
-  // Load notebook metadata
-  await loadNotebookData();
+  // Load context compression settings
+  contextCompressionEnabled.value = settingsManager.settings.context_compression_enabled !== false;
+  contextCompressionModel.value = settingsManager.settings.context_compression_model || DEFAULT_COMPRESSION_MODEL;
+  contextCompressionThresholdTokens.value = Number(settingsManager.settings.context_compression_threshold_tokens) || DEFAULT_THRESHOLD_TOKENS;
+  contextCompressionKeepRecentTokens.value = Number(settingsManager.settings.context_compression_keep_recent_tokens) || DEFAULT_KEEP_RECENT_TOKENS;
+
+  // Load notepad metadata
+  await loadNotepadData();
 
   // Detect platform
   if (typeof window !== "undefined") {
@@ -88,23 +124,22 @@ watch(
   }
 );
 
-watch(globalMemoryEnabled, (newVal) => {
-  console.log("globalMemoryEnabled changed to:", newVal);
+watch(notepadEnabled, (newVal) => {
+  console.log("[notepad] notepadEnabled changed to:", newVal);
 });
 
 // --- Functions ---
-async function loadNotebookData() {
-  const notebook = await loadNotebook();
-  notebookMetadata.value = notebook.metadata;
+async function loadNotepadData() {
+  const notepad = await loadNotepad();
+  notepadMetadata.value = notepad.metadata;
 }
 
 function closeSettings() {
   emit("close");
 }
 
-function toggleGlobalMemory(val) {
-  console.log("Toggling global memory from", globalMemoryEnabled.value, "to", val);
-  globalMemoryEnabled.value = val;
+function toggleNotepad(val) {
+  notepadEnabled.value = val;
 }
 
 async function saveSettings() {
@@ -112,24 +147,21 @@ async function saveSettings() {
   settingsManager.setSetting("user_name", userName.value);
   settingsManager.setSetting("occupation", occupation.value);
   settingsManager.setSetting("custom_instructions", customInstructions.value);
-  settingsManager.setSetting("notebook_memory_enabled", globalMemoryEnabled.value);
+  settingsManager.setSetting("notepad_enabled", notepadEnabled.value);
   settingsManager.setSetting("gpt_oss_limit_tables", gptOssLimitTables.value);
   settingsManager.setSetting("custom_api_key", customApiKey.value.trim());
 
-  console.log("Saving settings:", {
-    user_name: userName.value,
-    occupation: occupation.value,
-    custom_instructions: customInstructions.value,
-    notebook_memory_enabled: globalMemoryEnabled.value,
-    gpt_oss_limit_tables: gptOssLimitTables.value,
-    has_custom_api_key: !!customApiKey.value.trim()
-  });
+  // Save context compression settings
+  settingsManager.setSetting("context_compression_enabled", contextCompressionEnabled.value);
+  settingsManager.setSetting("context_compression_model", contextCompressionModel.value.trim());
+  settingsManager.setSetting("context_compression_threshold_tokens", Math.max(4000, Number(contextCompressionThresholdTokens.value) || DEFAULT_THRESHOLD_TOKENS));
+  settingsManager.setSetting("context_compression_keep_recent_tokens", Math.max(1000, Number(contextCompressionKeepRecentTokens.value) || DEFAULT_KEEP_RECENT_TOKENS));
 
   // Save settings and wait for completion before reloading
   await settingsManager.saveSettings();
 
-  // Reload notebook data after saving settings
-  await loadNotebookData();
+  // Reload notepad data after saving settings
+  await loadNotepadData();
 
   // Close settings and refresh the page
   closeSettings();
@@ -140,9 +172,9 @@ async function saveSettings() {
   }, 100);
 }
 
-function openNotebook() {
+function openNotepad() {
   closeSettings();
-  navigateTo('/notebook');
+  navigateTo('/notepad');
 }
 </script>
 
@@ -269,57 +301,165 @@ function openNotebook() {
             </div>
           </div>
 
-          <!-- Notebook Tab -->
-          <div v-show="currTab === 'notebook'" class="settings-section">
+          <!-- Notepad Tab -->
+          <div v-show="currTab === 'notepad'" class="settings-section">
             <div class="settings-content">
               <div class="content-header">
-                <h2>Notebook (Preview)</h2>
-                <p>Your Notebook is a document that Libre maintains about you. It contains observations 
-                  about your personality, communication style, ongoing projects, and recent activity, all stored on your device. It is used to give Libre context about you.</p>
+                <h2>Notepad (Preview)</h2>
+                <p>
+                  Your Notepad is a private document that Kira maintains about you. It contains
+                  observations about your personality, communication style, ongoing projects, and
+                  recent activity, all stored locally on your device. Kira uses it as working
+                  memory to give you more relevant answers.
+                </p>
               </div>
 
               <div class="setting-item">
                 <div class="setting-info">
-                  <h3>Enable Notebook</h3>
-                  <p>Allow the AI to remember important facts about you across conversations</p>
+                  <h3>Enable Notepad</h3>
+                  <p>Let Kira maintain a private Notepad about you across conversations</p>
                 </div>
                 <div class="switch-container">
-                  <SwitchRoot class="switch-root" :modelValue="globalMemoryEnabled"
-                    @update:modelValue="toggleGlobalMemory">
+                  <SwitchRoot class="switch-root" :modelValue="notepadEnabled"
+                    @update:modelValue="toggleNotepad">
                     <SwitchThumb class="switch-thumb" />
                   </SwitchRoot>
                 </div>
               </div>
 
-              <div v-if="globalMemoryEnabled" class="notebook-actions-section">
-                <div class="notebook-status" v-if="notebookMetadata">
+              <div v-if="notepadEnabled" class="notepad-actions-section">
+                <div class="notepad-status" v-if="notepadMetadata">
                   <div class="status-item">
                     <span class="status-label">Last updated:</span>
-                    <span class="status-value">{{ notebookMetadata.lastUpdated ? new Date(notebookMetadata.lastUpdated).toLocaleDateString() : 'Never' }}</span>
+                    <span class="status-value">{{ notepadMetadata.lastUpdated ? new Date(notepadMetadata.lastUpdated).toLocaleDateString() : 'Never' }}</span>
                   </div>
                   <div class="status-item">
                     <span class="status-label">Updates:</span>
-                    <span class="status-value">{{ notebookMetadata.updateCount || 0 }}</span>
+                    <span class="status-value">{{ notepadMetadata.updateCount || 0 }}</span>
                   </div>
                 </div>
 
-                <div class="notebook-buttons">
-                  <button @click="openNotebook" class="view-notebook-btn">
+                <div class="notepad-buttons">
+                  <button @click="openNotepad" class="view-notepad-btn">
                     <Icon icon="material-symbols:book" width="18" height="18" />
-                    View My Notebook
+                    View My Notepad
                   </button>
                 </div>
-                
-                <div class="notebook-info">
+
+                <div class="notepad-info">
                   <p>
-                    The Notebook is automatically updated in the background based on your conversations. 
-                    It typically updates once per day or when you have several new conversations.
+                    The Notepad is automatically updated in the background based on your
+                    conversations. It typically updates once per day or when you have several
+                    new conversations. Your Notepad is never sent anywhere except the model
+                    that's maintaining it.
                   </p>
                 </div>
               </div>
 
-              <div v-else class="notebook-disabled-message">
-                <p>The Notebook is currently disabled. Enable it to let AI document your chats.</p>
+              <div v-else class="notepad-disabled-message">
+                <p>The Notepad is currently disabled. Enable it to let Kira document your chats.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Context Compression Tab -->
+          <div v-show="currTab === 'contextCompression'" class="settings-section">
+            <div class="settings-content">
+              <div class="content-header">
+                <h2>Auto Context Compression</h2>
+                <p>
+                  Long conversations can be compressed so the model keeps going without running
+                  out of context: older messages are summarized, and only the summary is sent to
+                  the API. The original messages always stay on your device, untouched.
+                </p>
+              </div>
+
+              <div class="setting-item">
+                <div class="setting-info">
+                  <h3>Auto Context Compression</h3>
+                  <p>Automatically compress older context once a conversation grows past the threshold</p>
+                </div>
+                <div class="switch-container">
+                  <SwitchRoot class="switch-root" :modelValue="contextCompressionEnabled"
+                    @update:modelValue="contextCompressionEnabled = $event">
+                    <SwitchThumb class="switch-thumb" />
+                  </SwitchRoot>
+                </div>
+              </div>
+
+              <div class="setting-item textarea-item">
+                <div class="setting-info">
+                  <h3>Compression Model</h3>
+                  <p>The cheap model used to summarize context (must be available through OpenRouter)</p>
+                </div>
+                <div class="input-container">
+                  <input v-model="contextCompressionModel" type="text" placeholder="deepseek/deepseek-v4-flash"
+                    class="custom-input" />
+                </div>
+              </div>
+
+              <div class="setting-item">
+                <div class="setting-info">
+                  <h3>Threshold (tokens)</h3>
+                  <p>Estimated context size at which compression runs — and at which the manual compress button appears</p>
+                </div>
+                <div class="input-container number-input-container">
+                  <input v-model.number="contextCompressionThresholdTokens" type="number" min="4000" step="1000"
+                    class="custom-input number-input" />
+                </div>
+              </div>
+
+              <div class="setting-item">
+                <div class="setting-info">
+                  <h3>Keep Recent (tokens)</h3>
+                  <p>How much of the most recent conversation always stays verbatim</p>
+                </div>
+                <div class="input-container number-input-container">
+                  <input v-model.number="contextCompressionKeepRecentTokens" type="number" min="1000" step="500"
+                    class="custom-input number-input" />
+                </div>
+              </div>
+
+              <div class="compression-info">
+                <p>
+                  When a conversation grows past the threshold, auto compression summarizes the oldest
+                  context in the background — you can keep chatting while it runs. Even with auto
+                  compression off, a small compress button appears at the threshold so you can run it
+                  manually. If you edit an old message, affected summaries are discarded and rebuilt
+                  on the next run.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data Tab -->
+          <div v-show="currTab === 'data'" class="settings-section">
+            <div class="settings-content">
+              <div class="content-header">
+                <h2>Data</h2>
+                <p>Back up or restore your conversations, notepad, and settings.</p>
+              </div>
+
+              <div class="setting-item data-row">
+                <div class="setting-info">
+                  <h3>Export your data</h3>
+                  <p>Download a zip archive of your chats, notepad, and settings.</p>
+                </div>
+                <button class="data-action-btn" @click="isExportMenuOpen = true">
+                  <Icon icon="material-symbols:download" width="18" height="18" />
+                  Export
+                </button>
+              </div>
+
+              <div class="setting-item data-row">
+                <div class="setting-info">
+                  <h3>Import data</h3>
+                  <p>Restore from a Kira export or an OpenWebUI chat export.</p>
+                </div>
+                <button class="data-action-btn" @click="isImportMenuOpen = true">
+                  <Icon icon="material-symbols:upload" width="18" height="18" />
+                  Import
+                </button>
               </div>
             </div>
           </div>
@@ -422,7 +562,7 @@ function openNotebook() {
                 </ul>
                 <p>
                   For more information, visit our 
-                  <a href="https://github.com/Mostlime12195/Libre-Assistant" target="_blank" rel="noopener noreferrer">Kira GitHub repository</a>.
+                  <a href="https://github.com/DragonSenseiGuy/kira" target="_blank" rel="noopener noreferrer">Kira GitHub repository</a>.
                 </p>
               </div>
             </div>
@@ -438,6 +578,9 @@ function openNotebook() {
         </div>
       </div>
     </div>
+
+  <ExportMenu :is-open="isExportMenuOpen" @close="isExportMenuOpen = false" />
+  <ImportMenu :is-open="isImportMenuOpen" @close="isImportMenuOpen = false" @import-complete="$emit('reload-settings')" />
 </template>
 
 <style scoped>
@@ -613,6 +756,58 @@ function openNotebook() {
 .input-container {
   width: 100%;
   max-width: 400px;
+}
+
+.number-input-container {
+  max-width: 120px;
+}
+
+.number-input {
+  text-align: right;
+}
+
+/* Context Compression info box */
+.compression-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.compression-info p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Data tab action buttons */
+.data-row {
+  align-items: center;
+}
+
+.data-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  height: 36px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.data-action-btn:hover {
+  background: var(--btn-hover);
+  border-color: var(--primary-a4);
+  color: var(--primary);
 }
 
 .setting-item.textarea-item .input-container {
@@ -826,8 +1021,8 @@ function openNotebook() {
   color: var(--text-secondary);
 }
 
-/* Notebook Section Styles */
-.notebook-intro {
+/* Notepad Section Styles */
+.notepad-intro {
   margin-bottom: 1.5rem;
   padding: 1rem;
   background: var(--bg-primary);
@@ -835,18 +1030,18 @@ function openNotebook() {
   border: 1px solid var(--border);
 }
 
-.notebook-intro p {
+.notepad-intro p {
   margin: 0;
   font-size: 0.9375rem;
   color: var(--text-secondary);
   line-height: 1.6;
 }
 
-.notebook-actions-section {
+.notepad-actions-section {
   margin-top: 1.5rem;
 }
 
-.notebook-status {
+.notepad-status {
   display: flex;
   gap: 2rem;
   margin-bottom: 1.5rem;
@@ -875,14 +1070,14 @@ function openNotebook() {
   color: var(--text-primary);
 }
 
-.notebook-buttons {
+.notepad-buttons {
   display: flex;
   gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
-.view-notebook-btn,
-.clear-notebook-btn {
+.view-notepad-btn,
+.clear-notepad-btn {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -895,42 +1090,42 @@ function openNotebook() {
   transition: all 0.2s ease;
 }
 
-.view-notebook-btn {
+.view-notepad-btn {
   background: var(--primary);
   color: var(--primary-foreground);
   border: none;
 }
 
-.view-notebook-btn:hover {
+.view-notepad-btn:hover {
   background: var(--primary-600);
 }
 
-.clear-notebook-btn {
+.clear-notepad-btn {
   background: var(--bg-primary);
   color: var(--destructive);
   border: 1px solid var(--destructive);
 }
 
-.clear-notebook-btn:hover {
+.clear-notepad-btn:hover {
   background: var(--destructive);
   color: var(--destructive-foreground);
 }
 
-.notebook-info {
+.notepad-info {
   padding: 1rem;
   background: var(--bg-primary);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
 }
 
-.notebook-info p {
+.notepad-info p {
   margin: 0;
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.5;
 }
 
-.notebook-disabled-message {
+.notepad-disabled-message {
   margin-top: 1.5rem;
   padding: 1rem;
   background: var(--bg-primary);
@@ -938,7 +1133,7 @@ function openNotebook() {
   border-radius: var(--radius-md);
 }
 
-.notebook-disabled-message p {
+.notepad-disabled-message p {
   margin: 0;
   font-size: 0.875rem;
   color: var(--text-secondary);

@@ -17,13 +17,17 @@ import BottomSheetModelSelector from "./BottomSheetModelSelector.vue";
 import { useAttachments } from "~/composables/useAttachments";
 import { useModels } from "~/composables/useModels";
 import DEFAULT_PARAMETERS from '~/composables/defaultParameters';
-import { 
-  findModelById, 
-  showReasoningToggle, 
-  showReasoningEffortSelector, 
+import { useDraftPrompt } from "~/composables/useDraftPrompt";
+import {
+  findModelById,
+  showReasoningToggle,
+  showReasoningEffortSelector,
   getDefaultReasoningEffort,
+  getReasoningEffortOptions,
+  formatReasoningLabel,
   isReasoningEnabled as checkReasoningEnabled,
-  normalizeReasoningConfig
+  normalizeReasoningConfig,
+  supportsToolUse,
 } from "~/composables/availableModels";
 
 // Define component properties and emitted events
@@ -33,6 +37,10 @@ const props = defineProps({
   availableModels: Array, // Add available models to check tool support
   settingsManager: Object, // Add settings manager prop
   selectedModelName: String,
+  conversationId: {
+    type: String,
+    default: ''
+  },
 });
 const emit = defineEmits([
   "send-message",
@@ -57,6 +65,10 @@ const fileInputRef = ref(null); // Ref for the hidden file input
 const isDragging = ref(false); // Track drag state for visual feedback
 const isProcessingFiles = ref(false); // Track file processing state for loading indicator
 const isFocused = ref(false); // Track focus state for the textarea
+
+// --- Draft Prompt Persistence ---
+const conversationIdRef = computed(() => props.conversationId || '');
+const { clearDraft } = useDraftPrompt(conversationIdRef, inputMessage);
 
 // --- Attachments ---
 const {
@@ -109,6 +121,16 @@ const supportsReasoning = computed(() => {
   return config.supported;
 });
 
+// Computed property to check if the current model supports tool use
+// (e.g., the Exa search and getPageContents tools). When false, the search
+// toggle button should be hidden in the UI to avoid giving the user a control
+// that has no effect (the server-side `tool_use: false` flag is already honored
+// in message.js, but the UI was previously still showing the toggle).
+const hasToolUseSupport = computed(() => {
+  if (!selectedModel.value) return false;
+  return supportsToolUse(selectedModel.value);
+});
+
 // Computed property to check if the current model should show a reasoning toggle
 const shouldShowReasoningToggle = computed(() => {
   if (!selectedModel.value) return false;
@@ -123,9 +145,8 @@ const shouldShowEffortSelector = computed(() => {
 
 // Computed property to get reasoning effort options for the current model
 const reasoningEffortOptions = computed(() => {
-  if (!selectedModel.value || !shouldShowEffortSelector.value) return [];
-  const config = normalizeReasoningConfig(selectedModel.value);
-  return config.effort?.levels || [];
+  if (!selectedModel.value) return [];
+  return getReasoningEffortOptions(selectedModel.value);
 });
 
 // Computed property to get the default reasoning effort for the current model
@@ -263,6 +284,8 @@ async function submitMessage() {
   // Emit the message to parent component, including search enabled state
   emit("send-message", inputMessage.value, inputMessage.value, toRaw(attachments.value), isSearchEnabled.value);
   inputMessage.value = "";
+  // Clear draft for this conversation
+  await clearDraft();
   // Clear attachments after sending
   clearAttachments();
   // Force textarea resize after clearing
@@ -305,19 +328,19 @@ function setMessage(text) {
 
 
 /**
- * Toggles the reasoning state and updates the settings
+ * Toggles the reasoning state and updates the settings.
+ * For models with an effort selector, cycles through the available options
+ * (including "none" / Off when the model is toggleable). For simple toggleable
+ * models, switches between the generic on state ("default") and off ("none").
  */
 function toggleReasoning() {
-  if (shouldShowReasoningToggle.value) {
-    // For models with reasoning toggle, toggle between "default" and "none"
-    reasoningEffort.value = reasoningEffort.value === "default" ? "none" : "default";
-  } else if (shouldShowEffortSelector.value) {
+  if (shouldShowEffortSelector.value) {
     // For models with reasoning effort options, cycle through them
     const currentIndex = reasoningEffortOptions.value.indexOf(reasoningEffort.value);
     const nextIndex = (currentIndex + 1) % reasoningEffortOptions.value.length;
     reasoningEffort.value = reasoningEffortOptions.value[nextIndex];
   } else {
-    // For other reasoning-enabled models, we'll just toggle between default and none
+    // For simple toggleable models, toggle between on ("default") and off ("none")
     reasoningEffort.value = reasoningEffort.value === "default" ? "none" : "default";
   }
 
@@ -329,9 +352,16 @@ function toggleReasoning() {
 }
 
 /**
- * Toggles the search state
+ * Toggles the search state.
+ *
+ * Defensive guard: if the current model doesn't support tool use, the search
+ * button is hidden in the UI, but this function is also exposed via
+ * `defineExpose` and can be invoked programmatically. Refuse to enable search
+ * in that case so a stale setting can never be turned back on for a model
+ * that won't honor it.
  */
 function toggleSearch() {
+  if (!hasToolUseSupport.value) return;
   isSearchEnabled.value = !isSearchEnabled.value;
 }
 
@@ -495,8 +525,15 @@ async function handleDrop(event) {
 
 // If text form isn't focused and / is pressed, focus text form
 // We don't use whenever here to prevent the default action
+function isTextInputFocused() {
+  const active = document.activeElement;
+  if (!active) return false;
+  const tag = active.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || active.isContentEditable;
+}
+
 onKeyStroke("/", (e) => {
-  if (!isFocused.value) {
+  if (!isFocused.value && !isTextInputFocused()) {
     e.preventDefault();
     textareaRef.value.focus();
   }
@@ -591,7 +628,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
           >
             <!-- Mobile: Search toggle -->
             <button
-              v-if="isMobile"
+              v-if="isMobile && selectedModel && hasToolUseSupport"
               type="button"
               class="popover-toggle-item"
               :class="{ 'toggle-enabled': isSearchEnabled }"
@@ -608,9 +645,9 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
               />
             </button>
 
-            <!-- Mobile: Reasoning toggle (simple on/off) -->
-            <button 
-              v-if="isMobile && selectedModel && shouldShowReasoningToggle && supportsReasoning"
+            <!-- Mobile: Reasoning toggle (simple on/off) for toggleable models without effort levels -->
+            <button
+              v-if="isMobile && selectedModel && shouldShowReasoningToggle && !shouldShowEffortSelector && supportsReasoning"
               type="button"
               class="popover-toggle-item"
               :class="{ 'toggle-enabled': isReasoningEnabled }"
@@ -618,47 +655,48 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
             >
               <Icon icon="tabler:brain" width="20" height="20" />
               <span class="toggle-label">Reasoning</span>
-              <Icon 
-                v-if="isReasoningEnabled" 
-                icon="material-symbols:check" 
-                width="18" 
-                height="18" 
+              <Icon
+                v-if="isReasoningEnabled"
+                icon="material-symbols:check"
+                width="18"
+                height="18"
                 class="toggle-status"
               />
             </button>
 
             <!-- Mobile: Reasoning effort submenu (for models with effort options) -->
+            <!-- When the model is also toggleable, "Off" (none) is included as the first option. -->
             <DropdownMenuRoot v-if="isMobile && selectedModel && shouldShowEffortSelector">
               <DropdownMenuTrigger class="popover-toggle-item reasoning-submenu-trigger">
                 <Icon icon="tabler:brain" width="20" height="20" />
-                <span class="toggle-label">{{ reasoningEffort.charAt(0).toUpperCase() + reasoningEffort.slice(1) }}</span>
+                <span class="toggle-label">{{ formatReasoningLabel(reasoningEffort) }}</span>
                 <Icon icon="material-symbols:chevron-right" width="18" height="18" class="submenu-arrow" />
               </DropdownMenuTrigger>
 
               <DropdownMenuContent class="popover-dropdown reasoning-effort-dropdown" side="right" align="start"
                 :side-offset="8">
                 <div class="dropdown-scroll-container">
-                  <DropdownMenuItem 
-                    v-for="option in reasoningEffortOptions" 
-                    :key="option" 
+                  <DropdownMenuItem
+                    v-for="option in reasoningEffortOptions"
+                    :key="option"
                     class="reasoning-effort-item"
-                    :class="{ selected: option === reasoningEffort }" 
+                    :class="{ selected: option === reasoningEffort }"
                     @click="() => setReasoningEffort(option)"
                   >
-                    <span>{{ option.charAt(0).toUpperCase() + option.slice(1) }}</span>
-                    <Icon 
-                      v-if="option === reasoningEffort" 
-                      icon="material-symbols:check" 
-                      width="16" 
-                      height="16" 
+                    <span>{{ formatReasoningLabel(option) }}</span>
+                    <Icon
+                      v-if="option === reasoningEffort"
+                      icon="material-symbols:check"
+                      width="16"
+                      height="16"
                     />
                   </DropdownMenuItem>
                 </div>
               </DropdownMenuContent>
             </DropdownMenuRoot>
 
-            <!-- Divider (mobile only, when there are toggles) -->
-            <div v-if="isMobile && (supportsReasoning || shouldShowEffortSelector)" class="popover-divider"></div>
+            <!-- Divider (mobile only, when there are reasoning controls) -->
+            <div v-if="isMobile && supportsReasoning" class="popover-divider"></div>
 
             <!-- Attach media button (both mobile and desktop) -->
             <button
@@ -674,7 +712,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 
         <!-- Desktop: Search toggle button -->
         <button
-          v-if="!isMobile"
+          v-if="!isMobile && selectedModel && hasToolUseSupport"
           type="button" class="feature-button search-toggle-btn"
           :class="{ 'search-enabled': isSearchEnabled }" @click="toggleSearch"
           :aria-label="isSearchEnabled ? 'Disable search' : 'Enable search'">
@@ -682,8 +720,8 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
           <span class="search-label">Search</span>
         </button>
 
-        <!-- Desktop: Reasoning toggle for models that should show a reasoning toggle -->
-        <button v-if="!isMobile && selectedModel && shouldShowReasoningToggle && supportsReasoning"
+        <!-- Desktop: Reasoning toggle for models that are toggleable but have no effort levels -->
+        <button v-if="!isMobile && selectedModel && shouldShowReasoningToggle && !shouldShowEffortSelector && supportsReasoning"
           type="button" class="feature-button reasoning-toggle-btn"
           :class="{ 'reasoning-enabled': isReasoningEnabled }" @click="toggleReasoning"
           :aria-label="isReasoningEnabled ? 'Disable reasoning' : 'Enable reasoning'">
@@ -692,10 +730,11 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
         </button>
 
         <!-- Desktop: Reasoning effort dropdown for models that support reasoning effort -->
+        <!-- When the model is also toggleable, "Off" (none) is included as the first option. -->
         <DropdownMenuRoot v-if="!isMobile && selectedModel && shouldShowEffortSelector">
           <DropdownMenuTrigger class="feature-button reasoning-toggle-btn">
             <Icon icon="material-symbols:lightbulb" width="22" height="22" />
-            <span>{{ reasoningEffort.charAt(0).toUpperCase() + reasoningEffort.slice(1) }}</span>
+            <span>{{ formatReasoningLabel(reasoningEffort) }}</span>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent class="popover-dropdown reasoning-effort-dropdown" side="top" align="center"
@@ -703,7 +742,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
             <div class="dropdown-scroll-container">
               <DropdownMenuItem v-for="option in reasoningEffortOptions" :key="option" class="reasoning-effort-item"
                 :class="{ selected: option === reasoningEffort }" @click="() => setReasoningEffort(option)">
-                <span>{{ option.charAt(0).toUpperCase() + option.slice(1) }}</span>
+                <span>{{ formatReasoningLabel(option) }}</span>
               </DropdownMenuItem>
             </div>
           </DropdownMenuContent>

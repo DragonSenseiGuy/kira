@@ -5,6 +5,8 @@ import { md } from '../utils/markdown';
 import { copyCode, downloadCode } from '../utils/codeBlockUtils';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
+import ContextSummaryMarker from './ContextSummaryMarker.vue';
+import { useContextCompression } from '../composables/useContextCompression';
 import { getFormattedStatsFromExecutedTools } from '../composables/searchViewStats';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
 
@@ -102,6 +104,29 @@ const messageLoadingStates = reactive({});
 // Phase 2.2: Message stats cache
 const messageStatsCache = reactive({});
 
+// Context-compression boundary markers, derived from sidecar state.
+// Maps anchor message id -> marker props; purely presentational.
+const { getCompressionState } = useContextCompression();
+const compressionMarkers = computed(() => {
+  const map = new Map();
+  if (!props.currConvo) return map;
+  const state = getCompressionState(String(props.currConvo));
+  if (!state) return map;
+  for (const s of state.validSummaries || []) {
+    if (s?.anchorMessageId) {
+      map.set(s.anchorMessageId, {
+        status: 'completed',
+        sourceTokens: s.sourceTokens,
+        summaryTokens: s.summaryTokens,
+      });
+    }
+  }
+  if (state.status === 'running' && state.runningAnchorId) {
+    map.set(state.runningAnchorId, { status: 'in_progress' });
+  }
+  return map;
+});
+
 function formatDuration(ms) {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
@@ -136,7 +161,7 @@ const normalizedMessages = computed(() => {
         for (const toolCall of msg.tool_calls) {
           parts.push({
             type: 'tool_group',
-            _id: `tool-${toolCall.id || Math.random().toString(36).substr(2, 9)}`,
+            _id: `tool-${toolCall.id || Math.random().toString(36).substring(2, 11)}`,
             tools: [toolCall]
           });
         }
@@ -402,11 +427,25 @@ function getFormattedStatsForDisplay(messageId) {
   return getFormattedStatsFromExecutedTools(message.executed_tools || []);
 }
 
-// Function to copy message content
-function copyMessage(content, event) {
-  const button = event.currentTarget;
+// Extract all text content from a message for copying
+function getMessageCopyText(message) {
+  // If message has parts, concatenate all content-type parts
+  if (message.parts && message.parts.length > 0) {
+    return message.parts
+      .filter(part => part.type === 'content')
+      .map(part => part.content)
+      .join('\n\n');
+  }
+  // Fallback to legacy content field for user messages
+  return message.content || '';
+}
 
-  navigator.clipboard.writeText(content).then(() => {
+// Function to copy message content
+function copyMessage(message, event) {
+  const button = event.currentTarget;
+  const textToCopy = getMessageCopyText(message);
+
+  navigator.clipboard.writeText(textToCopy).then(() => {
     // Visual feedback - temporarily change button to success state
     button.classList.add('copied');
 
@@ -423,18 +462,27 @@ function copyMessage(content, event) {
 const editingMessageId = ref(null);
 const editContent = ref("");
 const editAttachments = ref([]);
+const editTextarea = ref(null);
+
+function setEditTextareaRef(el) {
+  editTextarea.value = el;
+}
 
 function startEditing(message) {
   editingMessageId.value = message.id;
   editContent.value = message.content;
   // Clone attachments to allow modifications during editing
   editAttachments.value = message.attachments ? [...message.attachments] : [];
+  resizeEditTextarea();
 }
 
 function cancelEditing() {
   editingMessageId.value = null;
   editContent.value = "";
   editAttachments.value = [];
+  if (editTextarea.value) {
+    editTextarea.value.style.height = "auto";
+  }
 }
 
 function submitEdit(messageId) {
@@ -442,10 +490,40 @@ function submitEdit(messageId) {
   emit("edit-message", messageId, editContent.value, editAttachments.value);
   editingMessageId.value = null;
   editAttachments.value = [];
+  if (editTextarea.value) {
+    editTextarea.value.style.height = "auto";
+  }
 }
 
 function removeEditAttachment(index) {
   editAttachments.value.splice(index, 1);
+}
+
+/**
+ * Resizes the edit textarea to fit its content.
+ */
+function resizeEditTextarea() {
+  nextTick(() => {
+    if (editTextarea.value) {
+      editTextarea.value.style.height = "auto";
+      if (editContent.value !== "") {
+        editTextarea.value.style.height = `${editTextarea.value.scrollHeight}px`;
+      }
+    }
+  });
+}
+
+watch(editContent, resizeEditTextarea);
+
+/**
+ * Handles Enter key presses in the edit textarea.
+ * On desktop, plain Enter submits; Shift+Enter or mobile Enter inserts a newline.
+ */
+function handleEditEnterKey(event, messageId) {
+  if (typeof window !== 'undefined' && window.innerWidth >= 768 && !event.shiftKey) {
+    event.preventDefault();
+    submitEdit(messageId);
+  }
 }
 
 function regenerateMessage(messageId) {
@@ -687,8 +765,6 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                                 :src="image.url"
                                 :alt="image.revised_prompt || 'Generated image'"
                                 loading="lazy"
-                                @load="console.log('Image loaded')"
-                                @error="console.log('Image failed to load')"
                               />
                               <div v-if="image.revised_prompt" class="image-caption">
                                 {{ image.revised_prompt }}
@@ -752,9 +828,10 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                         <textarea
                           v-model="editContent"
                           class="edit-textarea"
-                          ref="editTextarea"
+                          :ref="setEditTextareaRef"
                           placeholder="Edit your message..."
-                          @keydown.enter.exact.prevent="submitEdit(message.id)"
+                          rows="1"
+                          @keydown.enter="(event) => handleEditEnterKey(event, message.id)"
                           @keydown.esc="cancelEditing"
                         ></textarea>
                         <div class="edit-actions">
@@ -772,7 +849,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                   </div>
               <div class="message-content-footer" :class="{ 'user-footer': message.role === 'user' }">
                 <div class="footer-left-actions">
-                  <button class="footer-action-btn copy-button" @click="copyMessage(message.content, $event)" :title="'Copy message'"
+                  <button class="footer-action-btn copy-button" @click="copyMessage(message, $event)" :title="'Copy message'"
                     aria-label="Copy message">
                     <Icon icon="material-symbols:content-copy-outline-rounded" width="18px" height="18px" />
                   </button>
@@ -816,6 +893,11 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
               </div>
             </div>
           </div>
+          <!-- Presentational divider at a summary boundary (sidecar-derived). -->
+          <ContextSummaryMarker
+            v-if="compressionMarkers.has(message.id)"
+            v-bind="compressionMarkers.get(message.id)"
+          />
         </template>
       </div>
     </div>
@@ -970,6 +1052,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   align-items: flex-end;
   max-width: 85%;
   width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -994,6 +1077,9 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   width: fit-content;
   transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
   text-align: left;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
   /* Ensure text alignment within the bubble */
 }
 
@@ -1128,7 +1214,8 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  min-width: 500px;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .edit-attachments {
@@ -1205,6 +1292,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 .edit-textarea {
   width: 100%;
   min-height: 80px;
+  max-height: min(70vh, 600px);
   padding: 12px 16px;
   border-radius: 16px;
   border: 2px solid transparent;
@@ -1215,6 +1303,8 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   line-height: 1.5;
   resize: none;
   outline: none;
+  overflow-y: auto;
+  box-sizing: border-box;
   transition: all 0.2s ease;
 }
 
@@ -1266,9 +1356,11 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 }
 
 /* Editing state for bubble */
-.bubble.editing {
+.message.user .bubble.editing {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .copy-button.copied {
@@ -1388,6 +1480,8 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 
 .user-text {
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .message-attachments {

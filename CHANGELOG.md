@@ -13,6 +13,26 @@ All notable changes to Kira are documented here.
 
 ---
 
+## [1.3.0] - 2026-07-23
+
+### Added
+- **Notepad** replaces the Notebook preview: a locally stored Markdown document about you, maintained autonomously through a resumable three-stage pipeline (chat summarization → consolidation → atomic swap), with a dedicated `/notepad` page for viewing, refreshing, exporting, and resetting it
+- **Context compression**: long conversations are summarized into local sidecar records so older history costs fewer tokens, with automatic and manual modes, summary markers in chat, and settings for model, threshold, and keep-recent window
+- **Import/export system**: full zip backup and restore of conversations (including branches, reasoning, tool calls, and inline attachments), Notepad, and settings; per-chat zip export from the top bar; OpenWebUI JSON chat import; Skip/Replace/Append collision handling
+- **Persistent drafts**: unsent composer text is saved per conversation and restored when you return
+- Test suite (Vitest) covering models, branching, compression, import/export, notepad, tools, markdown, and streaming
+
+### Changed
+- Reasoning traces now create new visual blocks after being interrupted by tool calls, preserving the true reasoning → tool → reasoning order
+- Improved code block copy/download controls and search result mapping
+- Redesigned prompt-editing UI; long user messages wrap correctly
+- `/` no longer steals focus while typing in another input
+
+### Removed
+- All remaining upstream branding; Kira now identifies as Kira in the system prompt, exports, and UI
+
+---
+
 ## [1.2.0] - 2026-04-30
 
 ### Added

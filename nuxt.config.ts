@@ -17,7 +17,7 @@ export default defineNuxtConfig({
 
   // Site configuration for SEO modules
   site: {
-    url: 'https://libreassistant.vercel.app', // Replace with your actual domain
+    url: 'https://kira.adityan.dev', // Replace with your actual domain
     name: 'Kira',
     description: 'An open-source AI chat assistant',
     defaultLocale: 'en', // default locale of your site
@@ -41,13 +41,13 @@ export default defineNuxtConfig({
         { name: 'application-name', content: 'Kira' },
         { name: 'apple-mobile-web-app-title', content: 'Kira' },
         { name: 'twitter:card', content: 'summary' },
-        { name: 'twitter:url', content: 'https://libreassistant.vercel.app' },
+        { name: 'twitter:url', content: 'https://kira.adityan.dev' },
         { name: 'twitter:title', content: 'Kira' },
         { name: 'twitter:description', content: 'An open-source AI chat assistant' },
 
         // Open Graph tags for social sharing
         { property: 'og:type', content: 'website' },
-        { property: 'og:url', content: 'https://libreassistant.vercel.app' },
+        { property: 'og:url', content: 'https://kira.adityan.dev' },
         { property: 'og:title', content: 'Kira' },
         { property: 'og:description', content: 'An open-source AI chat assistant' },
         { property: 'og:site_name', content: 'Kira' },
