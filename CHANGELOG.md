@@ -15,6 +15,9 @@ All notable changes to Libre Assistant are documented here.
 
 ## [1.7.0] - 2026-07-24
 
+### Added
+- Enable opening new chat in new tab by clicking scroll wheel on new chat button. (#10 by @First-Non-Interesting-Username)
+
 ### Changed
 - Model list and provider logos are now fetched from [this repo](https://github.com/Mostlime12195/Libre-Assistant-Model-List) instead of hard-coded into the source code.
 
