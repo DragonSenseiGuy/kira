@@ -394,7 +394,7 @@ function openNotepad() {
                   <p>The cheap model used to summarize context (must be available through OpenRouter)</p>
                 </div>
                 <div class="input-container">
-                  <input v-model="contextCompressionModel" type="text" placeholder="deepseek/deepseek-v4-flash"
+                  <input v-model="contextCompressionModel" type="text" placeholder="deepseek/deepseek-v4-pro"
                     class="custom-input" />
                 </div>
               </div>

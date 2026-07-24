@@ -18,22 +18,40 @@ const props = defineProps({
 
 const svgContainerRef = ref(null);
 
-const loadSvgContent = async () => {
-  if (svgContainerRef.value) {
-    try {
-      const response = await fetch(props.src);
-      let svgContent = await response.text();
+function decodeSvgFromDataUrl(url) {
+  if (url.startsWith('data:image/svg+xml;base64,')) {
+    const base64 = url.slice('data:image/svg+xml;base64,'.length);
+    return decodeURIComponent(escape(atob(base64)));
+  }
+  if (url.startsWith('data:image/svg+xml,')) {
+    return decodeURIComponent(url.slice('data:image/svg+xml,'.length));
+  }
+  return null;
+}
 
-      // The SVGs already use fill="currentColor", so just make sure we preserve this
-      // and don't add unnecessary stroke attributes
-      if (svgContainerRef.value) {  // Double-check it still exists
-        svgContainerRef.value.innerHTML = svgContent;
+const loadSvgContent = async () => {
+  if (!svgContainerRef.value) return;
+
+  try {
+    let svgContent = decodeSvgFromDataUrl(props.src);
+
+    if (svgContent === null) {
+      const response = await fetch(props.src);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
-    } catch (error) {
-      console.error('Error loading SVG:', error);
-      if (svgContainerRef.value) {  // Double-check it still exists
-        svgContainerRef.value.innerHTML = '<svg></svg>'; // Fallback
-      }
+      svgContent = await response.text();
+    }
+
+    // The SVGs already use fill="currentColor", so just make sure we preserve this
+    // and don't add unnecessary stroke attributes
+    if (svgContainerRef.value) {  // Double-check it still exists
+      svgContainerRef.value.innerHTML = svgContent;
+    }
+  } catch (error) {
+    console.error('Error loading SVG:', error);
+    if (svgContainerRef.value) {  // Double-check it still exists
+      svgContainerRef.value.innerHTML = '<svg></svg>'; // Fallback
     }
   }
 };

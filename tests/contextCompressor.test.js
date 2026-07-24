@@ -104,7 +104,7 @@ describe('resolveCompressionSettings', () => {
   it('returns defaults for empty settings', () => {
     const s = resolveCompressionSettings({});
     expect(s.enabled).toBe(true);
-    expect(s.model).toBe('deepseek/deepseek-v4-flash');
+    expect(s.model).toBe('deepseek/deepseek-v4-pro');
     expect(s.thresholdTokens).toBe(DEFAULT_THRESHOLD_TOKENS);
     expect(s.keepRecentTokens).toBe(DEFAULT_KEEP_RECENT_TOKENS);
   });

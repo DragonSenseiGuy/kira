@@ -31,6 +31,12 @@ vi.mock("~/composables/emitter", () => ({
 }));
 
 import {
+  DEFAULT_COMPRESSION_MODEL,
+  DEFAULT_THRESHOLD_TOKENS,
+  DEFAULT_KEEP_RECENT_TOKENS,
+} from "../app/composables/contextCompressor.js";
+
+import {
   stripSecrets,
   isDefaultNotepad,
   buildManifest,
@@ -322,9 +328,9 @@ describe("exportAllToZip", () => {
       version: 5,
       notepad_enabled: false,
       context_compression_enabled: true,
-      context_compression_model: "deepseek/deepseek-v4-flash",
-      context_compression_threshold_tokens: 25000,
-      context_compression_keep_recent_tokens: 5000,
+      context_compression_model: DEFAULT_COMPRESSION_MODEL,
+      context_compression_threshold_tokens: DEFAULT_THRESHOLD_TOKENS,
+      context_compression_keep_recent_tokens: DEFAULT_KEEP_RECENT_TOKENS,
       selected_model_id: "moonshotai/kimi-k2.6",
       search_enabled: false,
       model_settings: {},

@@ -1,46 +1,244 @@
+import { reactive } from 'vue';
+
 /**
- * Available models from Hack Club
+ * Remote model list configuration for Libre Assistant.
  *
- * ================================================
- * REASONING CONFIGURATION SCHEMA
- * ================================================
- * 
- * reasoning: {
- *   supported: true/false,       // Does this model support reasoning at all?
- *   
- *   toggleable: true/false,      // Can user toggle reasoning on/off?
- *   defaultEnabled: true/false,  // Initial state (if toggleable)
- *   
- *   effort: {                    // Optional - effort level configuration
- *     levels: ['low', 'medium', 'high'],
- *     default: 'medium'
- *   },
- *   
- *   alternateModel: "model-id"   // Optional - route to different model when reasoning enabled
- * }
- * 
- * ================================================
- * API PARAMETER MAPPING
- * ================================================
- * 
- * | Model Type              | User Setting | API Output                      |
- * |-------------------------|--------------|--------------------------------|
- * | supported: false        | -            | {} (nothing)                    |
- * | Always-on, no effort    | -            | {} (nothing)                    |
- * | Always-on + effort      | effort       | { effort: "..." }               |
- * | Toggleable              | enabled      | { enabled: true }               |
- * | Toggleable              | disabled     | { enabled: false }              |
- * | Model routing           | enabled      | model: "alt-model-id"           |
- * | Model routing           | disabled     | {} (original model)             |
- * 
- * ================================================
- * PROVIDER RESTRICTION
- * ================================================
- * 
- * providers: ["provider-id"], // Optional - restricts model to specific OpenRouter provider(s)
+ * The model catalog is now decentralised: it is fetched from the
+ * Libre-Assistant-Model-List repository and cached locally so it is
+ * available immediately on startup. After startup, the app always checks
+ * the remote source for updates and refreshes the local cache when the list
+ * (or logos) have changed.
+ *
+ * Logo assets are also fetched from the remote repository and cached as
+ * base64 data URLs so the local public/ai_logos folder is no longer needed.
  */
 
-export const DEFAULT_MODEL_ID = "moonshotai/kimi-k2.6";
+const REMOTE_MODEL_LIST_URL =
+  'https://raw.githubusercontent.com/Mostlime12195/Libre-Assistant-Model-List/refs/heads/main/model-list.json';
+
+const REPO_RAW_BASE =
+  'https://raw.githubusercontent.com/Mostlime12195/Libre-Assistant-Model-List/refs/heads/main';
+
+const MODEL_LIST_CACHE_KEY = 'libre-model-list';
+const LOGO_CACHE_PREFIX = 'libre-model-logo:';
+
+/** Reactive array of the currently available model categories. */
+export const availableModels = reactive([]);
+
+/**
+ * The default model ID. This is updated from the remote model list once it
+ * has been loaded, but starts with a hard-coded fallback so that settings can
+ * be constructed before the remote catalog is available.
+ */
+export let DEFAULT_MODEL_ID = 'moonshotai/kimi-k2.6';
+
+/** True once the initial (cached or fallback) model list has been applied. */
+let isInitialised = false;
+
+let loadPromise = null;
+
+/**
+ * Converts a logo path from the remote catalog into an absolute URL.
+ * @param {string} logoPath
+ * @returns {string|null}
+ */
+function resolveLogoUrl(logoPath) {
+  if (!logoPath) return null;
+  if (logoPath.startsWith('http')) return logoPath;
+  if (logoPath.startsWith('/')) return `${REPO_RAW_BASE}${logoPath}`;
+  return `${REPO_RAW_BASE}/${logoPath}`;
+}
+
+/**
+ * Tries to read a cached logo data URL from localStorage.
+ * @param {string} logoPath
+ * @returns {string|null}
+ */
+function getCachedLogoUrl(logoPath) {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(`${LOGO_CACHE_PREFIX}${logoPath}`);
+  } catch (e) {
+    console.error('[models] Failed to read cached logo:', e);
+    return null;
+  }
+}
+
+/**
+ * Applies a fetched/cached model list to the reactive `availableModels` array
+ * and updates the default model ID. Logo paths are rewritten to use cached
+ * data URLs when available, otherwise absolute remote URLs.
+ *
+ * @param {Object} data
+ * @param {string} [data.defaultModelId]
+ * @param {Array}  [data.categories]
+ */
+export function applyModelList(data) {
+  if (!data || !Array.isArray(data.categories)) return;
+
+  if (data.defaultModelId) {
+    DEFAULT_MODEL_ID = data.defaultModelId;
+  }
+
+  const processedCategories = data.categories.map((category) => ({
+    ...category,
+    logo: getCachedLogoUrl(category.logo) || resolveLogoUrl(category.logo),
+    models: Array.isArray(category.models)
+      ? category.models.map((model) => ({ ...model }))
+      : [],
+  }));
+
+  availableModels.length = 0;
+  availableModels.push(...processedCategories);
+  isInitialised = true;
+}
+
+/**
+ * Loads the model list from the local cache, if one exists.
+ * @returns {boolean} Whether a cached list was found and applied.
+ */
+export function loadModelListFromCache() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const cached = window.localStorage.getItem(MODEL_LIST_CACHE_KEY);
+    if (cached) {
+      applyModelList(JSON.parse(cached));
+      return true;
+    }
+  } catch (e) {
+    console.error('[models] Failed to load cached model list:', e);
+  }
+  return false;
+}
+
+/**
+ * Fetches the current remote model list.
+ * @returns {Promise<Object|null>}
+ */
+async function fetchRemoteModelList() {
+  try {
+    const response = await fetch(REMOTE_MODEL_LIST_URL);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json();
+  } catch (e) {
+    console.error('[models] Failed to fetch remote model list:', e);
+    return null;
+  }
+}
+
+/**
+ * Encodes a string to base64 in a Unicode-safe way.
+ * @param {string} str
+ * @returns {string}
+ */
+function toBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+/**
+ * Fetches and caches any logos that are not already in localStorage.
+ *
+ * @param {Array} categories
+ * @returns {Promise<void>}
+ */
+async function cacheLogos(categories) {
+  if (typeof window === 'undefined') return;
+
+  const logoPaths = new Set();
+  for (const category of categories) {
+    if (category.logo) logoPaths.add(category.logo);
+  }
+
+  await Promise.all(
+    Array.from(logoPaths).map(async (logoPath) => {
+      const cacheKey = `${LOGO_CACHE_PREFIX}${logoPath}`;
+      if (window.localStorage.getItem(cacheKey)) return;
+
+      try {
+        const url = resolveLogoUrl(logoPath);
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const svgText = await response.text();
+        const dataUrl = `data:image/svg+xml;base64,${toBase64(svgText)}`;
+        window.localStorage.setItem(cacheKey, dataUrl);
+      } catch (e) {
+        console.error(`[models] Failed to cache logo ${logoPath}:`, e);
+      }
+    }),
+  );
+}
+
+/**
+ * Loads the remote model list, caches it, caches any missing logos, and
+ * refreshes the reactive model list if the remote version differs from the
+ * cached version. If no local cache exists yet, the remote list is applied
+ * immediately.
+ *
+ * This function is safe to call multiple times: concurrent calls share the
+ * same promise.
+ *
+ * @returns {Promise<void>}
+ */
+export async function loadModelList() {
+  if (typeof window === 'undefined') return;
+  if (loadPromise) return loadPromise;
+
+  loadPromise = (async () => {
+    const hadCache = isInitialised;
+    const remoteData = await fetchRemoteModelList();
+    if (!remoteData) return;
+
+    const cachedDataStr = window.localStorage.getItem(MODEL_LIST_CACHE_KEY);
+    const cachedData = cachedDataStr ? JSON.parse(cachedDataStr) : null;
+
+    // Update the cache and the reactive list whenever the remote list differs.
+    if (JSON.stringify(remoteData) !== JSON.stringify(cachedData)) {
+      window.localStorage.setItem(MODEL_LIST_CACHE_KEY, JSON.stringify(remoteData));
+      applyModelList(remoteData);
+    } else if (!hadCache) {
+      // If the cache was identical to remote but we had no local cache applied
+      // (e.g. fresh browser profile), still apply the remote list now.
+      applyModelList(remoteData);
+    }
+
+    // Cache any logos that are missing locally, then re-apply so the cached
+    // data URLs are used.
+    await cacheLogos(remoteData.categories);
+    applyModelList(remoteData);
+  })();
+
+  return loadPromise;
+}
+
+/**
+ * If the user's currently selected model ID is not present in the available
+ * model list, reset it to the DEFAULT model ID immediately. This prevents the
+ * UI from lingering in a "Loading..." state with an invalid model ID.
+ *
+ * @param {Object} settingsManager
+ */
+export function validateSelectedModel(settingsManager) {
+  if (!settingsManager?.isLoaded || !settingsManager?.settings) return;
+  // Don't reset while the model list is still loading from cache/remote.
+  if (availableModels.length === 0) return;
+
+  const currentId = settingsManager.settings.selected_model_id;
+  if (findModelById(availableModels, currentId)) return;
+
+  if (currentId !== DEFAULT_MODEL_ID) {
+    console.warn(
+      `[models] Selected model ${currentId} is not in the available model list; resetting to ${DEFAULT_MODEL_ID}`,
+    );
+    settingsManager.settings.selected_model_id = DEFAULT_MODEL_ID;
+    settingsManager.saveSettings();
+  }
+}
+
+// --- PURE HELPER FUNCTIONS (used by UI and API pipeline) ---
 
 /**
  * Normalizes legacy reasoning formats to the new schema
@@ -49,40 +247,47 @@ export const DEFAULT_MODEL_ID = "moonshotai/kimi-k2.6";
  */
 export function normalizeReasoningConfig(model) {
   const r = model.reasoning;
-  
+
   // Already new format
   if (typeof r === 'object' && r !== null && 'supported' in r) {
     return r;
   }
-  
+
   // Legacy: reasoning: false
   if (r === false) {
     return { supported: false };
   }
-  
+
   // Legacy: reasoning: true
   if (r === true) {
     const hasEffort = model.extra_parameters?.reasoning_effort;
     return {
       supported: true,
       toggleable: false,
-      effort: hasEffort ? {
-        levels: hasEffort[0],
-        default: hasEffort[1]
-      } : undefined
+      effort: hasEffort
+        ? {
+            levels: hasEffort[0],
+            default: hasEffort[1],
+          }
+        : undefined,
     };
   }
-  
+
   // Legacy: reasoning: [true, false]
   if (Array.isArray(r) && r.length === 2 && r[0] === true && r[1] === false) {
     return { supported: true, toggleable: true, defaultEnabled: true };
   }
-  
+
   // Legacy: reasoning: "model-id"
   if (typeof r === 'string') {
-    return { supported: true, toggleable: true, defaultEnabled: false, alternateModel: r };
+    return {
+      supported: true,
+      toggleable: true,
+      defaultEnabled: false,
+      alternateModel: r,
+    };
   }
-  
+
   // Fallback: no reasoning support
   return { supported: false };
 }
@@ -104,7 +309,12 @@ export function showReasoningToggle(model) {
  */
 export function showReasoningEffortSelector(model) {
   const config = normalizeReasoningConfig(model);
-  return config.supported && config.effort && Array.isArray(config.effort.levels) && config.effort.levels.length > 0;
+  return (
+    config.supported &&
+    config.effort &&
+    Array.isArray(config.effort.levels) &&
+    config.effort.levels.length > 0
+  );
 }
 
 /**
@@ -168,12 +378,12 @@ export function formatReasoningLabel(value) {
  */
 export function isReasoningEnabled(model, userEffort) {
   const config = normalizeReasoningConfig(model);
-  
+
   if (!config.supported) return false;
-  
+
   // Non-toggleable models always have reasoning enabled
   if (!config.toggleable) return true;
-  
+
   // Toggleable models: check if effort is 'none'
   return userEffort !== 'none';
 }
@@ -186,11 +396,11 @@ export function isReasoningEnabled(model, userEffort) {
  */
 export function buildReasoningParams(model, userSettings) {
   const config = normalizeReasoningConfig(model);
-  
+
   if (!config.supported) {
     return { reasoningParams: null, alternateModel: null };
   }
-  
+
   const effort = userSettings?.reasoning_effort ?? config.effort?.default ?? 'default';
   const isEnabled = effort !== 'none';
 
@@ -198,7 +408,7 @@ export function buildReasoningParams(model, userSettings) {
   if (config.alternateModel && isEnabled) {
     return {
       reasoningParams: null,
-      alternateModel: config.alternateModel
+      alternateModel: config.alternateModel,
     };
   }
 
@@ -207,18 +417,18 @@ export function buildReasoningParams(model, userSettings) {
     if (!isEnabled) {
       return {
         reasoningParams: { enabled: false },
-        alternateModel: null
+        alternateModel: null,
       };
     }
     if (config.effort && effort !== 'default') {
       return {
         reasoningParams: { enabled: true, effort: effort },
-        alternateModel: null
+        alternateModel: null,
       };
     }
     return {
       reasoningParams: { enabled: true },
-      alternateModel: null
+      alternateModel: null,
     };
   }
 
@@ -226,7 +436,7 @@ export function buildReasoningParams(model, userSettings) {
   if (config.effort && effort !== 'default') {
     return {
       reasoningParams: { effort: effort },
-      alternateModel: null
+      alternateModel: null,
     };
   }
 
@@ -272,553 +482,11 @@ export function findModelById(models, id) {
   return null;
 }
 
-export const availableModels = [
-  {
-    category: "Anthropic",
-    logo: "/ai_logos/anthropic.svg",
-    models: [
-      {
-        id: "anthropic/claude-fable-5",
-        name: "Claude Fable 5",
-        description: "State-of-the-art Anthropic Sonnet model for compelx reasoning and agentic tasks.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          effort: {
-            levels: ["low", "medium", "high", "xhigh"],
-            default: "low",
-          },
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-sonnet-5",
-        name: "Claude Sonnet 5",
-        description: "Strongest Anthropic Sonnet model for effecient agentic tasks.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          effort: {
-            levels: ["low", "medium", "high", "xhigh"],
-            default: "low",
-          },
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-opus-4.8",
-        name: "Claude Opus 4.8",
-        description: "Strong Anthropic model for complex reasoning and analysis.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-opus-4.7",
-        name: "Claude Opus 4.7",
-        description: "Capable Anthropic model for complex reasoning and analysis.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-opus-4.6",
-        name: "Claude Opus 4.6",
-        description: "Powerful Anthropic model for advanced reasoning tasks.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-sonnet-4.6",
-        name: "Claude Sonnet 4.6",
-        description: "Balanced Anthropic model with strong reasoning and efficiency.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-sonnet-4.5",
-        name: "Claude Sonnet 4.5",
-        description: "Older Anthropic model with excellent reasoning capabilities.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-haiku-4.5",
-        name: "Claude Haiku 4.5",
-        description: "Fast and lightweight Anthropic model for quick responses.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-    ],
-  },
-  {
-    category: "DeepSeek",
-    logo: "/ai_logos/deepseek.svg",
-    models: [
-      {
-        id: "deepseek/deepseek-v4-pro",
-        name: "DeepSeek V4 Pro",
-        description: "Frontier reasoning model with exceptional STEM capabilities.",
-        tool_use: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        extra_functions: [],
-        extra_parameters: {}
-      },
-      {
-        id: "deepseek/deepseek-v4-flash",
-        name: "DeepSeek V4 Flash",
-        description: "Fast variant of DeepSeek V4 optimized for speed.",
-        tool_use: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        extra_functions: [],
-        extra_parameters: {}
-      },
-      {
-        id: "deepseek/deepseek-v3.2-speciale",
-        name: "DeepSeek V3.2 Speciale",
-        description: "High-compute SOTA variant designed for complex math & STEM tasks.",
-        tool_use: false,
-        reasoning: {
-          supported: true,
-          toggleable: false,
-        },
-        extra_functions: [],
-        extra_parameters: {}
-      },
-      {
-        id: "deepseek/deepseek-v3.2",
-        name: "DeepSeek V3.2",
-        description: "Advanced general-purpose model designed with efficiency in mind.",
-        tool_use: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true,
-        },
-      },
-    ],
-  },
-  {
-    category: "Google",
-    logo: "/ai_logos/gemini.svg",
-    models: [
-      {
-        id: "google/gemini-3.5-flash",
-        name: "Gemini 3.5 Flash",
-        description: "Preview of frontier-level fast model, distilled from Gemini 3 Pro and optimized for speed.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['minimal', 'low', 'medium', 'high'],
-            default: 'medium'
-          }
-        },
-        vision: true,
-      },
-      {
-        id: "google/gemini-3-flash-preview",
-        name: "Gemini 3 Flash Preview",
-        description: "Preview of frontier-level fast model, distilled from Gemini 3 Pro and optimized for speed.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['minimal', 'low', 'medium', 'high'],
-            default: 'high'
-          }
-        },
-        vision: true,
-      },
-      {
-        id: "google/gemini-2.5-flash",
-        name: "Gemini 2.5 Flash",
-        description: "Low-latency, highly efficient model optimized for speed.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['low', 'medium', 'high'],
-            default: 'medium'
-          }
-        },
-        vision: true,
-      },
-      {
-        id: "google/gemini-2.5-flash-lite-preview-09-2025",
-        name: "Gemini 2.5 Flash Lite",
-        description: "Lightweight variant of Gemini 2.5 Flash optimized for speed.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['low', 'medium', 'high'],
-            default: 'medium'
-          }
-        },
-        vision: true,
-      },
-      {
-        id: "google/gemini-3.1-flash-image-preview",
-        name: "Nano Banana 2 (Image)",
-        description: "Frontier fast image generation model.",
-        tool_use: false,
-        reasoning: {
-          supported: true
-        },
-        vision: true,
-      },
-      {
-        id: "google/gemini-2.5-flash-image",
-        name: "Nano Banana (Image)",
-        description: "Fast image generation model.",
-        tool_use: false,
-        reasoning: {
-          supported: false
-        },
-        vision: true,
-      },
-    ]
-  },
-  {
-    category: "Liquid AI",
-    logo: "/ai_logos/liquid.svg",
-    models: [
-      {
-        id: "liquid/lfm-2-24b-a2b",
-        name: "LFM2 24B A2B",
-        description: "Cheap yet versatile open-weights model.",
-        tool_use: false,
-        vision: false,
-        reasoning: {
-          supported: false,
-        },
-      },
-    ]
-  },
-  {
-    category: "Moonshot AI",
-    logo: "/ai_logos/moonshot.svg",
-    models: [
-      {
-        id: "moonshotai/kimi-k3",
-        name: "Kimi K3",
-        description: "SOTA open-weights model.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: false
-        },
-      },
-      {
-        id: "moonshotai/kimi-k2.7-code",
-        name: "Kimi K2.7 Code",
-        description: "Frontier open-weights coding model.",
-        vision: true,
-        providers: ["moonshotai/int4"],
-        reasoning: {
-          supported: true,
-          toggleable: false
-        },
-      },
-      {
-        id: "moonshotai/kimi-k2.6",
-        name: "Kimi K2.6",
-        description: "open-weights model with exceptional EQ, coding, and agentic abilities.",
-        vision: true,
-        providers: ["moonshotai/int4"],
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "moonshotai/kimi-k2.5",
-        name: "Kimi K2.5",
-        description: "Open-weights model with exceptional EQ, coding, and agentic abilities.",
-        vision: true,
-        providers: ["moonshotai/int4"],
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "moonshotai/kimi-k2-0905",
-        name: "Kimi K2",
-        description: "Older open-weights model with great EQ and coding abilities.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: false,
-          alternateModel: "moonshotai/kimi-k2-thinking"
-        },
-      },
-    ],
-  },
-  {
-    category: "MiniMax",
-    logo: "/ai_logos/minimax.svg",
-    models: [
-      {
-        id: "minimax/minimax-m3",
-        name: "MiniMax M3",
-        description: "Frontier coding model with 1M token context window and enhanced architecture.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-      {
-        id: "minimax/minimax-m2.7",
-        name: "MiniMax M2.7",
-        description: "Open-weights coding model.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-    ],
-  },
-  {
-    category: "Mistral",
-    logo: "/ai_logos/mistral.svg",
-    models: [
-      {
-        id: "mistralai/mistral-medium-3-5",
-        name: "Mistral Medium 3.5",
-        description: "Open-weights medium Mistral model with multimodality.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-      {
-        id: "mistralai/mistral-small-2603",
-        name: "Mistral Small 4",
-        description: "Open-weights small Mistral model with multimodality.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-    ],
-  },
-  {
-    category: "OpenAI",
-    logo: "/ai_logos/openai.svg",
-    models: [
-      {
-        id: "openai/gpt-5.6-sol",
-        name: "GPT-5.6 Sol",
-        description: "Largest GPT-5.6 model with advanced reasoning and capabilities.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
-            default: 'low'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-5.6-terra",
-        name: "GPT-5.6 Terra",
-        description: "Medium-sized GPT-5.6 model cheaper than GPT-5.5 at the same quality.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-5.6-luna",
-        name: "GPT-5.6 Luna",
-        description: "Smallest GPT-5.6 model for cheap & fast tasks.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-5.4-nano",
-        name: "GPT-5.4 Nano",
-        description: "Compact variant of GPT-5.4 for minimal resource usage.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-5.3-codex",
-        name: "GPT-5.3 Codex",
-        description: "GPT-5.3 specialized for code generation and understanding.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['low', 'medium', 'high', 'xhigh'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-3.5-turbo-0613",
-        name: "GPT-3.5 Turbo 0613",
-        description: "Old and useless model, but here if you want a blast from the past!",
-        tool_use: false,
-        reasoning: {
-          supported: false,
-        },
-      },
-    ],
-  },
-  {
-    category: "Perplexity",
-    logo: "/ai_logos/perplexity.svg",
-    models: [
-      {
-        id: "perplexity/sonar-deep-research",
-        name: "Sonar Deep Research",
-        description: "Searches and reasons across sources to generate comprehensive reports.",
-        tool_use: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-    ],
-  },
-  {
-    category: "Qwen",
-    logo: "/ai_logos/qwen.svg",
-    models: [
-      {
-        id: "qwen/qwen3.7-plus",
-        name: "Qwen3.7 Plus",
-        description: "Capable Qwen model with multimodality.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-      {
-        id: "qwen/qwen3.5-397b-a17b",
-        name: "Qwen3.5 397B A17B",
-        description: "Cutting-edge open-weight model with multimodality.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-      {
-        id: "qwen/qwen3-vl-235b-a22b-instruct",
-        name: "Qwen 3 VL 235B A22B Instruct",
-        description: "Open-weight vision-language model excelling at document understanding and visual reasoning.",
-        vision: true,
-        reasoning: {
-          supported: false
-        },
-      },
-    ],
-  },
-  {
-    category: "Z.ai",
-    logo: "/ai_logos/zai.svg",
-    models: [
-      {
-        id: "z-ai/glm-5.2",
-        name: "GLM 5.2",
-        description: "Frontier open-weight model excelling at coding and math",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "z-ai/glm-5.1",
-        name: "GLM 5.1",
-        description: "Strong open-weight model excelling at coding and math",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "z-ai/glm-5",
-        name: "GLM 5",
-        description: "Frontier open-weight model excelling at coding and math",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "z-ai/glm-4.7",
-        name: "GLM 4.7",
-        description: "High-quality open-weight model excelling at coding and math",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "z-ai/glm-4.7-flash",
-        name: "GLM 4.7 Flash",
-        description: "SOTA 30B-class model with excellent agentic capabilities",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-    ],
-  },
-];
+// On the client, initialise the model list from the local cache immediately so
+// the UI can render without waiting for the network. The remote check is
+// started from app.vue once the application mounts.
+if (typeof window !== 'undefined') {
+  loadModelListFromCache();
+}
 
 export default availableModels;

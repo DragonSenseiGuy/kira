@@ -454,7 +454,6 @@ describe("supportsToolUse", () => {
     expect(supportsToolUse(findModelById(availableModels, "deepseek/deepseek-v3.2-speciale"))).toBe(false);
     expect(supportsToolUse(findModelById(availableModels, "google/gemini-3.1-flash-image-preview"))).toBe(false);
     expect(supportsToolUse(findModelById(availableModels, "google/gemini-2.5-flash-image"))).toBe(false);
-    expect(supportsToolUse(findModelById(availableModels, "liquid/lfm-2-24b-a2b"))).toBe(false);
   });
 
   it("matches the catalog's tool_use: true models", () => {

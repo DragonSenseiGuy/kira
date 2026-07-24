@@ -5,25 +5,26 @@ Libre Assistant does **not** sell or store user information, and all chat & user
 
 ## Features
 
-- All data is stored locally on your device. No data is stored on the internet
+- All data is stored locally on your device.
 - Full Markdown & LaTeX Support
+- Document & image upload support
 - Image generation support
-- Document analysis support
-- Detailed code-blocks, including syntax highlighting, downloading, and copying
+- Code-blocks with syntax highlighting, downloading, and copying
 - Personalizable with name, occupation, and custom instructions
 - Web search & web crawling tools
-- Reasoning effort customizability
-- Incognito mode to prevent chat history from being saved
-- Global memory to remember user details/preferences/opinions across chats
-- Parameter configuration panel with temperature, top_p, seed options, and a web search toggle
+- Incognito mode to prevent chat history or memory from being saved
+- Opt-in notepad that remembers user details/preferences/opinions across chats
+- Parameter configuration panel with temperature, top_p, and seed options
 - Conversation branching with message editing/regenerating
+- Near-lossless context compression system
+- Model list loaded from [this repo](https://github.com/Mostlime12195/Libre-Assistant-Model-List)
 
 ## Todo
 
 - Canvas/Code Panel
 - Tree-of-Thought (Multiple instances of the same or different models working together to solve a problem at the same time)
 
-Please suggest more ideas in the Issues tab.
+Please suggest other ideas in the Issues tab.
 
 ## VSCode Setup
 
@@ -47,6 +48,11 @@ NUXT_SESSION_SECRET
 
 ```sh
 npm install
+```
+
+### Run Unit Tests
+```sh
+npm test
 ```
 
 ### Compile and Hot-Reload for Development

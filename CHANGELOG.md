@@ -13,7 +13,18 @@ All notable changes to Libre Assistant are documented here.
 
 ---
 
-### [1.6.1] - 2026-07-19
+## [1.7.0] - 2026-07-24
+
+### Changed
+- Model list and provider logos are now fetched from [this repo](https://github.com/Mostlime12195/Libre-Assistant-Model-List) instead of hard-coded into the source code.
+
+### Fixed
+- When the current model ID is not available, it now reverts to the default model ID instead of keeping the stale model ID.
+- Improved robust-ness of a couple of the unit-tests.
+
+---
+
+## [1.6.1] - 2026-07-19
 
 ### Changed
 - Default context compression model is now DeepSeek V4 Pro, for its quality.
@@ -23,6 +34,8 @@ All notable changes to Libre Assistant are documented here.
 - Pressing the '/' key when focused on a text box other than the main chat form now correctly types '/' instead of shifting focus to the chat form.
 - The prompt editing form is redesigned better UX and more dynamic resizing, allowing it to fit nicely on most screens based on the content.
 - Long text now properly wraps in user message bubbles, preventing a horizontal scrollbar from appearing.
+
+---
 
 ## [1.6.0] - 2026-07-18
 

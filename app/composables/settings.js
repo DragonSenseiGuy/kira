@@ -131,7 +131,23 @@ class Settings {
         // Then deep merge saved settings over it to apply user's preferences
         this._deepMergeReactive(mergedSettings, savedSettings);
 
-        if (mergedSettings.selected_model_id === "moonshotai/kimi-k2-instruct-0905" || !mergedSettings.selected_model_id) {
+        if (
+          mergedSettings.selected_model_id === "moonshotai/kimi-k2-instruct-0905" ||
+          !mergedSettings.selected_model_id
+        ) {
+          mergedSettings.selected_model_id = DEFAULT_MODEL_ID;
+        }
+
+        // If the persisted model is no longer in the available model list,
+        // reset to the default immediately so the UI never shows "Loading..."
+        // with a stale/removed model ID.
+        if (
+          availableModels.length > 0 &&
+          !findModelById(availableModels, mergedSettings.selected_model_id)
+        ) {
+          console.warn(
+            `[settings] Selected model ${mergedSettings.selected_model_id} is not available; resetting to ${DEFAULT_MODEL_ID}`
+          );
           mergedSettings.selected_model_id = DEFAULT_MODEL_ID;
         }
 

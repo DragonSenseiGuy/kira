@@ -7,11 +7,12 @@
 </template>
 
 <script setup>
-import { onMounted, watch } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
 // Import the main CSS file to ensure all styling is loaded
 import './assets/main.css';
 import { runNotepadPipeline } from '~/composables/notepadPipeline';
 import { useSettings } from '~/composables/useSettings';
+import { loadModelList, validateSelectedModel, availableModels } from '~/composables/availableModels';
 
 const settingsManager = useSettings();
 
@@ -37,7 +38,7 @@ function maybeRunPipeline() {
   }, 250);
 }
 
-onMounted(() => {
+onMounted(async () => {
   // If settings are already loaded by the time we mount, fire immediately.
   if (settingsManager.isLoaded) {
     maybeRunPipeline();
@@ -54,6 +55,25 @@ onMounted(() => {
       { immediate: true },
     );
   }
+
+  // Validate the selected model whenever the model list or settings change.
+  // The model list is loaded from the local cache immediately in the module,
+  // and the remote source is checked in the background.
+  const validate = () => validateSelectedModel(settingsManager);
+  validate();
+  const unwatchModels = watch(availableModels, validate);
+  const unwatchSettingsLoaded = watch(
+    () => settingsManager.isLoaded,
+    (loaded) => loaded && validate(),
+    { immediate: true },
+  );
+  await loadModelList();
+  validate();
+
+  onUnmounted(() => {
+    unwatchModels();
+    unwatchSettingsLoaded();
+  });
 
   // Re-evaluate when the user toggles the Notepad on/off or sets a key.
   watch(

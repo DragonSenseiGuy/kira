@@ -126,9 +126,6 @@ useHead({
   ]
 });
 
-// Make availableModels reactive
-const models = ref(availableModels);
-
 // Reactive state for TopBar functionality (placeholders since chat state is in pages)
 const messages = ref([]); // Placeholder for messages
 const isLoading = ref(false); // Placeholder for loading state
