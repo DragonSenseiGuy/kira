@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody } from 'h3';
 import OpenAI from 'openai';
+import { resolveApiKey } from '../utils/apiKeys';
 
 /**
  * Quantizes a float embedding vector to binary (0 or 1).
@@ -23,9 +24,9 @@ export default defineEventHandler(async (event) => {
     const customApiKey = body.customApiKey;
     delete body.customApiKey;
 
-    // Prefer the user's own key, fall back to the server-wide shared key
-    const config = useRuntimeConfig(event);
-    const apiKey = customApiKey || config.openaiApiKey;
+    // Everyone uses their own key: the one just sent, or the one saved on
+    // their account.
+    const apiKey = await resolveApiKey(event, customApiKey);
 
     if (!apiKey) {
         event.node.res.statusCode = 401;

@@ -16,8 +16,15 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email VARCHAR(320) NOT NULL,
   password_hash TEXT NOT NULL,
+  -- The user's own API key, AES-256-GCM encrypted by server/utils/secrets.js.
+  -- Unlike the password this has to be readable again, so it is encrypted
+  -- rather than hashed. Null until the user saves one.
+  api_key_encrypted TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- For databases created before API keys were stored.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key_encrypted TEXT;
 
 -- Emails are matched case-insensitively, so uniqueness has to be too.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email));

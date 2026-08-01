@@ -10,7 +10,6 @@ services:
       - "traefik.http.routers.kira.entrypoints=websecure"
       - "traefik.http.routers.kira.tls=true"
       - "traefik.http.routers.kira.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.kira.middlewares=authelia@docker"
       - "traefik.http.services.kira.loadbalancer.server.port=3000"
       - "traefik.docker.network=dokploy-network"
     networks:
