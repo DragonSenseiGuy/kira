@@ -1,11 +1,14 @@
 # Kira
 
 Kira is a **free, unlimited** AI Chatbot that uses various models through [Hack Club's free API](https://ai.hackclub.com).
-Kira does **not** sell or store user information, and all chat & user data is stored on your device.
+Kira does **not** sell user information. By default all chat & user data is stored on your device; a
+deployment can optionally enable accounts, which sync your chats to its own database (see
+[Accounts](#accounts)).
 
 ## Features
 
-- All data is stored locally on your device. No data is stored on the internet
+- All data is stored locally on your device by default. No data leaves it unless accounts are enabled
+- Optional accounts: sign up with an email and password to have your chats follow you between devices
 - Full Markdown & LaTeX Support
 - Image generation support
 - Document analysis support
@@ -41,10 +44,29 @@ cd kira
 
 ### Set Environment Variables
 
-```env
-NUXT_SESSION_SECRET
-```
-`NUXT_SESSION_SECRET` is required for sessions to function
+Copy `.env.example` to `.env` and fill it in:
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `NUXT_SESSION_SECRET` | Yes | Signs session tokens and account cookies |
+| `DATABASE_URL` | No | PostgreSQL connection string. Setting it turns on accounts + chat sync |
+| `NUXT_OPENAI_API_KEY` | No | Shared API key, so users don't have to bring their own |
+
+## Accounts
+
+Accounts are off unless `DATABASE_URL` points at a PostgreSQL database.
+
+- **Without it** Kira behaves as it always has: no login, chats live in IndexedDB on the device.
+- **With it** the app is gated behind a login screen. People sign up with an email and password, and
+  their chats are saved to the database under their account, so they show up on any device they sign
+  in from. IndexedDB stays the primary store, so the app keeps working while offline.
+
+Passwords are stored as salted [scrypt](https://en.wikipedia.org/wiki/Scrypt) hashes — never in plain
+text, and never recoverable from the database. Sessions are HMAC-signed, httpOnly cookies, so the
+server never trusts a user id sent by the browser. Signing out clears the locally cached chats, which
+keeps accounts separate on a shared browser.
+
+The schema is applied automatically on server start; there is no migration step to run.
 
 ### Install Dependencies
 
