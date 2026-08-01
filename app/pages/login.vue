@@ -1,5 +1,12 @@
 <template>
   <div class="auth-page">
+    <UiIconButton
+      class="auth-theme-toggle"
+      :icon="isDark ? 'material-symbols:light-mode-outline' : 'material-symbols:dark-mode-outline'"
+      :label="isDark ? 'Switch to light theme' : 'Switch to dark theme'"
+      @click="toggleDark()"
+    />
+
     <div class="auth-card">
       <header class="auth-header">
         <Icon icon="ph:sparkle-fill" class="auth-mark" width="22" height="22" />
@@ -64,9 +71,16 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { Icon } from "@iconify/vue";
+import { useDark, useToggle } from "@vueuse/core";
 import { useAuth } from "~/composables/useAuth";
 
 definePageMeta({ layout: false });
+
+// This page opts out of the default layout, which is where the rest of the app
+// calls useDark() — without this the `.dark` class never lands on <html> here
+// and a dark-mode user gets a white flash at the sign-in screen.
+const isDark = useDark();
+const toggleDark = useToggle(isDark);
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -119,11 +133,20 @@ async function submit() {
 
 <style scoped>
 .auth-page {
+  position: relative;
   display: grid;
   place-items: center;
   min-height: 100dvh;
   padding: 24px;
   background: var(--bg);
+}
+
+/* The settings panel lives behind the auth wall, so this is the only way to
+   change theme before signing in. */
+.auth-theme-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
 }
 
 .auth-card {
