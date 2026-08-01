@@ -29,7 +29,15 @@ let hydratedFor = null;
 watch(
   user,
   async (current) => {
-    if (!current || hydratedFor === current.id) return;
+    // Signing out has to reset this. The app is a SPA, so signing back in
+    // happens without a reload — leaving the old id here would make the
+    // second sign-in skip hydration and land on an empty sidebar.
+    if (!current) {
+      hydratedFor = null;
+      return;
+    }
+
+    if (hydratedFor === current.id) return;
     hydratedFor = current.id;
 
     await adoptDeviceForUser(current.id);
