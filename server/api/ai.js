@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody } from 'h3';
 import OpenAI from 'openai';
+import { resolveApiKey } from '../utils/apiKeys';
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -8,8 +9,11 @@ export default defineEventHandler(async (event) => {
   const customApiKey = body.customApiKey;
   delete body.customApiKey; // Remove from body before passing to OpenAI
 
-  // Require user to provide their own API key
-  if (!customApiKey) {
+  // Everyone uses their own key: the one just sent, or the one saved on
+  // their account.
+  const apiKey = await resolveApiKey(event, customApiKey);
+
+  if (!apiKey) {
     event.node.res.statusCode = 401;
     event.node.res.setHeader('Content-Type', 'application/json');
     event.node.res.end(JSON.stringify({
@@ -21,8 +25,6 @@ export default defineEventHandler(async (event) => {
     }));
     return;
   }
-
-  const apiKey = customApiKey;
 
   const openai = new OpenAI({
     apiKey: apiKey || '',
