@@ -12,8 +12,25 @@ import { onMounted, watch } from 'vue';
 import './assets/main.css';
 import { runNotepadPipeline } from '~/composables/notepadPipeline';
 import { useSettings } from '~/composables/useSettings';
+import { useAuth } from '~/composables/useAuth';
+import { useCloudSync } from '~/composables/useCloudSync';
 
 const settingsManager = useSettings();
+const { user } = useAuth();
+const { hydrateFromCloud } = useCloudSync();
+
+// Pull the account's chats down once per sign-in, so a conversation started
+// on another device shows up here.
+let hydratedFor = null;
+watch(
+  user,
+  (current) => {
+    if (!current || hydratedFor === current.id) return;
+    hydratedFor = current.id;
+    hydrateFromCloud();
+  },
+  { immediate: true },
+);
 
 // Debounce so that we don't fire the pipeline multiple times in quick
 // succession (e.g. when the user toggles the Notepad setting on and
