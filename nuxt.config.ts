@@ -80,6 +80,8 @@ export default defineNuxtConfig({
     // Private config that only the server can access
     hackclubSearchApiKey: '',
     sessionSecret: '',
+    databaseUrl: '', // NUXT_DATABASE_URL / DATABASE_URL - enables accounts + cloud-synced chats
+    openaiApiKey: '', // NUXT_OPENAI_API_KEY - shared API key so users don't need their own
     // Public config that is exposed to the client
     public: {}
   }
