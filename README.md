@@ -50,7 +50,7 @@ Copy `.env.example` to `.env` and fill it in:
 | --- | --- | --- |
 | `NUXT_SESSION_SECRET` | Yes | Signs session tokens and account cookies |
 | `DATABASE_URL` | No | PostgreSQL connection string. Setting it turns on accounts + chat sync |
-| `NUXT_OPENAI_API_KEY` | No | Shared API key, so users don't have to bring their own |
+| `NUXT_ENCRYPTION_KEY` | No | Encrypts stored API keys. Falls back to `NUXT_SESSION_SECRET` |
 
 ## Accounts
 
@@ -61,10 +61,14 @@ Accounts are off unless `DATABASE_URL` points at a PostgreSQL database.
   their chats are saved to the database under their account, so they show up on any device they sign
   in from. IndexedDB stays the primary store, so the app keeps working while offline.
 
+Everyone brings their own API key — there is no shared key. With accounts enabled the key is saved to
+your account as well as your device, so you only paste it once and it works everywhere you sign in.
+
 Passwords are stored as salted [scrypt](https://en.wikipedia.org/wiki/Scrypt) hashes — never in plain
-text, and never recoverable from the database. Sessions are HMAC-signed, httpOnly cookies, so the
-server never trusts a user id sent by the browser. Signing out clears the locally cached chats, which
-keeps accounts separate on a shared browser.
+text, and never recoverable from the database. API keys have to be usable again, so they're encrypted
+with AES-256-GCM rather than hashed, and only ever returned to the account that owns them. Sessions
+are HMAC-signed, httpOnly cookies, so the server never trusts a user id sent by the browser. Signing
+out clears the locally cached chats and key, which keeps accounts separate on a shared browser.
 
 The schema is applied automatically on server start; there is no migration step to run.
 

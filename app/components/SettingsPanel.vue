@@ -13,6 +13,8 @@ import {
 import ExportMenu from "@/components/ExportMenu.vue";
 import ImportMenu from "@/components/ImportMenu.vue";
 import { groupShortcuts } from "@/composables/keyboardShortcuts";
+import { saveApiKeyToAccount } from "@/composables/useApiKeySync";
+import { useAuth } from "@/composables/useAuth";
 
 // Define props and emits
 const props = defineProps(["isOpen", "initialTab"]);
@@ -48,6 +50,10 @@ const customInstructions = ref("");
 // API key fields
 const customApiKey = ref("");
 const showApiKey = ref(false);
+
+// With accounts on, the key is saved to the account (encrypted) as well as
+// this device, so it carries over to the next one.
+const { accountsEnabled } = useAuth();
 
 // --- Constants for Navigation ---
 const navItems = [
@@ -152,6 +158,10 @@ async function saveSettings() {
   settingsManager.setSetting("gpt_oss_limit_tables", gptOssLimitTables.value);
   settingsManager.setSetting("custom_api_key", customApiKey.value.trim());
 
+  // Store it against the account too, so other devices pick it up. A no-op
+  // in local-only mode.
+  await saveApiKeyToAccount(customApiKey.value.trim());
+
   // Save context compression settings
   settingsManager.setSetting("context_compression_enabled", contextCompressionEnabled.value);
   settingsManager.setSetting("context_compression_model", contextCompressionModel.value.trim());
@@ -232,7 +242,11 @@ function openNotepad() {
               <div class="setting-item textarea-item">
                 <div class="setting-info">
                   <h3>API Key</h3>
-                  <p>Enter your own API key to use models</p>
+                  <p v-if="accountsEnabled">
+                    Enter your own API key to use models. It's saved to your
+                    account, encrypted, so it works on your other devices too.
+                  </p>
+                  <p v-else>Enter your own API key to use models</p>
                 </div>
                 <div class="input-container api-key-container">
                   <input 

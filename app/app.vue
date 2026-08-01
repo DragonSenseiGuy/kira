@@ -14,20 +14,27 @@ import { runNotepadPipeline } from '~/composables/notepadPipeline';
 import { useSettings } from '~/composables/useSettings';
 import { useAuth } from '~/composables/useAuth';
 import { useCloudSync } from '~/composables/useCloudSync';
+import { syncApiKeyWithAccount } from '~/composables/useApiKeySync';
+import { adoptDeviceForUser } from '~/composables/localAccountCache';
 
 const settingsManager = useSettings();
 const { user } = useAuth();
 const { hydrateFromCloud } = useCloudSync();
 
-// Pull the account's chats down once per sign-in, so a conversation started
-// on another device shows up here.
+// Pull the account's chats and API key down once per sign-in, so a
+// conversation started on another device — and the key that device used —
+// show up here. Claiming the device comes first: it clears anything a
+// different account left behind, which the syncs would otherwise adopt.
 let hydratedFor = null;
 watch(
   user,
-  (current) => {
+  async (current) => {
     if (!current || hydratedFor === current.id) return;
     hydratedFor = current.id;
+
+    await adoptDeviceForUser(current.id);
     hydrateFromCloud();
+    syncApiKeyWithAccount();
   },
   { immediate: true },
 );

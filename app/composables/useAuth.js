@@ -1,5 +1,8 @@
 import { computed, ref } from "vue";
-import { clearLocalChats } from "~/composables/localChatCache";
+import {
+  clearLocalApiKey,
+  clearLocalChats,
+} from "~/composables/localAccountCache";
 
 /**
  * Account state for the whole app.
@@ -114,8 +117,10 @@ export function useAuth() {
       console.warn("[auth] Logout request failed:", error.message);
     }
     user.value = null;
-    // Don't leave this account's chats behind for whoever signs in next.
+    // Don't leave this account's chats or API key behind for whoever signs
+    // in next.
     await clearLocalChats();
+    await clearLocalApiKey();
   }
 
   return {
