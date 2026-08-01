@@ -5,6 +5,9 @@ Kira does **not** sell user information. By default all chat & user data is stor
 deployment can optionally enable accounts, which sync your chats to its own database (see
 [Accounts](#accounts)).
 
+<img width="3024" height="1891" alt="kira" src="https://github.com/user-attachments/assets/baa6493e-6a98-49b9-981d-cb51433a743c" />
+
+
 ## Features
 
 - All data is stored locally on your device by default. No data leaves it unless accounts are enabled
