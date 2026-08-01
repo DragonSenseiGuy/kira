@@ -10,6 +10,7 @@ import {
 } from "reka-ui";
 import { useConversationsList } from "~/composables/useConversationsList";
 import { useSettings } from "~/composables/useSettings";
+import { useAuth } from "~/composables/useAuth";
 
 const emit = defineEmits([
   "reloadSettings",
@@ -24,6 +25,15 @@ const route = useRoute();
 
 // Use settings to check for API key
 const settingsManager = useSettings();
+
+// Account state. With no database configured there is nothing to sign in
+// to, so the footer stays empty rather than showing a dead action.
+const { accountsEnabled, user, logout } = useAuth();
+
+async function handleSignOut() {
+  await logout();
+  router.push("/login");
+}
 const hasApiKey = computed(() => !!settingsManager.settings.custom_api_key);
 
 // Use the conversations list composable
@@ -243,9 +253,31 @@ function handleNewConversation() {
         />
       </div>
 
-      <div class="sidebar-footer">
-        <UiButton variant="ghost" icon="material-symbols:login-rounded" block class="login-btn">
-          Login
+      <div v-if="accountsEnabled" class="sidebar-footer">
+        <template v-if="user">
+          <div class="account-row">
+            <Icon icon="ph:user-circle" width="18" height="18" class="account-avatar" />
+            <span class="account-email" :title="user.email">{{ user.email }}</span>
+          </div>
+          <UiButton
+            variant="ghost"
+            icon="material-symbols:logout-rounded"
+            block
+            class="login-btn"
+            @click="handleSignOut"
+          >
+            Sign out
+          </UiButton>
+        </template>
+        <UiButton
+          v-else
+          variant="ghost"
+          icon="material-symbols:login-rounded"
+          block
+          class="login-btn"
+          @click="router.push('/login')"
+        >
+          Log in
         </UiButton>
       </div>
     </div>
@@ -361,6 +393,27 @@ function handleNewConversation() {
 /* The footer action reads as a row, not a centred button */
 .login-btn :deep(.ui-btn__body) {
   margin-right: auto;
+}
+
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 8px;
+  min-width: 0;
+}
+
+.account-avatar {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.account-email {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Conversation List */
