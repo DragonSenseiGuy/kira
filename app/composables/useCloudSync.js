@@ -2,6 +2,11 @@ import localforage from "localforage";
 import { ref } from "vue";
 import { emitter } from "~/composables/emitter";
 import { useAuth } from "~/composables/useAuth";
+import { clearLocalChats } from "~/composables/localChatCache";
+
+// Which account the local chat cache belongs to. Unset means the cache
+// predates accounts, and is adopted by the first user who signs in.
+const CACHE_OWNER_KEY = "kira_cache_owner";
 
 /**
  * Cloud sync for account-backed chat storage.
@@ -167,6 +172,15 @@ export function useCloudSync() {
 
     syncing.value = true;
     try {
+      // If the cache belongs to a different account (someone closed the tab
+      // without signing out), drop it rather than merging two people's chats.
+      const { user } = useAuth();
+      const cacheOwner = await localforage.getItem(CACHE_OWNER_KEY);
+      if (cacheOwner && cacheOwner !== user.value.id) {
+        await clearLocalChats();
+      }
+      await localforage.setItem(CACHE_OWNER_KEY, user.value.id);
+
       const remote = await cloudLoadConversations();
       const localMetadata =
         (await localforage.getItem("conversations_metadata")) || [];
