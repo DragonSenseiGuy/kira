@@ -1,31 +1,70 @@
 <template>
   <div class="top-bar" :class="{ 'with-border': !isScrolledTopValue }" ref="topBarRef">
     <div class="top-bar-content">
-      <button v-if="!sidebarOpen" class="sidebar-toggle" @click="toggleSidebar" aria-label="Toggle sidebar">
-        <Icon icon="material-symbols:side-navigation" width="22" height="22" />
-      </button>
-      <button v-if="!sidebarOpen" class="new-chat-btn" @click="handleNewChat" aria-label="New chat">
-        <Icon icon="material-symbols:add-box-outline" width="22" height="22" />
-      </button>
+      <UiTooltip v-if="!sidebarOpen" content="Toggle sidebar" side="bottom" shortcut="mod+b">
+        <UiIconButton
+          icon="material-symbols:side-navigation"
+          label="Toggle sidebar"
+          @click="toggleSidebar"
+        />
+      </UiTooltip>
 
-      <div v-if="(isIncognito && messages && messages.length > 0) || isIncognitoRoute" class="incognito-indicator">
-        <Icon icon="mdi:incognito" width="18" height="18" />
-        <span class="incognito-text">{{ isIncognitoRoute ? 'Incognito Mode' : 'Incognito mode' }}</span>
-      </div>
+      <UiTooltip v-if="!sidebarOpen" content="New chat" side="bottom" shortcut="mod+alt+n">
+        <UiIconButton
+          icon="material-symbols:add-box-outline"
+          label="New chat"
+          @click="handleNewChat"
+        />
+      </UiTooltip>
+
+      <UiBadge
+        v-if="(isIncognito && messages && messages.length > 0) || isIncognitoRoute"
+        tone="neutral"
+        icon="mdi:incognito"
+        class="incognito-indicator"
+      >
+        {{ isIncognitoRoute ? 'Incognito Mode' : 'Incognito mode' }}
+      </UiBadge>
+
       <div class="action-toggles">
-        <button v-if="canExport" class="action-toggle export-chat-toggle"
-          @click="$emit('export-chat')" aria-label="Export this chat">
-          <Icon icon="material-symbols:download" width="20" height="20" />
-        </button>
-        <button v-if="showIncognitoButton && !isIncognitoRoute" class="action-toggle incognito-toggle" :class="{ active: isIncognito }"
-          @click="$emit('toggle-incognito')"
-          :aria-label="isIncognito ? 'Disable incognito mode' : 'Enable incognito mode'">
-          <Icon icon="mdi:incognito" width="18" height="18" />
-        </button>
-        <button v-if="!parameterConfigOpen" class="action-toggle parameter-config-toggle"
-          @click="$emit('toggle-parameter-config')" aria-label="Model parameters">
-          <Icon icon="material-symbols:tune" width="18" height="18" />
-        </button>
+        <UiTooltip content="Search and commands" side="bottom" shortcut="mod+k">
+          <UiIconButton
+            icon="material-symbols:search"
+            label="Search and commands"
+            @click="$emit('open-palette')"
+          />
+        </UiTooltip>
+
+        <UiTooltip v-if="canExport" content="Export this chat" side="bottom">
+          <UiIconButton
+            icon="material-symbols:download"
+            label="Export this chat"
+            @click="$emit('export-chat')"
+          />
+        </UiTooltip>
+
+        <UiTooltip
+          v-if="showIncognitoButton && !isIncognitoRoute"
+          :content="isIncognito ? 'Disable incognito mode' : 'Enable incognito mode'"
+          side="bottom"
+          shortcut="mod+alt+i"
+        >
+          <UiIconButton
+            icon="mdi:incognito"
+            :label="isIncognito ? 'Disable incognito mode' : 'Enable incognito mode'"
+            togglable
+            :active="isIncognito"
+            @click="$emit('toggle-incognito')"
+          />
+        </UiTooltip>
+
+        <UiTooltip v-if="!parameterConfigOpen" content="Model parameters" side="bottom" shortcut="mod+alt+b">
+          <UiIconButton
+            icon="material-symbols:tune"
+            label="Model parameters"
+            @click="$emit('toggle-parameter-config')"
+          />
+        </UiTooltip>
       </div>
     </div>
   </div>
@@ -33,7 +72,6 @@
 
 <script setup>
 import { computed, ref } from 'vue';
-import { Icon } from "@iconify/vue";
 import { useRoute, useRouter } from "vue-router";
 
 const props = defineProps({
@@ -75,7 +113,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['toggle-incognito', 'toggle-parameter-config', 'export-chat']);
+defineEmits(['toggle-incognito', 'toggle-parameter-config', 'export-chat', 'open-palette']);
 
 const route = useRoute();
 const router = useRouter();
@@ -95,104 +133,23 @@ const isScrolledTopValue = computed(() => {
 </script>
 
 <style scoped>
-.sidebar-toggle :deep(svg) {
-  color: var(--text-primary);
-}
-
-.new-chat-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  margin: 0;
-  transition: background 0.18s;
-  color: var(--text-primary);
-}
-
-.new-chat-btn:hover {
-  background: var(--btn-hover);
-}
-
-.export-chat-toggle :deep(svg) {
-  color: var(--text-primary);
-}
-
+/* The bar itself is defined in base.css (.top-bar / .top-bar-content) so the
+   translucent treatment stays in one place. Only layout lives here. */
 .top-bar {
   position: sticky;
   top: 0;
-  height: 48px;
-  background-color: var(--bg);
-  width: 100%;
-  z-index: 100;
-  flex-shrink: 0;
-  border-bottom: 1px solid transparent;
-  transition: border-bottom 0.2s ease;
-}
-
-.top-bar.with-border {
-  border-bottom: 1px solid var(--border);
-}
-
-.top-bar-content {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  height: 100%;
-  padding: 0 12px;
-  gap: 8px;
 }
 
 .incognito-indicator {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.incognito-text {
-  font-weight: 600;
 }
 
 .action-toggles {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   margin-left: auto;
-}
-
-.action-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: none;
-  cursor: pointer;
-  padding: 0;
-  margin: 0;
-  transition: background 0.18s;
-  color: var(--text-primary);
-}
-
-.action-toggle:hover {
-  background: var(--btn-hover);
-}
-
-.action-toggle:active:not(.parameter-config-toggle),
-.action-toggle.active:not(.parameter-config-toggle) {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
 }
 </style>

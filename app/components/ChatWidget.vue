@@ -1,51 +1,47 @@
 <template>
-  <div class="chat-widget">
-    <div
-      class="chat-widget-header" :class="{ open: isOpen }"
-      @click="isOpen = !isOpen"
-    >
-      <div class="chat-widget-icon">
-        <!-- Reasoning icon -->
-        <svg v-if="type === 'reasoning'" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="12" cy="12" r="6"/>
-        </svg>
-        <!-- Web Crawl icon -->
-        <Icon v-else-if="isWebCrawl" icon="material-symbols:web-asset" width="20" height="20" />
-        <!-- Search icon -->
-        <Icon v-else-if="isSearch" icon="material-symbols:search-rounded" width="20" height="20" />
-        <!-- Memory icon -->
-        <Icon v-else-if="isMemory" icon="material-symbols:psychology-rounded" width="20" height="20" />
-        <!-- Tool icon -->
-        <Icon v-else icon="material-symbols:build-circle-outline-rounded" width="20" height="20" />
-      </div>
-
-      <div class="chat-widget-info">
-        <div class="chat-widget-name">
-          <template v-if="isWebCrawl">
-            <span class="chat-widget-search-label">Crawled Webpages</span>
-          </template>
-          <template v-else-if="isSearch">
-            <span class="chat-widget-search-label">Search</span>
-            <span class="chat-widget-search-separator"></span>
-            <span class="chat-widget-search-query">{{ searchQuery }}</span>
-          </template>
-          <template v-else>
-            {{ displayedName }}
-          </template>
+  <UiDisclosure v-model="isOpen" class="chat-widget" :chevron="false">
+    <template #trigger>
+      <div class="chat-widget-header" :class="{ open: isOpen }">
+        <div class="chat-widget-icon">
+          <!-- Reasoning shows a live dot rather than a glyph: it reads as
+               "something is happening here", not as another tool. -->
+          <span v-if="type === 'reasoning'" class="chat-widget-dot" />
+          <Icon v-else-if="isWebCrawl" icon="material-symbols:web-asset" width="16" height="16" />
+          <Icon v-else-if="isSearch" icon="material-symbols:search-rounded" width="16" height="16" />
+          <Icon v-else-if="isMemory" icon="material-symbols:psychology-rounded" width="16" height="16" />
+          <Icon v-else icon="material-symbols:build-circle-outline-rounded" width="16" height="16" />
         </div>
-        <div v-if="displayedStatus" class="chat-widget-status">{{ displayedStatus }}</div>
-      </div>
 
-      <div class="chat-widget-toggle">
+        <div class="chat-widget-info">
+          <div class="chat-widget-name">
+            <template v-if="isWebCrawl">
+              <span class="chat-widget-search-label">Crawled Webpages</span>
+            </template>
+            <template v-else-if="isSearch">
+              <span class="chat-widget-search-label">Search</span>
+              <span class="chat-widget-search-separator"></span>
+              <span class="chat-widget-search-query">{{ searchQuery }}</span>
+            </template>
+            <template v-else>
+              {{ displayedName }}
+            </template>
+          </div>
+        </div>
+
+        <UiBadge v-if="displayedStatus" tone="neutral" class="chat-widget-badge">
+          {{ displayedStatus }}
+        </UiBadge>
+
         <Icon
-          icon="material-symbols:chevron-right-rounded"
-          width="20" height="20"
+          icon="material-symbols:keyboard-arrow-down-rounded"
+          class="chat-widget-toggle"
+          width="18" height="18"
           :class="{ 'rotate': isOpen }"
         />
       </div>
-    </div>
+    </template>
 
-    <div v-show="isOpen" class="chat-widget-details">
+    <div class="chat-widget-details">
       <!-- Reasoning content -->
       <div v-if="type === 'reasoning'" class="reasoning-content-area">
         <div class="reasoning-content markdown-content" v-html="renderedContent"></div>
@@ -105,7 +101,7 @@
         <pre>{{ formattedArgs }}</pre>
       </div>
     </div>
-  </div>
+  </UiDisclosure>
 </template>
 
 <script setup>

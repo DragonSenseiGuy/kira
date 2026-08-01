@@ -564,19 +564,23 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
       @drop="handleDrop"
     >
       <!-- Attachment error message -->
-      <div v-if="attachmentError" class="attachment-error">
+      <div v-if="attachmentError" class="attachment-error u-enter" role="alert">
         <Icon icon="material-symbols:error-outline" width="16" height="16" />
         <span>{{ attachmentError }}</span>
-        <button class="dismiss-error" @click="clearAttachmentError" aria-label="Dismiss error">
-          <Icon icon="material-symbols:close" width="14" height="14" />
-        </button>
+        <UiIconButton
+          icon="material-symbols:close"
+          label="Dismiss error"
+          size="sm"
+          class="dismiss-error"
+          @click="clearAttachmentError"
+        />
       </div>
 
       <!-- Attachment previews -->
       <div v-if="hasAttachments || isProcessingFiles" class="attachment-preview-row">
         <!-- Processing indicator -->
         <div v-if="isProcessingFiles" class="attachment-preview processing">
-          <div class="processing-spinner"></div>
+          <UiSpinner :size="18" label="Processing attachments" />
           <span class="attachment-name">Processing...</span>
         </div>
         <div
@@ -611,14 +615,13 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
         <!-- Plus button popover menu - contains toggles and attach media -->
         <PopoverRoot>
           <PopoverTrigger as-child>
-            <button
-              type="button"
-              class="feature-button attachment-btn"
+            <UiIconButton
+              icon="material-symbols:add"
+              label="Open attachment menu"
+              variant="subtle"
+              class="attachment-btn"
               :disabled="isLoading"
-              aria-label="Open attachment menu"
-            >
-              <Icon icon="material-symbols:add" width="22" height="22" />
-            </button>
+            />
           </PopoverTrigger>
           <PopoverContent 
             class="popover-dropdown attachment-popover" 
@@ -711,30 +714,42 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
         </PopoverRoot>
 
         <!-- Desktop: Search toggle button -->
-        <button
+        <UiButton
           v-if="!isMobile && selectedModel && hasToolUseSupport"
-          type="button" class="feature-button search-toggle-btn"
-          :class="{ 'search-enabled': isSearchEnabled }" @click="toggleSearch"
-          :aria-label="isSearchEnabled ? 'Disable search' : 'Enable search'">
-          <Icon icon="material-symbols:globe" width="22" height="22" />
-          <span class="search-label">Search</span>
-        </button>
+          class="feature-button"
+          :variant="isSearchEnabled ? 'primary' : 'secondary'"
+          icon="material-symbols:globe"
+          :aria-pressed="String(isSearchEnabled)"
+          :aria-label="isSearchEnabled ? 'Disable search' : 'Enable search'"
+          @click="toggleSearch"
+        >
+          Search
+        </UiButton>
 
         <!-- Desktop: Reasoning toggle for models that are toggleable but have no effort levels -->
-        <button v-if="!isMobile && selectedModel && shouldShowReasoningToggle && !shouldShowEffortSelector && supportsReasoning"
-          type="button" class="feature-button reasoning-toggle-btn"
-          :class="{ 'reasoning-enabled': isReasoningEnabled }" @click="toggleReasoning"
-          :aria-label="isReasoningEnabled ? 'Disable reasoning' : 'Enable reasoning'">
-          <Icon icon="tabler:brain" width="22" height="22" />
-          <span class="reasoning-label">Reasoning</span>
-        </button>
+        <UiButton
+          v-if="!isMobile && selectedModel && shouldShowReasoningToggle && !shouldShowEffortSelector && supportsReasoning"
+          class="feature-button"
+          :variant="isReasoningEnabled ? 'primary' : 'secondary'"
+          icon="tabler:brain"
+          :aria-pressed="String(isReasoningEnabled)"
+          :aria-label="isReasoningEnabled ? 'Disable reasoning' : 'Enable reasoning'"
+          @click="toggleReasoning"
+        >
+          Reasoning
+        </UiButton>
 
         <!-- Desktop: Reasoning effort dropdown for models that support reasoning effort -->
         <!-- When the model is also toggleable, "Off" (none) is included as the first option. -->
         <DropdownMenuRoot v-if="!isMobile && selectedModel && shouldShowEffortSelector">
-          <DropdownMenuTrigger class="feature-button reasoning-toggle-btn">
-            <Icon icon="material-symbols:lightbulb" width="22" height="22" />
-            <span>{{ formatReasoningLabel(reasoningEffort) }}</span>
+          <DropdownMenuTrigger as-child>
+            <UiButton
+              class="feature-button"
+              :variant="reasoningEffort === 'none' ? 'secondary' : 'primary'"
+              icon="material-symbols:lightbulb"
+            >
+              {{ formatReasoningLabel(reasoningEffort) }}
+            </UiButton>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent class="popover-dropdown reasoning-effort-dropdown" side="top" align="center"
@@ -757,11 +772,14 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
             @model-selected="handleModelSelect"
           />
 
-          <button type="submit" class="action-btn send-btn" :disabled="!trimmedMessage && !isLoading"
-            @click="handleActionClick" :aria-label="isLoading ? 'Stop generation' : 'Send message'">
-            <Icon v-if="!isLoading" icon="material-symbols:arrow-upward-rounded" width="20" height="20" />
-            <Icon v-else icon="material-symbols:stop-rounded" width="20" height="20" />
-          </button>
+          <UiIconButton
+            class="send-btn"
+            variant="solid"
+            :icon="isLoading ? 'material-symbols:stop-rounded' : 'material-symbols:arrow-upward-rounded'"
+            :label="isLoading ? 'Stop generation' : 'Send message'"
+            :disabled="!trimmedMessage && !isLoading"
+            @click="handleActionClick"
+          />
         </div>
       </div>
     </div>
@@ -782,37 +800,41 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 .input-section {
   /* Stick to the bottom of the scroll container (chat-column) */
   position: sticky;
-  background: var(--bg); 
-  border-radius: 20px 20px 0 0;
+  background: var(--bg);
+  border-radius: 0;
   bottom: 0px;
   width: 100%;
   padding: 0;
   box-sizing: border-box;
   z-index: 10;
-  box-shadow: 0px -5px 15px 10px var(--bg);
+  box-shadow: 0 -12px 18px 10px var(--bg);
 }
 
 .input-area-wrapper {
   display: flex;
   margin-bottom: 8px;
   flex-direction: column;
-  background-color: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  background-color: var(--card);
+  border: none;
+  border-radius: var(--radius-xl);
   padding: 4px 8px 8px;
-  box-shadow: var(--shadow-default);
+  box-shadow: var(--shadow-raised);
   position: relative;
   z-index: 10;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: box-shadow var(--duration) var(--ease-out),
+    background-color var(--duration) var(--ease-out);
 }
 
 .input-area-wrapper:focus-within {
-  border-color: rgba(212, 69, 117, 0.25);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 4px var(--focus-ring),
+    0 2px 10px #0000000b;
 }
 
 .input-area-wrapper.drag-over {
-  border-color: var(--primary);
-  background-color: var(--primary-50, rgba(79, 70, 229, 0.05));
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 6px var(--focus-ring);
+  background-color: var(--accent-tint);
 }
 
 .chat-textarea {
@@ -823,8 +845,9 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   border: none;
   resize: none;
   color: var(--text-primary);
-  font-size: 1rem;
-  line-height: 1.5;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.55;
   min-height: 24px;
   max-height: 250px;
   overflow-y: auto;
@@ -834,116 +857,17 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   outline: none;
 }
 
-/* --- BUTTONS --- */
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.15s ease;
-}
-
-.action-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.send-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background-color: var(--btn-send-bg);
-  color: var(--btn-send-text);
-  flex-shrink: 0;
-}
-
-.send-btn:hover:not(:disabled) {
-  background-color: var(--btn-send-hover-bg);
-}
-
+/* --- BUTTONS ---
+   Sizing and states come from UiButton / UiIconButton; the composer only
+   pins the send button's disabled treatment, which is specific to it. */
 .send-btn:disabled {
   background-color: var(--btn-send-disabled-bg);
-  cursor: not-allowed;
-  transform: none;
+  color: var(--text-muted);
+  box-shadow: none;
 }
 
-/* Dark mode send button — GitHub blue */
-:global(.dark) .send-btn:not(:disabled) {
-  background-color: #1f6feb;
-  color: #f0f6fc;
-}
-
-:global(.dark) .send-btn:hover:not(:disabled) {
-  background-color: #388bfd;
-}
-
-/* Feature active state (search enabled) */
-.feature-active {
-  background-color: var(--primary) !important;
-  color: var(--primary-foreground) !important;
-  border-color: var(--primary) !important;
-}
-
-.feature-label {
-  font-size: 13px;
-}
-
-.send-btn:disabled .icon-send {
-  stroke: var(--btn-send-text);
-  opacity: 0.7;
-}
-
-/* Feature button base styles */
 .feature-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: 8px;
-  padding: 0 10px;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border);
-  cursor: pointer;
   flex-shrink: 0;
-  font-weight: 500;
-  font-size: 13px;
-  transition: all 0.18s ease;
-  height: 32px;
-  margin: 0;
-}
-
-.feature-button:hover:not(:disabled) {
-  color: var(--text-primary);
-  background-color: var(--btn-hover);
-}
-
-.search-btn {
-  padding: 0 10px;
-}
-
-.search-toggle-btn.search-enabled {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
-  border-color: var(--primary);
-}
-
-.search-toggle-btn.search-enabled:hover:not(:disabled) {
-  background-color: var(--primary-600);
-  border-color: var(--primary-600);
-}
-
-.reasoning-toggle-btn.reasoning-enabled {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
-  border-color: var(--primary);
-}
-
-.reasoning-toggle-btn.reasoning-enabled:hover:not(:disabled) {
-  background-color: var(--primary-600);
-  border-color: var(--primary-600);
 }
 
 .input-actions {
@@ -958,15 +882,15 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 /* No special casing for sidebars needed – the parent layout
    (chat-column) controls horizontal alignment and width. */
 
-/* Reasoning effort dropdown styles */
+/* Reasoning effort dropdown — the popIn keyframes and overlay recipe live in
+   base.css so every menu in the app enters identically. */
 .reasoning-effort-dropdown {
-  animation: popIn 0.2s ease-out forwards;
+  animation: popIn var(--duration) var(--ease-out-strong) forwards;
   min-width: 200px;
   background: var(--popover-bg);
-  border-radius: 12px;
-  padding: 6px;
+  border-radius: var(--radius-card);
+  padding: 5px;
   box-shadow: var(--popover-shadow);
-  border: 1px solid var(--popover-border);
   z-index: 1001;
 }
 
@@ -974,17 +898,17 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 8px 12px;
+  padding: 6px 9px;
   text-align: left;
   background: none;
   color: var(--popover-list-item-text);
   cursor: pointer;
   transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-  font-size: 0.95rem;
-  border-radius: 6px;
-  margin-bottom: 2px;
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+  font-size: 0.85rem;
+  border-radius: var(--radius-chip);
+  margin-bottom: 1px;
   border: none;
 }
 
@@ -996,19 +920,6 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   background-color: var(--popover-list-item-selected-bg);
   color: var(--popover-list-item-selected-text);
   font-weight: 500;
-}
-
-/* Animation for dropdown */
-@keyframes popIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.95) translateY(-5px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
 }
 
 /* Mobile-specific styles */
@@ -1058,13 +969,13 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 6px 6px 6px 12px;
   margin-bottom: 8px;
-  background-color: var(--error-bg, rgba(239, 68, 68, 0.1));
-  border: 1px solid var(--error-border, rgba(239, 68, 68, 0.3));
-  border-radius: 8px;
-  color: var(--error-text, #ef4444);
-  font-size: 0.875rem;
+  background-color: var(--error-bg);
+  box-shadow: 0 0 0 1px var(--error-border);
+  border-radius: var(--radius-control);
+  color: var(--error-text);
+  font-size: 0.82rem;
 }
 
 .attachment-error span {
@@ -1072,20 +983,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 }
 
 .dismiss-error {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
   color: inherit;
-  opacity: 0.7;
-  transition: opacity 0.15s ease;
-}
-
-.dismiss-error:hover {
-  opacity: 1;
 }
 
 .attachment-preview-row {
@@ -1103,10 +1001,11 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background-color: var(--bg-secondary, var(--bg-input));
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background-color: var(--bg-secondary);
+  box-shadow: var(--shadow-hairline);
+  border-radius: var(--radius-control);
   max-width: 200px;
+  animation: uEnter var(--duration-enter) var(--ease-out-strong) both;
 }
 
 .attachment-preview.image {
@@ -1117,7 +1016,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   width: 64px;
   height: 64px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: var(--radius-chip);
 }
 
 .attachment-preview.pdf {
@@ -1125,7 +1024,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 }
 
 .attachment-preview .pdf-icon {
-  color: var(--error-text, #ef4444);
+  color: var(--error-text);
   flex-shrink: 0;
 }
 
@@ -1153,50 +1052,27 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   width: 20px;
   height: 20px;
   background-color: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 50%;
+  box-shadow: var(--shadow-hairline);
+  border: none;
+  border-radius: var(--radius-full);
   cursor: pointer;
   color: var(--text-secondary);
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .remove-attachment:hover {
-  background-color: var(--error-bg, rgba(239, 68, 68, 0.1));
-  border-color: var(--error-border, rgba(239, 68, 68, 0.3));
-  color: var(--error-text, #ef4444);
-}
-
-.attachment-btn {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-}
-
-.attachment-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  background-color: var(--error-bg);
+  box-shadow: 0 0 0 1px var(--error-border);
+  color: var(--error-text);
 }
 
 /* Processing indicator styles */
 .attachment-preview.processing {
-  background-color: var(--bg-secondary, var(--bg-input));
-  border-style: dashed;
-}
-
-.processing-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  flex-shrink: 0;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  background-color: var(--bg-secondary);
+  color: var(--primary);
 }
 
 /* Attachment popover styles */
@@ -1220,13 +1096,15 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   padding: 10px 12px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: var(--text-primary);
-  font-size: 0.95em;
+  font-size: 0.88em;
   font-family: inherit;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .popover-toggle-item:hover {
@@ -1265,13 +1143,15 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   padding: 10px 12px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: var(--text-primary);
-  font-size: 0.95em;
+  font-size: 0.88em;
   font-family: inherit;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .popover-attach-btn:hover {
@@ -1286,13 +1166,15 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   padding: 10px 12px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: var(--text-primary);
-  font-size: 0.95em;
+  font-size: 0.88em;
   font-family: inherit;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .popover-toggle-item.reasoning-submenu-trigger:hover {
@@ -1312,13 +1194,15 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   padding: 10px 12px;
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: var(--text-primary);
-  font-size: 0.95em;
+  font-size: 0.88em;
   font-family: inherit;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .attachment-popover .reasoning-effort-dropdown .reasoning-effort-item:hover {

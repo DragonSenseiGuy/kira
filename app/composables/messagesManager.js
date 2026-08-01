@@ -22,7 +22,8 @@ import {
   createBranch,
   switchBranch,
   buildSiblingInfoMap,
-  calculateBranchPath
+  calculateBranchPath,
+  resolveBranchPathToMessage
 } from './branchManager';
 
 /**
@@ -655,6 +656,35 @@ export function useMessagesManager(chatPanel) {
   }
 
   /**
+   * Switches the visible branch so that `messageId` is on it.
+   *
+   * Search results and deep links can point at a message that lives on a
+   * branch the user isn't currently viewing; without this the target simply
+   * would not be in the DOM. The new path is persisted so returning to the
+   * conversation later still shows the branch the link referred to.
+   *
+   * @param {string} messageId - The message to reveal.
+   * @returns {Promise<boolean>} Whether the message exists in this conversation.
+   */
+  async function revealMessage(messageId) {
+    const { found, alreadyVisible, path } = resolveBranchPathToMessage(
+      messages.value,
+      branchPath.value,
+      messageId,
+    );
+
+    if (!found || alreadyVisible) return found;
+
+    branchPath.value = path;
+
+    if (!isIncognito.value && currConvo.value) {
+      await updateBranchPath(currConvo.value, [...path]);
+    }
+
+    return true;
+  }
+
+  /**
    * Deletes a conversation
    */
   async function deleteConversation(id) {
@@ -714,6 +744,7 @@ export function useMessagesManager(chatPanel) {
     setChatPanel,
     editUserMessage,
     regenerateAssistantMessage,
-    navigateBranch
+    navigateBranch,
+    revealMessage
   };
 }

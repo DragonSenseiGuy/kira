@@ -4,7 +4,7 @@
     :initial="{ opacity: 0 }"
     :animate="isClosing ? { opacity: 0} : { opacity: 0.5}"
     :exit="{ opacity: 0 }"
-    :transition="{ duration: 0.3, ease: 'easeOut' }"
+    :transition="{ duration: 0.28, ease: EASE }"
     class="backdrop"
     @click="closeSheet"
   ></Motion>
@@ -14,7 +14,7 @@
     :initial="{ y: '100%', opacity: 1 }"
     :animate="isClosing ? { y: '100%'} : { y: '0%'}"
     :exit="{ y: '100%', opacity: 0 }"
-    :transition="{ type: 'spring', stiffness: 300, damping: 25, mass: 0.4 }"
+    :transition="FILL"
     :on-animation-complete="onAnimationComplete"
     class="bottom-sheet-container"
     @click.stop
@@ -26,9 +26,14 @@
       <div class="sheet-header">
         <div class="nav-content">
           <div class="nav-side">
-            <button v-if="currentView === 'models'" class="nav-button" @click="goBackToProviders" aria-label="Go back">
-              <Icon icon="material-symbols:arrow-back-ios-new" width="20" height="20" />
-            </button>
+            <UiIconButton
+              v-if="currentView === 'models'"
+              class="nav-button"
+              icon="material-symbols:arrow-back-ios-new"
+              label="Go back"
+              size="sm"
+              @click="goBackToProviders"
+            />
             <div v-else class="nav-placeholder"></div>
           </div>
           <h2 class="header-text">
@@ -52,7 +57,7 @@
         <Motion
           :initial="firstOpen && currentView === 'providers' ? { x: 0 } : (currentView === 'providers' ? { x: 0 } : { x: '-100%' })"
           :animate="currentView === 'providers' ? { x: 0 } : { x: '-100%' }"
-          :transition="{ type: 'spring', stiffness: 300, damping: 25 }"
+          :transition="FILL"
           class="providers-page"
         >
           <div v-if="providers.length === 0" class="no-providers">
@@ -74,7 +79,7 @@
         <Motion
           :initial="firstOpen && currentView === 'models' ? { x: 0 } : (currentView === 'models' ? { x: 0 } : { x: '100%' })"
           :animate="currentView === 'models' ? { x: 0 } : { x: '100%' }"
-          :transition="{ type: 'spring', stiffness: 300, damping: 25 }"
+          :transition="FILL"
           class="models-page"
         >
           <div
@@ -102,6 +107,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue';
 import { Motion } from 'motion-v';
+import { EASE, FILL } from '~/composables/motionPresets';
 import { Icon } from '@iconify/vue';
 import { availableModels } from '../composables/availableModels';
 import Logo from './Logo.vue';
@@ -216,7 +222,7 @@ const onAnimationComplete = () => {
   max-height: 60vh;
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -4px 12px #0000001a;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -267,26 +273,11 @@ const onAnimationComplete = () => {
   min-width: 56px; /* Match the button area including padding */
 }
 
-.nav-button, .nav-placeholder {
+.nav-button,
+.nav-placeholder {
   min-width: 36px;
   min-height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
-  border-radius: 8px;
   flex-shrink: 0;
-}
-
-.nav-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-primary);
-}
-
-.nav-button:hover {
-  background: var(--btn-hover);
 }
 
 .header-text {

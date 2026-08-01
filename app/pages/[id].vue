@@ -17,6 +17,9 @@
         @regenerate-message="regenerateAssistantMessage"
         @navigate-branch="navigateBranch"
       />
+      <div v-if="missingDeepLink" class="deep-link-warning" role="status">
+        That message is no longer in this conversation.
+      </div>
       <ContextCompressionChip
         :conversation-id="currConvo"
         :get-visible-messages="() => { const v = visibleMessages; return v && 'value' in v ? v.value : v; }"
@@ -93,6 +96,7 @@ const {
   deleteConversation,
   newConversation,
   toggleIncognito,
+  revealMessage,
   setChatPanel,
   chatPanel // This is the chat panel ref from the composable
 } = useConversation();
@@ -100,8 +104,52 @@ const {
 const messageFormRef = ref(null); // Reference to the MessageForm component
 const chatPanelRef = ref(null); // Reference to the ChatPanel component
 
+// Shown when a `?m=` deep link points at a message that no longer exists.
+const missingDeepLink = ref(false);
+
 // Use global scroll status instead of local ref
 const { setIsScrolledTop } = useGlobalScrollStatus();
+
+/**
+ * Handles a `?m=<messageId>` deep link: switches to the branch containing the
+ * message, then scrolls to and highlights it.
+ *
+ * @param {*} messageId - The raw query value.
+ */
+async function handleDeepLink(messageId) {
+  missingDeepLink.value = false;
+  if (!messageId || typeof messageId !== 'string') return;
+
+  // The conversation may still be loading when the route resolves.
+  if (chatLoading.value) {
+    await new Promise(resolve => {
+      const stop = watch(chatLoading, loading => {
+        if (!loading) {
+          stop();
+          resolve();
+        }
+      });
+    });
+  }
+
+  const revealed = await revealMessage(messageId);
+  if (!revealed) {
+    missingDeepLink.value = true;
+    return;
+  }
+
+  const focused = await chatPanelRef.value?.focusMessage(messageId);
+  if (!focused) missingDeepLink.value = true;
+}
+
+// React to deep links on first load and on subsequent in-page navigations.
+watch(
+  () => [route.params.id, route.query.m],
+  ([, messageId]) => {
+    if (messageId) handleDeepLink(messageId);
+    else missingDeepLink.value = false;
+  },
+);
 
 onMounted(async () => {
   await settingsManager.loadSettings();
@@ -126,6 +174,10 @@ onMounted(async () => {
     const searchEnabled = settingsManager.settings?.search_enabled ?? false;
     await sendMessage(userMessage, null, userAttachments, searchEnabled, { skipUserMessage: true });
   }
+
+  // Honour a `?m=` deep link on first load (the watcher only covers later
+  // navigations, since it is not immediate).
+  if (route.query.m) await handleDeepLink(route.query.m);
 });
 
 // Use selectedModelName from settingsManager
@@ -159,6 +211,17 @@ useHead({
   justify-content: center;
   overflow-y: scroll;
   padding: 0 16px;
+}
+
+.deep-link-warning {
+  align-self: center;
+  margin: 8px 0 16px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 /* Centered content column, no own scroll */

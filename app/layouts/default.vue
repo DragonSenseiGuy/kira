@@ -24,11 +24,13 @@
         :can-export="canExport"
         @toggle-incognito="toggleIncognito"
         @toggle-parameter-config="parameterConfigPanelOpen = !parameterConfigPanelOpen"
-        @export-chat="handleExportChat" />
+        @export-chat="handleExportChat"
+        @open-palette="isPaletteOpen = true" />
 
       <!-- Chat panel from the current page -->
       <slot />
     </div>
+    <CommandPalette v-model:open="isPaletteOpen" :commands="paletteCommands" />
     <DialogRoot v-model:open="isSettingsOpen">
       <DialogPortal>
         <DialogOverlay class="dialog-overlay" />
@@ -48,7 +50,7 @@ import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
 import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
-import { useDark, useMagicKeys, whenever } from "@vueuse/core";
+import { useDark } from "@vueuse/core";
 import { useHead } from '@unhead/vue';
 import { DialogRoot, DialogContent, DialogPortal, DialogOverlay } from 'reka-ui';
 import { useRoute, useRouter } from 'vue-router';
@@ -61,6 +63,9 @@ import AppSidebar from '~/components/AppSidebar.vue'
 import SettingsPanel from '~/components/SettingsPanel.vue'
 import ParameterConfigPanel from '~/components/ParameterConfigPanel.vue'
 import TopBar from '~/components/TopBar.vue'
+import CommandPalette from '~/components/CommandPalette.vue'
+import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts';
+import { SHORTCUTS } from '~/composables/keyboardShortcuts';
 import {
   exportSingleChatToZip,
   triggerDownload,
@@ -84,12 +89,6 @@ const { isIncognito, toggleIncognito: globalToggleIncognito } = useGlobalIncogni
 
 // selectedModelId for potential future use
 const selectedModelId = computed(() => settingsManager.settings.selected_model_id);
-
-// Initialize shortcut keys
-const keys = useMagicKeys()
-
-const isMac = process.client ? navigator.userAgent.includes('Mac') : false;
-const mod = isMac ? keys.meta : keys.ctrl;
 
 const route = useRoute(); // Get current route
 const router = useRouter();
@@ -191,19 +190,132 @@ function toggleIncognito() {
   globalToggleIncognito();
 }
 
+//-- Command palette
+
+const isPaletteOpen = ref(false);
+
+/**
+ * Every action the palette can run. Shortcut hints are pulled from the
+ * shortcut registry rather than typed out, so a rebind can never leave a
+ * stale hint behind.
+ */
+const paletteCommands = computed(() => {
+  const commands = [
+    {
+      id: 'new-chat',
+      label: 'New chat',
+      icon: 'material-symbols:add-comment-outline',
+      keywords: ['start', 'conversation', 'fresh'],
+      hint: hintFor('new-chat'),
+      run: handleNewConversation,
+    },
+    {
+      id: 'toggle-incognito',
+      label: isIncognito.value ? 'Leave incognito mode' : 'Start incognito chat',
+      icon: 'material-symbols:visibility-off-outline',
+      keywords: ['private', 'temporary', 'unsaved'],
+      hint: hintFor('toggle-incognito'),
+      run: toggleIncognito,
+    },
+    {
+      id: 'toggle-sidebar',
+      label: sidebarOpen.value ? 'Hide sidebar' : 'Show sidebar',
+      icon: 'material-symbols:side-navigation',
+      keywords: ['chats', 'threads', 'drawer'],
+      hint: hintFor('toggle-sidebar'),
+      run: toggleSidebar,
+    },
+    {
+      id: 'toggle-parameters',
+      label: parameterConfigPanelOpen.value ? 'Hide parameters' : 'Show parameters',
+      icon: 'material-symbols:tune',
+      keywords: ['temperature', 'top_p', 'seed', 'sampling', 'config'],
+      hint: hintFor('toggle-parameters'),
+      run: () => { parameterConfigPanelOpen.value = !parameterConfigPanelOpen.value; },
+    },
+    {
+      id: 'toggle-theme',
+      label: isDark.value ? 'Switch to light theme' : 'Switch to dark theme',
+      icon: isDark.value ? 'material-symbols:light-mode-outline' : 'material-symbols:dark-mode-outline',
+      keywords: ['dark', 'light', 'appearance', 'colour', 'color'],
+      run: () => { isDark.value = !isDark.value; },
+    },
+    {
+      id: 'open-notepad',
+      label: 'Open Notepad',
+      icon: 'material-symbols:note-outline',
+      keywords: ['memory', 'notes', 'about me'],
+      run: () => router.push('/notepad'),
+    },
+    {
+      id: 'open-settings',
+      label: 'Open settings',
+      icon: 'material-symbols:settings-outline',
+      keywords: ['preferences', 'options', 'api key'],
+      run: () => openSettingsPanel('general'),
+    },
+    {
+      id: 'open-customization',
+      label: 'Edit custom instructions',
+      icon: 'material-symbols:person-edit-outline',
+      keywords: ['persona', 'name', 'occupation', 'system prompt'],
+      run: () => openSettingsPanel('customization'),
+    },
+    {
+      id: 'import-export',
+      label: 'Import or export data',
+      icon: 'material-symbols:database-outline',
+      keywords: ['backup', 'restore', 'zip', 'download'],
+      run: () => openSettingsPanel('data'),
+    },
+    {
+      id: 'open-shortcuts',
+      label: 'Keyboard shortcuts',
+      icon: 'material-symbols:keyboard-outline',
+      keywords: ['keybinds', 'hotkeys', 'bindings'],
+      hint: hintFor('shortcut-help'),
+      run: openShortcutHelp,
+    },
+  ];
+
+  if (canExport.value) {
+    commands.push({
+      id: 'export-chat',
+      label: 'Export this chat',
+      icon: 'material-symbols:download',
+      keywords: ['save', 'zip', 'download', 'backup'],
+      run: handleExportChat,
+    });
+  }
+
+  return commands;
+});
+
 //-- Keyboard shortcuts
 
-// Toggle main sidebar
-whenever( () => mod.value && keys.b.value && !keys.alt.value, () => { toggleSidebar(); });
+function openShortcutHelp() {
+  openSettingsPanel('keybinds');
+}
 
-// Toggle secondary sidebar
-whenever( () => mod.value && keys.alt.value && keys.b.value, () => { parameterConfigPanelOpen.value = !parameterConfigPanelOpen.value; });
+useKeyboardShortcuts({
+  openPalette: () => { isPaletteOpen.value = true; },
+  toggleSidebar,
+  toggleParameters: () => { parameterConfigPanelOpen.value = !parameterConfigPanelOpen.value; },
+  newChat: handleNewConversation,
+  toggleIncognito,
+  openShortcutHelp,
+});
 
-// Create new chat
-whenever( () => mod.value && keys.alt.value && keys.n.value, () => { handleNewConversation(); });
-
-// Toggle incognito mode
-whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncognito(); });
+/**
+ * Looks up a registry shortcut's combo, e.g. "mod+alt+n". The palette renders
+ * it through UiKbd, so the key caps match every other shortcut hint in the app.
+ *
+ * @param {string} id - A shortcut id from the registry.
+ * @returns {string} The combo string, or an empty string if unknown.
+ */
+function hintFor(id) {
+  return SHORTCUTS.find(entry => entry.id === id)?.combo ?? '';
+}
 </script>
 
 <style scoped>
@@ -216,7 +328,12 @@ whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncog
   overflow: hidden;
   background: var(--bg);
   position: relative;
-  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition:
+    background-color var(--duration-slow) var(--ease-out-strong),
+    color var(--duration-slow) var(--ease-out-strong),
+    box-shadow var(--duration-slow) var(--ease-out-strong),
+    transform var(--duration-slow) var(--ease-out-strong),
+    opacity var(--duration-slow) var(--ease-out-strong);
 }
 
 /*
@@ -233,7 +350,12 @@ whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncog
   background: inherit;
   width: 100%;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition:
+    background-color var(--duration-slow) var(--ease-out-strong),
+    color var(--duration-slow) var(--ease-out-strong),
+    box-shadow var(--duration-slow) var(--ease-out-strong),
+    transform var(--duration-slow) var(--ease-out-strong),
+    opacity var(--duration-slow) var(--ease-out-strong);
   z-index: 10;
 }
 
@@ -341,11 +463,15 @@ whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncog
   gap: 8px;
 }
 
+/* Matches UiDialog's overlay/panel treatment so every modal in the app
+   enters the same way — the settings panel is just a wider one. */
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(17, 17, 27, 0.4);
-  backdrop-filter: blur(4px);
+  background: var(--scrim);
+  backdrop-filter: blur(2px);
+  z-index: 2000;
+  animation: dialogFade var(--duration) var(--ease-out) both;
 }
 
 .dialog-content-panel {
@@ -357,11 +483,34 @@ whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncog
   max-width: 56rem;
   max-height: 90vh;
   overflow: hidden;
-  border-radius: 1rem;
-  background: var(--surface);
+  border-radius: var(--radius-xl);
+  background: var(--card);
   padding: 0;
   text-align: left;
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-overlay);
   z-index: 2001;
+  animation: dialogPanelIn var(--duration-enter) var(--ease-out-strong) both;
+}
+
+@keyframes dialogFade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogPanelIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 </style>

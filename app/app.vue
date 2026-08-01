@@ -83,7 +83,7 @@ body,
   width: 100vw;
   background: var(--bg);
   color: var(--text-primary);
-  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font);
   overflow: hidden;
 }
 
@@ -95,20 +95,17 @@ img {
   -ms-user-select: none;
 }
 
+/* Neutral reset only. Padding, radius and hover fills are the job of
+   UiButton / UiIconButton (or a component's own styles) — baking them into
+   the element selector meant every primitive had to fight the default. */
 button {
   background: transparent;
   border: none;
-  padding: 8px;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
   cursor: pointer;
-  outline: none;
-  border-radius: 12px;
-  text-align: center;
-  transition: all 0.2s ease;
-  color: var(--text-primary);
-}
-
-button:hover {
-  background-color: var(--bg-tertiary);
 }
 
 /* Update fade transition timing */
@@ -141,22 +138,20 @@ button:hover {
   left: 8px;
   width: 44px;
   height: 44px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   margin: 0;
-  transition: all 0.18s, transform 0.2s;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    transform var(--duration) var(--ease-out-strong);
   cursor: pointer;
 }
 
 .global-menu-toggle:hover {
   background: var(--btn-hover);
   transform: scale(1.05);
-}
-
-.dark .global-menu-toggle:hover {
-  background: rgba(203, 166, 247, 0.1);
 }
 </style>

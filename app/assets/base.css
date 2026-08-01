@@ -1,121 +1,121 @@
-/* Color variables (light + dark) — Catppuccin semantic tokens.
-   Purpose: Drop these into your CSS (e.g., at the top of a globals file) and reference
-   the semantic tokens in your components. The comments next to each variable explain
-   what it's intended to be used for.
+/* ============================================================
+   Kira design tokens
 
-   Notes:
-   - Contrast-conscious: text colors are full-strength; primary colors include hover/dark variants
-   - Light mode: Catppuccin Latte — soft, warm-toned light palette
-   - Dark mode: Catppuccin Mocha — deep, pastel-accented dark palette
-*/
+   Two layers:
+   1. PRIMITIVES — the raw palette (--page, --ink, --line, --accent, ...).
+      Modelled on the "Beautiful UI" system: near-neutral greys, hairline
+      ring-shadows instead of heavy borders, a single blue accent, and a
+      tight radius scale (chip 6 / control 8 / card 10).
+   2. SEMANTIC ALIASES — the names components already use, mapped onto the
+      primitives. Restyle by editing layer 1; layer 2 keeps everything wired.
+
+   Elevation reads light-on-dark-canvas: --page (app) < --canvas (rails) <
+   --card (popovers, panels), with --inset/--field for recessed areas.
+   ============================================================ */
 
 :root {
-  /* ----------------- LIGHT THEME (Catppuccin Latte) ----------------- */
-  /* Page & surfaces */
-  --bg: #eff1f5;
-  /* Latte Base — soft neutral canvas */
-  --surface: #e6e9ef;
-  /* Latte Mantle — cards, panels, app surfaces */
-  --elevated-surface: #dce0e8;
-  /* Latte Crust — slightly tinted surface for grouped panels/inputs */
+  color-scheme: light;
 
-  /* Text */
-  --text-primary: #4c4f69;
-  /* Latte Text — strong, neutral dark */
-  --text-secondary: #5c5f77;
-  /* Latte Subtext1 — neutral secondary */
-  --text-muted: #6c6f85;
-  /* Latte Subtext0 — placeholders, disabled labels */
+  /* Lets height/width transitions run between a length and `auto` — used by
+     UiDisclosure so expanding panels animate instead of snapping. */
+  interpolate-size: allow-keywords;
 
-  /* Borders & dividers */
-  --border: #bcc0cc;
-  /* Latte Surface1 — clean divider */
-  --muted-border: #ccd0da;
-  /* Latte Surface0 — very light grouping divider */
+  /* ---------- 1. PRIMITIVES (light) ---------- */
+  --page: #fafafb;
+  /* app background */
+  --canvas: #f1f2f3;
+  /* recessed rails — sidebar, gutters */
+  --card: #ffffff;
+  /* elevated surfaces — popovers, panels, cards */
+  --inset: #f7f8f9;
+  /* subtly recessed blocks inside a card */
+  --field: #f2f2f3;
+  /* input / control fill */
+  --hover: #f4f5f6;
+  /* opaque hover fill */
+  --hover-2: #e7e9eb;
+  /* opaque active/pressed fill */
 
-  /* Primary (brand / main CTA) — Catppuccin Mauve */
-  --primary: #8839ef;
-  /* Latte Mauve (use sparingly for CTAs) */
-  --primary-foreground: #eff1f5;
-  /* Latte Base — text/icon color when placed on --primary */
-  --primary-600: #7287fd;
-  /* Latte Lavender — hover / active */
-  --primary-800: #5c5f77;
-  /* Latte Subtext1 — pressed/strong state */
+  --ink: #1f2124;
+  /* primary text */
+  --ink-2: #62656b;
+  /* secondary text */
+  --ink-3: #9a9da3;
+  /* muted text, placeholders */
 
-  /* Secondary / supporting accent */
-  --secondary: #1e66f5;
-  /* Latte Blue */
-  --secondary-600: #209fb5;
-  /* Latte Sapphire — hover/darker */
+  --line: #ecedef;
+  /* hairline divider */
+  --line-strong: #e0e2e5;
+  /* emphasised border, control outline */
 
-  /* Accent colors (use sparingly for highlights) */
-  --accent-warm: #df8e1d;
-  /* Latte Yellow — lively warm accent */
-  --accent-soft: #dc8a78;
-  /* Latte Rosewater — softer warm highlight */
+  --accent: #0285ff;
+  --accent-ink: #0170dd;
+  /* hover / pressed accent */
+  --accent-strong: #0160bd;
+  --accent-tint: #e9f3ff;
+  /* accent-washed background */
+  --accent-on: #ffffff;
+  /* text/icon sitting on --accent */
 
-  /* Feedback / semantic statuses */
-  --success: #40a02b;
-  /* Latte Green — success states */
-  --warning: #df8e1d;
-  /* Latte Yellow — warm warning */
-  --danger: #d20f39;
-  /* Latte Red — error */
-  --info: #179299;
-  /* Latte Teal — info */
+  --green: #189a4d;
+  --green-tint: #e8f5ed;
+  --orange: #ef720c;
+  --orange-tint: #fdf1e5;
+  --red: #e3474c;
+  --red-tint: #fcecec;
 
-  /* Shadows & focus rings */
-  --shadow-elev: rgba(76, 79, 105, 0.08);
-  /* subtle soft shadow */
-  --focus-ring: rgba(136, 57, 239, 0.15);
-  /* Mauve-tinted focus ring */
+  --stripe: #49494913;
+  --stripe-bg: #f5f5f5;
 
-  /* Component-specific variables */
-  --bg-primary: var(--surface);
-  --bg-secondary: var(--elevated-surface);
-  --bg-tertiary: var(--muted-border);
+  --tooltip-bg: #25272b;
+  --tooltip-fg: #f6f7f8;
+  --tooltip-muted: #a5a8ad;
+  --tooltip-border: #3a3c40;
 
-  --btn-hover: hsla(234, 13%, 73%, 0.35);
-  --btn-hover-2: hsla(266, 85%, 58%, 0.08);
+  /* Translucent overlays — work on top of any surface */
+  --overlay-hover: #1f21240a;
+  --overlay-active: #1f212412;
+  --overlay-accent: #0285ff14;
+  --scrim: rgba(23, 24, 26, 0.32);
 
-  /* Parameter config panel */
-  --panel-bg: var(--bg-primary);
-  --panel-input-bg: var(--bg-input);
-  --tooltip-bg: var(--elevated-surface);
-  --tooltip-text: var(--text-primary);
+  /* ---------- Shadows (ring + soft drop, per elevation) ---------- */
+  --shadow-hairline: 0 0 0 1px var(--line);
+  --shadow-btn: 0 0 0 1px var(--line-strong), 0 1px 2px #1018280d;
+  --shadow-card: 0 0 0 1px var(--line), 0 1px 2px #1018280a,
+    0 2px 6px #10182808;
+  --shadow-raised: 0 0 0 1px var(--line), 0 2px 10px #0000000b;
+  --shadow-overlay: 0 0 0 1px var(--line), 0 8px 28px #0001;
+  --shadow-inset-field: inset 0 1px 2px #0000001f;
 
+  /* ---------- Radii ---------- */
+  --radius-chip: 6px;
+  --radius-control: 8px;
+  --radius-card: 10px;
+  --radius-sm: var(--radius-chip);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
+  --radius-xl: 14px;
+  --radius-full: 999px;
+  --border-radius: var(--radius-card);
 
-  /* Message form colors */
-  --bg-input: var(--elevated-surface);
-  --bg-sidebar: var(--surface);
-  --text-placeholder: var(--text-muted);
-  --shadow-default: 0 2px 8px var(--shadow-elev);
-  --btn-model-selector-bg: var(--muted-border);
-  --btn-model-selector-text: var(--text-primary);
-  --btn-model-selector-hover-bg: var(--border);
-  --btn-send-bg: var(--primary);
-  --btn-send-hover-bg: var(--primary-600);
-  --btn-send-disabled-bg: var(--border);
-  --btn-send-text: var(--primary-foreground);
-  --popover-bg: var(--bg-primary);
-  --popover-border: var(--border);
-  --popover-shadow: 0 4px 16px var(--shadow-elev);
-  --popover-header-text: var(--text-primary);
-  --popover-list-item-bg-hover: var(--border);
-  --popover-list-item-text: var(--text-primary);
-  --popover-list-item-selected-bg: var(--border);
-  --popover-list-item-selected-text: var(--text-primary);
+  /* ---------- Motion ----------
+     Timing follows the interior.dev convention: feedback lands inside
+     120ms, entrances run 200ms on the "settle" curve, and nothing that
+     conveys state change is allowed to shift layout. --ease-out-strong is
+     interior's EASE, cubic-bezier(0.23, 1, 0.32, 1). */
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-link: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 0.12s;
+  --duration: 0.18s;
+  --duration-slow: 0.28s;
+  --duration-enter: 0.2s;
 
-  /* Welcome overlay */
-  --text-light: var(--text-primary);
-  --text-dark: var(--text-primary);
+  /* Press feedback — the half-second after a click */
+  --press-scale: 0.975;
 
-  /* App-specific colors */
-  --color-bubble-user-bg: var(--primary);
-  --color-bubble-user-text: var(--primary-foreground);
-
-  /* Spacing */
+  /* ---------- Spacing ---------- */
   --spacing-4: 4px;
   --spacing-8: 8px;
   --spacing-12: 12px;
@@ -123,116 +123,189 @@
   --spacing-24: 24px;
   --section-gap: 160px;
 
+  /* ---------- Type ---------- */
+  --font: Inter, "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular,
+    Menlo, monospace;
+
+  /* ============================================================
+     2. SEMANTIC ALIASES — names used throughout the components
+     ============================================================ */
+
+  /* Surfaces */
+  --bg: var(--page);
+  --surface: var(--canvas);
+  --elevated-surface: var(--card);
+  --bg-primary: var(--card);
+  --bg-secondary: var(--inset);
+  --bg-tertiary: var(--field);
+  --bg-sidebar: var(--canvas);
+  --bg-input: var(--field);
+  --panel-bg: var(--card);
+  --panel-input-bg: var(--field);
+
+  /* Text */
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--ink-3);
+  --text-tertiary: var(--ink-3);
+  --text-placeholder: var(--ink-3);
+  --text-light: var(--ink);
+  --text-dark: var(--ink);
+  --text-primary-light: var(--ink);
+  --text-secondary-light: var(--ink-2);
+  --text-primary-dark: var(--ink);
+  --text-secondary-dark: var(--ink-2);
+
   /* Borders */
-  --border-radius: 12px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --border: var(--line);
+  --muted-border: var(--line);
+  --strong-border: var(--line-strong);
+  --reasoning-border-dark: var(--line);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 var(--shadow-elev);
-  --shadow-md:
-    0 4px 6px -1px var(--shadow-elev), 0 2px 4px -1px var(--shadow-elev);
-  --shadow-lg:
-    0 10px 15px -3px var(--shadow-elev), 0 4px 6px -2px var(--shadow-elev);
-  --shadow-xl:
-    0 20px 25px -5px var(--shadow-elev), 0 10px 10px -5px var(--shadow-elev);
+  /* Brand */
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-on);
+  --primary-600: var(--accent-ink);
+  --primary-800: var(--accent-strong);
+  --primary-300: #66b4ff;
+  --primary-50: var(--accent-tint);
+  --primary-a2: #0285ff14;
+  --primary-a4: #0285ff29;
+  --secondary: var(--accent-ink);
+  --secondary-600: var(--accent-strong);
+  --accent-warm: var(--orange);
+  --accent-soft: var(--red);
 
-  /* Fonts */
-  --font:
-    "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  /* Feedback */
+  --success: var(--green);
+  --warning: var(--orange);
+  --danger: var(--red);
+  --info: var(--accent);
+  --error: var(--red);
+  --error-text: var(--red);
+  --error-bg: var(--red-tint);
+  --error-border: color-mix(in srgb, var(--red) 30%, transparent);
+  --destructive: var(--red);
+  --destructive-600: #cf3a3f;
+  --destructive-foreground: #ffffff;
 
-  scrollbar-color: #acb0be transparent;
+  /* Interaction */
+  --btn-hover: var(--overlay-hover);
+  --btn-hover-2: var(--overlay-accent);
+  --btn-active: var(--overlay-active);
+  --focus-ring: color-mix(in srgb, var(--accent) 22%, transparent);
+  --black-a7: var(--scrim);
+
+  /* Shadow aliases */
+  --shadow-elev: rgba(16, 24, 40, 0.08);
+  --shadow-default: var(--shadow-raised);
+  --shadow-sm: var(--shadow-hairline);
+  --shadow-md: var(--shadow-card);
+  --shadow-lg: var(--shadow-raised);
+  --shadow-xl: var(--shadow-overlay);
+
+  /* Controls */
+  --btn-model-selector-bg: transparent;
+  --btn-model-selector-text: var(--ink-2);
+  --btn-model-selector-hover-bg: var(--overlay-hover);
+  --btn-send-bg: var(--accent);
+  --btn-send-hover-bg: var(--accent-ink);
+  --btn-send-disabled-bg: var(--line-strong);
+  --btn-send-text: var(--accent-on);
+
+  /* Popovers */
+  --popover-bg: var(--card);
+  --popover-border: var(--line);
+  --popover-shadow: var(--shadow-overlay);
+  --popover-header-text: var(--ink);
+  --popover-list-item-bg-hover: var(--overlay-hover);
+  --popover-list-item-text: var(--ink);
+  --popover-list-item-selected-bg: var(--accent-tint);
+  --popover-list-item-selected-text: var(--accent-ink);
+
+  /* Tooltip */
+  --tooltip-text: var(--tooltip-fg);
+
+  /* Chat bubbles */
+  --color-bubble-user-bg: var(--accent-tint);
+  --color-bubble-user-text: var(--ink);
+  --bubble-user-text: var(--ink);
+
+  /* Code */
+  --code-header-bg: var(--inset);
+
+  scrollbar-color: #d7d9dc transparent;
+  scrollbar-width: thin;
 }
 
-/* ----------------- DARK THEME (Midnight Blue — GitHub-inspired) ----------------- */
 .dark {
   color-scheme: dark;
 
-  /* Page & surfaces */
-  --bg: #0d1117;
-  --surface: #090c11;
-  --elevated-surface: #161b22;
+  /* ---------- 1. PRIMITIVES (dark) ---------- */
+  --page: #17181a;
+  --canvas: #1c1d1f;
+  --card: #232427;
+  --inset: #1f2022;
+  --field: #2b2c2f;
+  --hover: #2a2b2e;
+  --hover-2: #313236;
 
-  /* Text */
-  --text-primary: #e6edf3;
-  --text-secondary: #8b949e;
-  --text-muted: #484f58;
+  --ink: #f2f3f4;
+  --ink-2: #a5a8ad;
+  --ink-3: #6c6f75;
 
-  /* Borders & dividers */
-  --border: #21262d;
-  --muted-border: #161b22;
+  --line: #2e3033;
+  --line-strong: #3a3c40;
 
-  /* Primary — electric blue (works as text accent AND button bg) */
-  --primary: #58a6ff;
-  --primary-foreground: #f0f6fc;
-  --primary-600: #79c0ff;
-  --primary-800: #1f6feb;
+  --accent: #3d9aff;
+  --accent-ink: #7ec0ff;
+  --accent-strong: #9ecdff;
+  --accent-tint: #3d9aff29;
+  --accent-on: #0b1220;
 
-  /* Secondary */
-  --secondary: #bc8cff;
-  --secondary-600: #d2a8ff;
+  --green: #3dbb72;
+  --green-tint: #3dbb7224;
+  --orange: #f68f3c;
+  --orange-tint: #f68f3c24;
+  --red: #ee5c61;
+  --red-tint: #ee5c6124;
 
-  /* Accents & feedback */
-  --accent-warm: #e3b341;
-  --accent-soft: #f2a8c0;
+  --stripe: #ffffff0e;
+  --stripe-bg: #1b1c1e;
 
-  --success: #3fb950;
-  --warning: #d29922;
-  --danger: #f85149;
-  --info: #79c0ff;
+  --tooltip-bg: #111214;
+  --tooltip-fg: #f2f3f4;
+  --tooltip-muted: #a5a8ad;
+  --tooltip-border: #2e3033;
 
-  /* Shadows & focus */
+  --overlay-hover: #ffffff0f;
+  --overlay-active: #ffffff1a;
+  --overlay-accent: #3d9aff24;
+  --scrim: rgba(0, 0, 0, 0.6);
+
+  /* ---------- Shadows (dark) ---------- */
+  --shadow-hairline: 0 0 0 1px var(--line);
+  --shadow-btn: 0 0 0 1px var(--line-strong), 0 1px 2px #0000004d;
+  --shadow-card: 0 0 0 1px var(--line), 0 1px 2px #0003, 0 2px 6px #0003;
+  --shadow-raised: 0 0 0 1px var(--line), 0 2px 10px #00000038;
+  --shadow-overlay: 0 0 0 1px var(--line-strong), 0 8px 28px #00000057;
+  --shadow-inset-field: inset 0 1px 2px #0006;
+
+  /* ---------- 2. Dark-only alias overrides ---------- */
+  --primary-300: #6bb2ff;
+  --primary-a2: #3d9aff1f;
+  --primary-a4: #3d9aff3d;
+  --destructive-600: #f27a7e;
+  --destructive-foreground: #1a0f10;
   --shadow-elev: rgba(0, 0, 0, 0.5);
-  --focus-ring: rgba(88, 166, 255, 0.2);
 
-  /* Component-specific */
-  --bg-primary: var(--surface);
-  --bg-secondary: var(--elevated-surface);
-  --bg-tertiary: var(--muted-border);
+  /* User bubble reads as an elevated neutral in dark, not a blue wash */
+  --color-bubble-user-bg: var(--field);
 
-  --btn-hover: hsla(215, 25%, 55%, 0.12);
-  --btn-hover-2: hsla(212, 100%, 70%, 0.1);
-
-  /* Parameter config panel */
-  --panel-bg: var(--bg-primary);
-  --panel-input-bg: var(--bg-input);
-  --tooltip-bg: var(--elevated-surface);
-  --tooltip-text: var(--text-primary);
-
-  /* Chat panel colors */
-  --text-primary-dark: var(--text-primary);
-  --text-secondary-dark: var(--text-secondary);
-  --reasoning-border-dark: var(--border);
-
-  /* Message form */
-  --bg-sidebar: var(--surface);
-  --bg-input: var(--elevated-surface);
-  --text-placeholder: var(--text-muted);
-  --shadow-default: 0 0 12px rgba(0, 0, 0, 0.6);
-  --btn-model-selector-bg: var(--muted-border);
-  --btn-model-selector-text: var(--text-primary);
-  --btn-model-selector-hover-bg: var(--border);
-  --btn-send-bg: var(--primary);
-  --btn-send-hover-bg: var(--primary-600);
-  --btn-send-disabled-bg: var(--border);
-  --popover-bg: #161b22;
-  --popover-border: var(--border);
-  --popover-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
-  --popover-list-item-bg-hover: var(--muted-border);
-  --popover-list-item-text: var(--text-primary);
-  --popover-list-item-selected-bg: var(--border);
-  --popover-list-item-selected-text: var(--text-primary);
-
-  /* User chat bubble — dark elevated, not bright */
-  --color-bubble-user-bg: #21262d;
-  --color-bubble-user-text: #e6edf3;
-
-  scrollbar-color: #30363d transparent;
+  scrollbar-color: #3a3c40 transparent;
 }
-
 
 *,
 *::before,
@@ -241,7 +314,6 @@
   margin: 0;
   font-weight: normal;
 }
-
 
 body {
   min-height: 100dvh;
@@ -252,66 +324,161 @@ body {
   color: var(--text-primary);
   background: var(--bg);
   transition:
-    color 0.5s,
-    background-color 0.5s;
-  line-height: 1.6;
-  font-family:
-    "Plus Jakarta Sans",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  /* Scale: 13px base, tight spacing */
-  font-size: 13px;
+    color var(--duration-slow) var(--ease-out),
+    background-color var(--duration-slow) var(--ease-out);
+  line-height: 1.55;
+  font-family: var(--font);
+  font-size: 14px;
+  letter-spacing: -0.006em;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
 }
 
-/* Reka UI Dropdown Menu Styles */
+/* Inter's optical sizing + tabular figures for anything numeric */
+body {
+  font-optical-sizing: auto;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Consistent focus treatment — scoped to genuinely interactive elements so
+   focus-trapped dialog containers (tabindex="-1") don't get ringed. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
+[role="option"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="switch"]:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Focus-trapped containers (Reka dialogs) take focus on open — that's for
+   screen readers, not something to draw a ring around. */
+[tabindex="-1"]:focus,
+[role="dialog"]:focus {
+  outline: none;
+}
+
+/* Opt-in field treatment — recessed fill + hairline. Applied via the .field
+   class (or inside .dialog-content-panel, where inputs are otherwise unstyled)
+   rather than to bare `input`/`textarea`, so components that style their own
+   controls — the composer textarea especially — stay untouched. */
+.field,
+.dialog-content-panel input[type="text"],
+.dialog-content-panel input[type="password"],
+.dialog-content-panel input[type="number"],
+.dialog-content-panel input[type="search"],
+.dialog-content-panel input:not([type]),
+.dialog-content-panel select {
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--field);
+  border: none;
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-hairline);
+  padding: 8px 10px;
+  transition: box-shadow var(--duration) var(--ease-out);
+}
+
+.field:focus,
+.dialog-content-panel input:focus,
+.dialog-content-panel select:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-placeholder);
+}
+
+::selection {
+  background: var(--accent-tint);
+  color: var(--ink);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: var(--radius-full);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-3);
+  background-clip: content-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Reka UI Dropdown Menu Styles
+   Overlays use the ring-shadow recipe (--shadow-overlay already carries a
+   1px ring), so no separate border is needed. */
 .popover-dropdown {
   background-color: var(--popover-bg);
-  border-radius: 12px;
-  padding: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border: 1px solid var(--popover-border);
+  border-radius: var(--radius-card);
+  padding: 5px;
+  box-shadow: var(--shadow-overlay);
 }
 
 .model-selector-dropdown {
-  animation: popIn 0.2s ease-out forwards;
+  animation: popIn var(--duration) var(--ease-out-strong) forwards;
   min-width: 300px;
   max-width: 320px;
   background: var(--popover-bg);
-  border-radius: 12px;
-  padding: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border: 1px solid var(--popover-border);
+  border-radius: var(--radius-card);
+  padding: 5px;
+  box-shadow: var(--shadow-overlay);
   z-index: 1001;
 }
 
 /* Conversation menu dropdown (sidebar) */
 .conversation-menu-dropdown {
-  animation: popIn 0.2s ease-out forwards;
+  animation: popIn var(--duration) var(--ease-out-strong) forwards;
   min-width: auto;
   background: var(--popover-bg);
-  border-radius: var(--radius-sm);
-  padding: 3px;
-  box-shadow: var(--popover-shadow);
-  border: 1px solid var(--popover-border);
+  border-radius: var(--radius-control);
+  padding: 4px;
+  box-shadow: var(--shadow-overlay);
   z-index: 1100;
 }
 
 .conversation-menu-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 4px;
+  gap: 8px;
+  padding: 5px 9px;
+  border-radius: var(--radius-chip);
   cursor: pointer;
   font-size: 0.85rem;
   color: var(--text-primary);
-  transition: background 0.15s;
+  transition: background var(--duration-fast) var(--ease-out);
   background: none;
   border: none;
   width: 100%;
@@ -338,10 +505,12 @@ body {
 }
 
 .dropdown-label {
-  padding: 6px 10px;
-  font-weight: 400;
-  color: var(--popover-list-item-text);
-  font-size: 0.8rem;
+  padding: 7px 10px 5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .model-list-item {
@@ -349,18 +518,17 @@ body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 3px 8px;
+  padding: 6px 9px;
   text-align: left;
   background: none;
   color: var(--popover-list-item-text);
   cursor: pointer;
   transition:
-    background-color 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
   font-size: 0.85rem;
-  border-radius: 6px;
-  margin-bottom: 2px;
+  border-radius: var(--radius-chip);
+  margin-bottom: 1px;
   border: none;
 }
 
@@ -369,7 +537,7 @@ body {
 }
 
 .model-list-item.selected {
-  background-color: var(--btn-hover);
+  background-color: var(--popover-list-item-selected-bg);
   color: var(--popover-list-item-selected-text);
   font-weight: 500;
 }
@@ -397,12 +565,11 @@ body {
   align-items: center;
   font-weight: 600;
   color: var(--popover-list-item-text);
-  padding: 6px 10px;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  padding: 6px 9px;
+  font-size: 0.78rem;
+  letter-spacing: 0;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-chip);
   width: 100%;
   background: none;
   border: none;
@@ -421,21 +588,20 @@ body {
 }
 
 .subcategory-content {
-  animation: popIn 0.2s ease-out forwards;
+  animation: popIn var(--duration) var(--ease-out-strong) forwards;
   min-width: 280px;
   background: var(--popover-bg);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border: 1px solid var(--popover-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-overlay);
   z-index: 1002;
-  padding: 6px;
+  padding: 5px;
 }
 
 /* Animation for dropdown */
 @keyframes popIn {
   0% {
     opacity: 0;
-    transform: scale(0.95) translateY(-5px);
+    transform: scale(0.97) translateY(-4px);
   }
 
   100% {
@@ -444,19 +610,21 @@ body {
   }
 }
 
-/* Top bar styling */
+/* Top bar styling — sits flush on the page, gains a hairline once scrolled */
 .top-bar {
   height: 48px;
-  background-color: var(--bg);
+  background-color: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
   width: 100%;
   z-index: 1000;
   flex-shrink: 0;
   border-bottom: 1px solid transparent;
-  transition: border-bottom 0.2s ease;
+  transition: border-color var(--duration) var(--ease-out);
 }
 
 .top-bar.with-border {
-  border-bottom: 1px solid var(--border);
+  border-bottom-color: var(--border);
 }
 
 /* Group header date labels to match t3.chat style */
@@ -482,41 +650,56 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-control);
   background: none;
   border: none;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0;
   margin: 0;
-  transition: background 0.18s;
+  transition:
+    background var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out);
 }
 
 .sidebar-toggle:hover {
   background: var(--btn-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-toggle:active {
+  background: var(--btn-active);
 }
 
 /* --- MODEL SELECTOR --- */
 .model-selector-btn {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
-  font-size: 0.9rem;
+  gap: 8px;
+  padding: 0 10px;
+  font-size: 0.85rem;
   font-weight: 500;
   color: var(--btn-model-selector-text);
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.18s;
-  height: 36px;
+  transition:
+    background var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out);
+  height: 32px;
 }
 
 .model-selector-btn:hover {
   background: var(--btn-hover);
+  color: var(--text-primary);
+}
+
+.model-selector-btn:active {
+  background: var(--btn-active);
 }
 
 .model-name-display {
@@ -541,12 +724,18 @@ body {
    ================================================ */
 .chat-widget {
   position: relative;
-  margin: 0;
+  margin: 8px 0;
   border: none;
-  border-radius: 0;
-  background-color: transparent;
+  border-radius: var(--radius-card);
+  background-color: var(--bg-secondary);
+  box-shadow: var(--shadow-hairline);
   overflow: hidden;
   max-width: 100%;
+  transition: box-shadow var(--duration) var(--ease-out);
+}
+
+.chat-widget:hover {
+  box-shadow: 0 0 0 1px var(--line-strong);
 }
 
 .chat-widget-header {
@@ -554,11 +743,12 @@ body {
   z-index: 1;
   display: flex;
   align-items: center;
-  padding: 6px 10px;
+  width: 100%;
+  padding: 8px 12px;
   cursor: pointer;
   user-select: none;
   gap: 10px;
-  transition: background-color 0.2s;
+  transition: background-color var(--duration-fast) var(--ease-out);
   font-size: 0.85rem;
   border-radius: 0;
   margin: 0;
@@ -568,8 +758,10 @@ body {
   background-color: var(--btn-hover);
 }
 
+/* Open state is carried by the chevron and the panel below it — an extra
+   fill here just competes with the divider. */
 .chat-widget-header.open {
-  background-color: var(--btn-hover);
+  background-color: transparent;
 }
 
 .chat-widget-icon {
@@ -579,8 +771,22 @@ body {
   align-items: center;
   justify-content: center;
   color: var(--primary);
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: var(--overlay-accent);
+  border-radius: var(--radius-chip);
+}
+
+/* Reasoning's live dot */
+.chat-widget-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+}
+
+.chat-widget-badge {
   flex-shrink: 0;
 }
 
@@ -591,7 +797,7 @@ body {
 
 .chat-widget-name {
   font-weight: 500 !important;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -625,23 +831,23 @@ body {
 }
 
 .chat-widget-toggle {
-  color: var(--text-secondary);
-  transition: transform 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: var(--text-muted);
+  transition: transform var(--duration) var(--ease-out-strong);
   flex-shrink: 0;
+  margin-left: auto;
 }
 
-.chat-widget-toggle .rotate {
-  transform: rotate(90deg);
+.chat-widget-toggle.rotate {
+  transform: rotate(180deg);
 }
 
 .chat-widget-details {
-  padding: 0 14px 14px 14px;
-  background: var(--btn-hover);
+  padding: 2px 14px 14px 14px;
+  background: transparent;
   position: relative;
   z-index: 1;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
 }
 
 /* Reasoning content area */
@@ -663,24 +869,18 @@ body {
 }
 
 .chat-widget .search-result-item {
-  border-radius: 8px;
-  padding: 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  transition: all 0.2s ease;
-}
-
-.dark .chat-widget .search-result-item {
-  background: var(--elevated-surface);
+  border-radius: var(--radius-control);
+  padding: 10px 12px;
+  background: var(--card);
+  box-shadow: var(--shadow-hairline);
+  transition:
+    box-shadow var(--duration) var(--ease-out),
+    transform var(--duration) var(--ease-out);
 }
 
 .chat-widget .search-result-item:hover {
-  background: var(--elevated-surface);
-  border-color: var(--primary);
-}
-
-.dark .chat-widget .search-result-item:hover {
-  background: var(--bg-secondary);
+  box-shadow: var(--shadow-raised);
+  transform: translateY(-1px);
 }
 
 .chat-widget .search-result-link {
@@ -692,7 +892,8 @@ body {
 }
 
 .chat-widget .search-result-title {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   color: var(--primary);
   margin-bottom: 2px;
 }
@@ -711,24 +912,18 @@ body {
 }
 
 .chat-widget .web-crawl-result-item {
-  border-radius: 8px;
-  padding: 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  transition: all 0.2s ease;
-}
-
-.dark .chat-widget .web-crawl-result-item {
-  background: var(--elevated-surface);
+  border-radius: var(--radius-control);
+  padding: 10px 12px;
+  background: var(--card);
+  box-shadow: var(--shadow-hairline);
+  transition:
+    box-shadow var(--duration) var(--ease-out),
+    transform var(--duration) var(--ease-out);
 }
 
 .chat-widget .web-crawl-result-item:hover {
-  background: var(--elevated-surface);
-  border-color: var(--primary);
-}
-
-.dark .chat-widget .web-crawl-result-item:hover {
-  background: var(--bg-secondary);
+  box-shadow: var(--shadow-raised);
+  transform: translateY(-1px);
 }
 
 .chat-widget .web-crawl-result-link {
@@ -740,7 +935,8 @@ body {
 }
 
 .chat-widget .web-crawl-result-title {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   color: var(--primary);
   margin-bottom: 2px;
 }
@@ -770,8 +966,14 @@ body {
 
 .chat-widget .tool-args pre {
   margin: 0;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
+  line-height: 1.6;
   color: var(--text-secondary);
+  background: var(--card);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-hairline);
+  padding: 10px 12px;
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -785,15 +987,10 @@ body {
 }
 
 .memory-item {
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.dark .memory-item {
-  background: var(--elevated-surface);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
 }
 
 .memory-item-header {
@@ -825,7 +1022,7 @@ body {
 
 .memory-item-content p {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   line-height: 1.5;
   color: var(--text-primary);
 }
@@ -862,4 +1059,113 @@ body {
 .memory-diff-new p {
   color: var(--text-primary);
   font-weight: 500;
+}
+/* ================================================
+   Interaction layer
+
+   interior.dev's premise is that software feels cheap in the half-second
+   after a click. These utilities give every interactive surface in Kira the
+   same answer to that half-second: a sub-120ms press response, entrances on
+   the settle curve, and busy states that reserve their own space so nothing
+   reflows when they resolve.
+   ================================================ */
+
+/* Press feedback. Scale only — never margin/padding — so pressing a control
+   can't reflow its neighbours. */
+.u-press {
+  transition:
+    transform var(--duration-fast) var(--ease-out-strong),
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out);
+}
+
+.u-press:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(var(--press-scale));
+}
+
+/* Entrance for content that arrives after a request resolves */
+.u-enter {
+  animation: uEnter var(--duration-enter) var(--ease-out-strong) both;
+}
+
+@keyframes uEnter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Shimmer for pending text — used by skeletons and streaming placeholders */
+.u-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--field) 0%,
+    var(--hover-2) 50%,
+    var(--field) 100%
+  );
+  background-size: 200% 100%;
+  animation: uShimmer 1.4s linear infinite;
+  border-radius: var(--radius-chip);
+  color: transparent;
+}
+
+@keyframes uShimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Indeterminate spinner */
+@keyframes uSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* A live dot for "running" states — pulses without changing its box */
+@keyframes uPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+/* Visually hidden but announced — status text for async transitions */
+.u-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .u-press:active:not(:disabled) {
+    transform: none;
+  }
+
+  .u-shimmer {
+    animation: none;
+  }
 }

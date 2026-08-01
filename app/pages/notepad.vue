@@ -9,59 +9,47 @@
           </span>
         </div>
         <div class="notepad-actions">
-          <button
-            class="action-btn"
-            :disabled="isRefreshing"
-            aria-label="Refresh notepad"
-            title="Refresh notepad"
+          <UiButton
+            variant="secondary"
+            icon="material-symbols:refresh-rounded"
+            :loading="isRefreshing"
             @click="refreshNotepad"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/>
-            </svg>
-            <span class="action-label">Refresh</span>
-          </button>
-          <button
-            class="action-btn export-btn"
+            Refresh
+          </UiButton>
+          <UiButton
+            variant="secondary"
+            icon="material-symbols:download"
             :disabled="!notepad?.content"
-            aria-label="Export notepad"
-            title="Export notepad"
             @click="exportNotepad"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            <span class="action-label">Export</span>
-          </button>
-          <button
-            class="action-btn danger-btn"
-            :disabled="isResetting"
-            aria-label="Reset notepad"
-            title="Reset notepad"
+            Export
+          </UiButton>
+          <UiButton
+            variant="danger"
+            icon="material-symbols:delete-outline-rounded"
+            :loading="isResetting"
             @click="handleResetNotepad"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3 6h18"/>
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-            </svg>
-            <span class="action-label">Reset</span>
-          </button>
+            Reset
+          </UiButton>
         </div>
       </div>
 
       <div ref="contentRef" class="notepad-content">
         <div v-if="isLoading" class="loading-state">
-          <div class="spinner"></div>
+          <UiSpinner :size="28" :stroke="3" label="Loading your Notepad" />
           <p>Loading your Notepad…</p>
         </div>
 
-        <div v-else-if="error" class="error-state">
-          <p>{{ error }}</p>
-          <button @click="loadNotepadData">Try Again</button>
-        </div>
+        <UiEmptyState
+          v-else-if="error"
+          icon="material-symbols:error-outline"
+          title="Couldn't load your Notepad"
+          :description="error"
+        >
+          <UiButton variant="secondary" @click="loadNotepadData">Try Again</UiButton>
+        </UiEmptyState>
 
         <div
           v-else-if="notepad?.content?.trim()"
@@ -345,57 +333,6 @@ onBeforeUnmount(() => {
   font-size: 0.8125rem;
 }
 
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-8);
-  padding: var(--spacing-8) var(--spacing-12);
-  border-radius: var(--radius-md);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.action-btn svg {
-  flex-shrink: 0;
-}
-
-.action-btn:hover:not(:disabled) {
-  background: var(--btn-hover);
-}
-
-.action-btn.export-btn {
-  background: var(--primary);
-  color: var(--primary-foreground);
-  border-color: var(--primary);
-}
-
-.action-btn.export-btn:hover:not(:disabled) {
-  background: var(--primary-600);
-}
-
-.action-btn.danger-btn {
-  background: transparent;
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.action-btn.danger-btn:hover:not(:disabled) {
-  background: var(--danger);
-  color: var(--primary-foreground);
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .notepad-content {
   flex: 1;
   min-width: 0;
@@ -408,7 +345,6 @@ onBeforeUnmount(() => {
 }
 
 .loading-state,
-.error-state,
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -417,19 +353,6 @@ onBeforeUnmount(() => {
   height: 100%;
   gap: var(--spacing-16);
   color: var(--text-secondary);
-}
-
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--border);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .notepad-markdown {
@@ -617,16 +540,6 @@ onBeforeUnmount(() => {
     font-size: 1.25rem;
   }
 
-  .action-label {
-    display: none;
-  }
-
-  .action-btn {
-    padding: var(--spacing-8);
-    min-width: 36px;
-    min-height: 36px;
-  }
-
   .notepad-content {
     padding: var(--spacing-16);
   }
@@ -670,13 +583,5 @@ onBeforeUnmount(() => {
   .notepad-markdown :deep(h1) {
     font-size: 1.35rem;
   }
-}
-
-.dark .action-btn {
-  background: var(--bg-secondary);
-}
-
-.dark .action-btn:hover:not(:disabled) {
-  background: var(--btn-hover);
 }
 </style>

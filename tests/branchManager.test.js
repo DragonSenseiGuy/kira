@@ -22,6 +22,7 @@ import {
   findBranchPoints,
   getRootSiblingInfo,
   buildSiblingInfoMap,
+  resolveBranchPathToMessage,
 } from "../app/composables/branchManager.js";
 
 // Helper to build messages with a known date ordering
@@ -391,5 +392,60 @@ describe("buildSiblingInfoMap", () => {
     expect(map.has("r1")).toBe(true);
     expect(map.get("r1").total).toBe(2);
     expect(map.get("r1").current).toBe(1);
+  });
+});
+
+describe("resolveBranchPathToMessage", () => {
+  // a → (b0 | b1) → c1 (only under b1)
+  const forked = [
+    msg("a", null),
+    msg("b0", "a", { branchIndex: 0 }),
+    msg("b1", "a", { branchIndex: 1 }),
+    msg("c1", "b1"),
+  ];
+
+  it("reports a message already on the current path as visible", () => {
+    const result = resolveBranchPathToMessage(forked, [0], "b0");
+
+    expect(result.found).toBe(true);
+    expect(result.alreadyVisible).toBe(true);
+    expect(result.path).toEqual([0]);
+  });
+
+  it("computes the path to a message on another branch", () => {
+    const result = resolveBranchPathToMessage(forked, [0], "c1");
+
+    expect(result.found).toBe(true);
+    expect(result.alreadyVisible).toBe(false);
+    expect(getMessagesForBranchPath(forked, result.path).map((m) => m.id)).toContain("c1");
+  });
+
+  it("reports a message that does not exist as not found", () => {
+    const result = resolveBranchPathToMessage(forked, [0], "nope");
+
+    expect(result.found).toBe(false);
+    expect(result.alreadyVisible).toBe(false);
+    expect(result.path).toEqual([0]);
+  });
+
+  it("leaves the current path untouched when the message is missing", () => {
+    expect(resolveBranchPathToMessage(forked, [1], "nope").path).toEqual([1]);
+  });
+
+  it("handles an empty conversation", () => {
+    expect(resolveBranchPathToMessage([], [], "a")).toEqual({
+      found: false,
+      alreadyVisible: false,
+      path: [],
+    });
+  });
+
+  it("handles missing arguments defensively", () => {
+    expect(resolveBranchPathToMessage(forked, undefined, undefined).found).toBe(false);
+    expect(resolveBranchPathToMessage(null, [], "a").found).toBe(false);
+  });
+
+  it("treats the shared prefix of both branches as already visible", () => {
+    expect(resolveBranchPathToMessage(forked, [1], "a").alreadyVisible).toBe(true);
   });
 });

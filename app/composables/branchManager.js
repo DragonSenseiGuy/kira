@@ -196,6 +196,43 @@ export function calculateBranchPath(messages, targetMessageId) {
 }
 
 /**
+ * Resolves the branch path needed to make a specific message visible.
+ *
+ * Deep links and search results can point at a message sitting on a branch the
+ * user isn't currently viewing. This reports whether the message exists, and
+ * whether the current path already shows it, so callers only persist a new
+ * path when one is actually needed.
+ *
+ * @param {Array} messages - All messages in the conversation.
+ * @param {Array<number>} currentPath - The branch path currently in use.
+ * @param {string} messageId - The message that should become visible.
+ * @returns {{found: boolean, alreadyVisible: boolean, path: Array<number>}}
+ *   `path` is the current path when no change is needed.
+ */
+export function resolveBranchPathToMessage(messages, currentPath = [], messageId) {
+    const path = Array.isArray(currentPath) ? currentPath : [];
+
+    if (!messageId || !Array.isArray(messages) || messages.length === 0) {
+        return { found: false, alreadyVisible: false, path };
+    }
+
+    if (!messages.some(m => m && m.id === messageId)) {
+        return { found: false, alreadyVisible: false, path };
+    }
+
+    const visible = getMessagesForBranchPath(messages, path);
+    if (visible.some(m => m.id === messageId)) {
+        return { found: true, alreadyVisible: true, path };
+    }
+
+    return {
+        found: true,
+        alreadyVisible: false,
+        path: calculateBranchPath(messages, messageId),
+    };
+}
+
+/**
  * Gets the next branch index for creating a new sibling
  * @param {Array} messages - All messages
  * @param {string} parentId - The parent message ID (or null for root)

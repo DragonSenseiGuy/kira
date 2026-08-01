@@ -79,13 +79,13 @@ const label = computed(() => {
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-muted, #8b8b8b);
+  color: var(--text-muted);
 }
 
 .line {
   flex: 1;
   height: 1px;
-  background: var(--border, #e0e0e0);
+  background: var(--border);
   opacity: 0.6;
 }
 
@@ -102,7 +102,7 @@ const label = computed(() => {
   height: 12px;
   border: 2px solid currentColor;
   border-right-color: transparent;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   animation: ctx-spin 0.8s linear infinite;
   display: inline-block;
 }
@@ -114,10 +114,10 @@ const label = computed(() => {
 }
 
 .context-summary-marker.status-in_progress {
-  color: var(--text-secondary, #555);
+  color: var(--text-secondary);
 }
 
 .context-summary-marker.status-completed {
-  color: var(--text-muted, #8b8b8b);
+  color: var(--text-muted);
 }
 </style>

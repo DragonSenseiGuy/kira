@@ -266,6 +266,47 @@ const scrollToEnd = (behavior = "instant") => {
   }
 };
 
+// Message currently spotlighted by a deep link / search result.
+const highlightedMessageId = ref(null);
+let highlightTimeout = null;
+
+/**
+ * Scrolls a specific message into view and flashes a highlight on it.
+ *
+ * Retries briefly because the caller may navigate and focus in the same tick,
+ * before the target message has been rendered.
+ *
+ * @param {string} messageId - The message to focus.
+ * @param {Object} [options]
+ * @param {number} [options.retries=10] - Remaining animation frames to wait.
+ * @returns {Promise<boolean>} Whether the message was found and focused.
+ */
+async function focusMessage(messageId, options = {}) {
+  if (!messageId) return false;
+  const { retries = 10 } = options;
+
+  await nextTick();
+  const element = chatWrapper.value?.querySelector(
+    `[data-message-id="${CSS.escape(messageId)}"]`,
+  );
+
+  if (!element) {
+    if (retries <= 0) return false;
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    return focusMessage(messageId, { retries: retries - 1 });
+  }
+
+  element.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  highlightedMessageId.value = messageId;
+  if (highlightTimeout) clearTimeout(highlightTimeout);
+  highlightTimeout = setTimeout(() => {
+    if (highlightedMessageId.value === messageId) highlightedMessageId.value = null;
+  }, 2600);
+
+  return true;
+}
+
 const handleScroll = () => {
   const container = cachedScrollContainer || chatWrapper.value;
   if (!container) return;
@@ -650,7 +691,11 @@ function getPartGroupClass(group, index, groups) {
   return groupClasses.join(' ');
 }
 
-defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
+onUnmounted(() => {
+  if (highlightTimeout) clearTimeout(highlightTimeout);
+});
+
+defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 </script>
 
 <template>
@@ -702,7 +747,11 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
       </div>
       <div class="messages-layer">
         <template v-for="message in messages" :key="message.id">
-          <div class="message" :class="message.role" :data-message-id="message.id">
+          <div
+            class="message"
+            :class="[message.role, { 'message-focused': highlightedMessageId === message.id }]"
+            :data-message-id="message.id"
+          >
             <div class="message-content">
                   <!-- New Parts-Based Rendering -->
                   <div v-if="message.parts && message.parts.length > 0" class="message-parts-container">
@@ -820,9 +869,13 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                               <Icon icon="material-symbols:picture-as-pdf" width="20" height="20" />
                               <span class="edit-pdf-filename">{{ attachment.filename }}</span>
                             </div>
-                            <button class="remove-attachment-btn" @click="removeEditAttachment(index)" title="Remove attachment">
-                              <Icon icon="material-symbols:close-rounded" width="16px" height="16px" />
-                            </button>
+                            <UiIconButton
+                              class="remove-attachment-btn"
+                              icon="material-symbols:close-rounded"
+                              label="Remove attachment"
+                              size="sm"
+                              @click="removeEditAttachment(index)"
+                            />
                           </div>
                         </div>
                         <textarea
@@ -835,51 +888,82 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                           @keydown.esc="cancelEditing"
                         ></textarea>
                         <div class="edit-actions">
-                          <button class="edit-cancel" @click="cancelEditing">
-                            <Icon icon="material-symbols:close-rounded" width="16px" height="16px" />
-                            <span>Cancel</span>
-                          </button>
-                          <button class="edit-save" @click="submitEdit(message.id)">
-                            <Icon icon="material-symbols:check-rounded" width="16px" height="16px" />
-                            <span>Save & Submit</span>
-                          </button>
+                          <UiButton
+                            variant="ghost"
+                            size="sm"
+                            icon="material-symbols:close-rounded"
+                            @click="cancelEditing"
+                          >
+                            Cancel
+                          </UiButton>
+                          <UiButton
+                            variant="primary"
+                            size="sm"
+                            icon="material-symbols:check-rounded"
+                            @click="submitEdit(message.id)"
+                          >
+                            Save &amp; Submit
+                          </UiButton>
                         </div>
                       </div>
                     </div>
                   </div>
               <div class="message-content-footer" :class="{ 'user-footer': message.role === 'user' }">
                 <div class="footer-left-actions">
-                  <button class="footer-action-btn copy-button" @click="copyMessage(message, $event)" :title="'Copy message'"
-                    aria-label="Copy message">
-                    <Icon icon="material-symbols:content-copy-outline-rounded" width="18px" height="18px" />
-                  </button>
-                  
+                  <UiTooltip content="Copy message">
+                    <UiIconButton
+                      class="footer-action-btn copy-button"
+                      icon="material-symbols:content-copy-outline-rounded"
+                      label="Copy message"
+                      size="sm"
+                      @click="copyMessage(message, $event)"
+                    />
+                  </UiTooltip>
+
                   <!-- Edit button for user messages -->
-                  <button v-if="message.role === 'user'" class="footer-action-btn edit-button" 
-                    @click="startEditing(message)" title="Edit message" aria-label="Edit message">
-                    <Icon icon="material-symbols:edit-outline-rounded" width="18px" height="18px" />
-                  </button>
-                  
+                  <UiTooltip v-if="message.role === 'user'" content="Edit message">
+                    <UiIconButton
+                      class="footer-action-btn edit-button"
+                      icon="material-symbols:edit-outline-rounded"
+                      label="Edit message"
+                      size="sm"
+                      @click="startEditing(message)"
+                    />
+                  </UiTooltip>
+
                   <!-- Regenerate button for assistant messages -->
-                  <button v-if="message.role === 'assistant' && message.complete" class="footer-action-btn regenerate-button" 
-                    @click="regenerateMessage(message.id)" title="Regenerate response" aria-label="Regenerate response">
-                    <Icon icon="material-symbols:refresh-rounded" width="18px" height="18px" />
-                  </button>
+                  <UiTooltip v-if="message.role === 'assistant' && message.complete" content="Regenerate response">
+                    <UiIconButton
+                      class="footer-action-btn regenerate-button"
+                      icon="material-symbols:refresh-rounded"
+                      label="Regenerate response"
+                      size="sm"
+                      @click="regenerateMessage(message.id)"
+                    />
+                  </UiTooltip>
                 </div>
 
                 <!-- Branch Navigation -->
                 <div v-if="branchInfo.has(message.id)" class="branch-navigation">
-                  <button class="nav-prev" @click="navigateBranch(message.id, -1)" 
-                    :disabled="branchInfo.get(message.id).current === 0">
-                    <Icon icon="material-symbols:chevron-left-rounded" width="20px" height="20px" />
-                  </button>
+                  <UiIconButton
+                    class="nav-prev"
+                    icon="material-symbols:chevron-left-rounded"
+                    label="Previous branch"
+                    size="sm"
+                    :disabled="branchInfo.get(message.id).current === 0"
+                    @click="navigateBranch(message.id, -1)"
+                  />
                   <span class="branch-counter">
                     {{ branchInfo.get(message.id).current + 1 }} / {{ branchInfo.get(message.id).total }}
                   </span>
-                  <button class="nav-next" @click="navigateBranch(message.id, 1)" 
-                    :disabled="branchInfo.get(message.id).current === branchInfo.get(message.id).total - 1">
-                    <Icon icon="material-symbols:chevron-right-rounded" width="20px" height="20px" />
-                  </button>
+                  <UiIconButton
+                    class="nav-next"
+                    icon="material-symbols:chevron-right-rounded"
+                    label="Next branch"
+                    size="sm"
+                    :disabled="branchInfo.get(message.id).current === branchInfo.get(message.id).total - 1"
+                    @click="navigateBranch(message.id, 1)"
+                  />
                 </div>
 
                 <template v-if="message.role === 'assistant'">
@@ -927,7 +1011,12 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   padding: 12px;
   box-sizing: border-box;
   position: relative;
-  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition:
+    background-color var(--duration-slow) var(--ease-out-strong),
+    color var(--duration-slow) var(--ease-out-strong),
+    box-shadow var(--duration-slow) var(--ease-out-strong),
+    transform var(--duration-slow) var(--ease-out-strong),
+    opacity var(--duration-slow) var(--ease-out-strong);
   padding-bottom: 100px;
 }
 
@@ -961,22 +1050,30 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 9px 16px;
-  border-radius: 99px;
-  border: 1px solid var(--border);
-  background: var(--elevated-surface);
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--card);
+  box-shadow: var(--shadow-btn);
   color: var(--text-secondary);
+  font-family: inherit;
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.18s ease;
   white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out-strong);
 }
 
 .suggestion-chip:hover {
-  background: var(--btn-hover-2);
+  background: var(--overlay-accent);
   color: var(--primary);
-  border-color: rgba(212, 69, 117, 0.3);
+}
+
+.suggestion-chip:active {
+  transform: scale(var(--press-scale));
 }
 
 /* Example questions list */
@@ -997,7 +1094,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   font-family: inherit;
   cursor: pointer;
   text-align: left;
-  transition: color 0.15s ease;
+  transition: color var(--duration-fast) var(--ease-out);
 }
 
 .example-question:hover {
@@ -1031,7 +1128,12 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   max-width: 800px;
   margin: 0 auto;
   position: relative;
-  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition:
+    background-color var(--duration-slow) var(--ease-out-strong),
+    color var(--duration-slow) var(--ease-out-strong),
+    box-shadow var(--duration-slow) var(--ease-out-strong),
+    transform var(--duration-slow) var(--ease-out-strong),
+    opacity var(--duration-slow) var(--ease-out-strong);
 }
 
 .message.user {
@@ -1040,12 +1142,49 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   width: 100%;
 }
 
+/*
+  Transient spotlight applied when a search result or deep link jumps to a
+  message. The glow fades on its own so the chat returns to its normal look.
+*/
+.message-focused {
+  border-radius: var(--radius-card);
+  animation: message-spotlight 2.6s ease-out forwards;
+}
+
+@keyframes message-spotlight {
+  0% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+  12%, 70% {
+    background-color: var(--focus-ring);
+    box-shadow: 0 0 0 8px var(--focus-ring);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-focused {
+    animation: none;
+    background-color: var(--focus-ring);
+    box-shadow: 0 0 0 8px var(--focus-ring);
+  }
+}
+
 .message-content {
   max-width: 100%;
   display: flex;
   flex-direction: column;
   width: 100%;
-  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition:
+    background-color var(--duration-slow) var(--ease-out-strong),
+    color var(--duration-slow) var(--ease-out-strong),
+    box-shadow var(--duration-slow) var(--ease-out-strong),
+    transform var(--duration-slow) var(--ease-out-strong),
+    opacity var(--duration-slow) var(--ease-out-strong);
 }
 
 .message.user .message-content {
@@ -1059,23 +1198,34 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 
 .bubble {
   display: block;
-  padding: 12px 16px;
-  border-radius: 18px;
-  line-height: 1.5;
-  font-size: 1rem;
+  padding: 10px 14px;
+  border-radius: var(--radius-xl);
+  line-height: 1.55;
+  font-size: 0.95rem;
   width: 100%;
-  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition:
+    background-color var(--duration-slow) var(--ease-out-strong),
+    color var(--duration-slow) var(--ease-out-strong),
+    box-shadow var(--duration-slow) var(--ease-out-strong),
+    transform var(--duration-slow) var(--ease-out-strong),
+    opacity var(--duration-slow) var(--ease-out-strong);
 }
 
 .message.user .bubble {
   background: var(--bubble-user-bg);
   color: var(--bubble-user-text);
+  box-shadow: var(--shadow-hairline);
   white-space: pre-wrap;
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: var(--radius-chip);
   margin-left: auto;
   max-width: calc(800px * 0.85);
   width: fit-content;
-  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition:
+    background-color var(--duration-slow) var(--ease-out-strong),
+    color var(--duration-slow) var(--ease-out-strong),
+    box-shadow var(--duration-slow) var(--ease-out-strong),
+    transform var(--duration-slow) var(--ease-out-strong),
+    opacity var(--duration-slow) var(--ease-out-strong);
   text-align: left;
   overflow-wrap: break-word;
   word-break: break-word;
@@ -1089,7 +1239,12 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
-  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition:
+    background-color var(--duration-slow) var(--ease-out-strong),
+    color var(--duration-slow) var(--ease-out-strong),
+    box-shadow var(--duration-slow) var(--ease-out-strong),
+    transform var(--duration-slow) var(--ease-out-strong),
+    opacity var(--duration-slow) var(--ease-out-strong);
 }
 
 .dark .message.assistant .bubble {
@@ -1118,12 +1273,17 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 .copy-button {
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   width: 32px;
   height: 32px;
   padding: 6px;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out),
+    transform var(--duration) var(--ease-out),
+    opacity var(--duration) var(--ease-out);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1141,37 +1301,18 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   gap: 4px;
 }
 
-.footer-action-btn {
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  width: 28px;
-  height: 28px;
-  padding: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-}
-
-.footer-action-btn:hover {
-  background: var(--btn-hover);
-  color: var(--text-primary);
-}
-
 .branch-navigation {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-left: 8px;
   background: var(--bg-secondary);
-  border-radius: 14px;
+  border-radius: var(--radius-full);
   padding: 2px 4px;
   font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
-  border: 1px solid var(--border);
+  box-shadow: var(--shadow-hairline);
 }
 
 .message.user .branch-navigation {
@@ -1194,8 +1335,13 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   align-items: center;
   justify-content: center;
   padding: 0;
-  border-radius: 50%;
-  transition: all 0.2s;
+  border-radius: var(--radius-full);
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out),
+    transform var(--duration) var(--ease-out),
+    opacity var(--duration) var(--ease-out);
 }
 
 .branch-navigation button:hover:not(:disabled) {
@@ -1227,9 +1373,9 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 
 .edit-attachment-item {
   position: relative;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-hairline);
 }
 
 .edit-attachment-item.image {
@@ -1245,7 +1391,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 }
 
 .edit-attachment-item.pdf {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--overlay-hover);
   padding: 8px 12px;
   display: flex;
   align-items: center;
@@ -1270,51 +1416,55 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   position: absolute;
   top: 4px;
   right: 4px;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--scrim);
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   width: 24px;
   height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: white;
-  transition: all 0.2s;
+  color: #fff;
   padding: 0;
 }
 
 .remove-attachment-btn:hover {
-  background: rgba(0, 0, 0, 0.8);
-  transform: scale(1.1);
+  background: var(--red);
+  color: #fff;
 }
 
 .edit-textarea {
   width: 100%;
   min-height: 80px;
   max-height: min(70vh, 600px);
-  padding: 12px 16px;
-  border-radius: 16px;
-  border: 2px solid transparent;
-  background: rgba(255, 255, 255, 0.15);
-  color: var(--bubble-user-text);
+  padding: 12px 14px;
+  border-radius: var(--radius-card);
+  border: none;
+  box-shadow: var(--shadow-hairline);
+  background: var(--card);
+  color: var(--text-primary);
   font-family: inherit;
-  font-size: 1rem;
-  line-height: 1.5;
+  font-size: 0.95rem;
+  line-height: 1.55;
   resize: none;
   outline: none;
   overflow-y: auto;
   box-sizing: border-box;
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out),
+    transform var(--duration) var(--ease-out),
+    opacity var(--duration) var(--ease-out);
 }
 
 .edit-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-placeholder);
 }
 
 .edit-textarea:focus {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
 }
 
 .edit-actions {
@@ -1324,36 +1474,6 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   margin-top: 4px;
 }
 
-.edit-actions button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.edit-cancel {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--bubble-user-text);
-}
-
-.edit-cancel:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.edit-save {
-  background: rgba(255, 255, 255, 0.25);
-  color: var(--bubble-user-text);
-}
-
-.edit-save:hover {
-  background: rgba(255, 255, 255, 0.35);
-}
 
 /* Editing state for bubble */
 .message.user .bubble.editing {
@@ -1422,10 +1542,10 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   display: inline-block;
   font-size: 0.9rem;
   font-weight: 500;
-  color: var(--text-secondary-light);
-  background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
-  padding: 6px 12px;
-  border-radius: 20px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 4px 10px;
+  border-radius: var(--radius-chip);
   margin-bottom: 12px;
   margin-left: 0; /* Reset left margin to align with container */
   user-select: none; /* Prevent text selection */
@@ -1433,15 +1553,9 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* IE/Edge */
   order: -2; /* Ensure it appears above reasoning details which has order: -1 */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid var(--border);
+  box-shadow: var(--shadow-hairline);
+  border: none;
   width: fit-content;
-}
-
-.dark .search-view-stats {
-  color: var(--text-secondary-dark);
-  background: linear-gradient(135deg, var(--bg-secondary), var(--code-header-bg));
-  border-color: var(--border);
 }
 
 .memory-adjustment-notification {
@@ -1450,7 +1564,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   font-weight: 500;
   color: var(--text-secondary-light);
   padding: 6px 12px;
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   margin-bottom: 12px;
   margin-left: 0; /* Reset left margin to align with container */
   user-select: none; /* Prevent text selection */
@@ -1491,7 +1605,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 }
 
 .attachment-thumbnail {
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   overflow: hidden;
 }
 
@@ -1499,7 +1613,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   max-width: 250px;
   max-height: 250px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   display: block;
 }
 
@@ -1508,8 +1622,8 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  background: var(--overlay-hover);
+  border-radius: var(--radius-control);
 }
 
 .pdf-attachment {
@@ -1552,11 +1666,30 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
 
 /* Part Group Container Styling - for grouping adjacent reasoning and tool_group parts */
 .part-group-container {
-  border: 2px solid var(--border); /* Thick border for the container */
-  border-radius: 12px; /* Keep border radius for the container */
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
   overflow: hidden; /* Contain the individual parts within the container */
   margin: 12px 0 0; /* Add some spacing between groups */
   position: relative;
+  background-color: var(--bg-secondary);
+}
+
+/* The container itself is the only outline: widgets inside drop their own
+   ring, radius and vertical margin so they read as rows of one card. */
+.part-group-container .chat-widget {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.part-group-container .chat-widget:hover {
+  box-shadow: none;
+}
+
+/* Divider between stacked widgets instead of a second outline */
+.part-group-container > .inside-group:not(:last-child) {
+  border-bottom: 1px solid var(--border);
 }
 
 /* Each inside-group needs position:relative for its ::after to position correctly */

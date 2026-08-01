@@ -81,18 +81,33 @@ function handleNewConversation() {
     <div :class="['sidebar-overlay', { active: props.isOpen }]" @click="closeSidebar"></div>
     <div :class="['sidebar', { active: props.isOpen }]">
       <div class="sidebar-header">
-        <button class="close-button" aria-label="Close sidebar" @click="closeSidebar">
-          <Icon icon="material-symbols:side-navigation" width="24" height="24" />
-        </button>
+        <UiTooltip content="Close sidebar" side="bottom" shortcut="mod+b">
+          <UiIconButton
+            icon="material-symbols:side-navigation"
+            label="Close sidebar"
+            @click="closeSidebar"
+          />
+        </UiTooltip>
         <span class="sidebar-title">Kira</span>
-        <button class="settings-button" aria-label="Open settings" @click="$emit('openSettings')">
-          <Icon icon="material-symbols:settings-outline" width="22" height="22" />
-        </button>
+        <UiTooltip content="Settings" side="bottom">
+          <UiIconButton
+            icon="material-symbols:settings-outline"
+            label="Open settings"
+            @click="$emit('openSettings')"
+          />
+        </UiTooltip>
       </div>
-      <button id="new-chat-button" class="new-chat-btn" @click="handleNewConversation">
-        <span>New Chat</span>
-      </button>
-      
+
+      <UiButton
+        id="new-chat-button"
+        variant="primary"
+        icon="material-symbols:add-rounded"
+        block
+        @click="handleNewConversation"
+      >
+        New Chat
+      </UiButton>
+
       <!-- Search Input -->
       <div class="search-container">
         <Icon icon="material-symbols:search" class="search-icon" width="18" height="18" />
@@ -102,31 +117,33 @@ function handleNewConversation() {
           class="search-input"
           placeholder="Search your threads..."
         />
-        <button
+        <UiIconButton
           v-if="searchQuery"
+          icon="material-symbols:close"
+          label="Clear search"
+          size="sm"
           class="search-clear"
           @click="clearSearch"
-          aria-label="Clear search"
-        >
-          <Icon icon="material-symbols:close" width="16" height="16" />
-        </button>
+        />
       </div>
-      
+
       <div class="main-content" style="padding-bottom: 0;">
         <!-- Empty state when no conversations -->
-        <div v-if="!metadata.length" class="empty-state">
-          <Icon icon="material-symbols:chat-bubble-outline" width="48" height="48" />
-          <p>No conversations yet</p>
-          <p class="empty-hint">Start a new chat to begin</p>
-        </div>
-        
+        <UiEmptyState
+          v-if="!metadata.length"
+          icon="material-symbols:chat-bubble-outline"
+          title="No conversations yet"
+          description="Start a new chat to begin"
+        />
+
         <!-- Empty search results -->
-        <div v-else-if="isSearching && !groupedConversations.length" class="empty-state">
-          <Icon icon="material-symbols:search" width="48" height="48" />
-          <p>No results found</p>
-          <p class="empty-hint">Try a different search term</p>
-        </div>
-        
+        <UiEmptyState
+          v-else-if="isSearching && !groupedConversations.length"
+          icon="material-symbols:search"
+          title="No results found"
+          description="Try a different search term"
+        />
+
         <!-- Grouped conversation list -->
         <div v-else class="conversation-list">
           <template v-for="(group, index) in groupedConversations" :key="group.key">
@@ -142,18 +159,15 @@ function handleNewConversation() {
                 />
                 {{ group.label }}
               </span>
-              <button
+              <UiIconButton
                 v-if="group.key === 'pinned'"
+                icon="material-symbols:keyboard-arrow-down-rounded"
+                label="Toggle pinned section"
+                size="sm"
                 class="collapse-btn"
+                :class="{ 'is-collapsed': !isPinnedExpanded }"
                 @click="togglePinnedExpanded"
-                aria-label="Toggle pinned section"
-              >
-                <Icon
-                  :icon="isPinnedExpanded ? 'material-symbols:keyboard-arrow-up' : 'material-symbols:keyboard-arrow-down'"
-                  width="24"
-                  height="24"
-                />
-              </button>
+              />
             </div>
             
             <!-- Conversations in this group -->
@@ -220,16 +234,19 @@ function handleNewConversation() {
           <span class="warning-title">API Key Required</span>
           <span class="warning-text">Add your API key in settings</span>
         </div>
-        <button class="warning-button" @click="$emit('openSettings')" aria-label="Open settings">
-          <Icon icon="material-symbols:arrow-forward" width="18" height="18" />
-        </button>
+        <UiIconButton
+          icon="material-symbols:arrow-forward"
+          label="Open settings"
+          variant="subtle"
+          size="sm"
+          @click="$emit('openSettings')"
+        />
       </div>
 
       <div class="sidebar-footer">
-        <button class="login-btn">
-          <Icon icon="material-symbols:login-rounded" width="18" height="18" />
-          <span>Login</span>
-        </button>
+        <UiButton variant="ghost" icon="material-symbols:login-rounded" block class="login-btn">
+          Login
+        </UiButton>
       </div>
     </div>
   </div>
@@ -248,7 +265,7 @@ function handleNewConversation() {
   color: var(--text-primary);
   border-right: 1px solid var(--border);
   transform: translateX(-100%);
-  transition: transform 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition: transform var(--duration-slow) var(--ease-out-strong);
   display: flex;
   flex-direction: column;
 }
@@ -269,7 +286,7 @@ function handleNewConversation() {
 }
 
 .sidebar-title {
-  font-family: "Plus Jakarta Sans", sans-serif;
+  font-family: var(--font);
   font-size: 1.05em;
   font-weight: 700;
   color: var(--text-primary);
@@ -277,38 +294,10 @@ function handleNewConversation() {
 }
 
 #new-chat-button {
-  margin: 12px 16px 12px 16px;
+  margin: 12px 16px;
   width: calc(100% - 32px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  border: none;
-  border-radius: 8px;
-  height: 38px;
-  padding: 0;
-  font-size: 0.95em;
-  font-weight: 600;
-  transition:
-    background 0.18s,
-    box-shadow 0.18s;
+  height: 34px;
   flex-shrink: 0;
-}
-
-#new-chat-button:hover {
-  background: var(--primary-600);
-}
-
-/* GitHub-blue in dark mode */
-.dark #new-chat-button {
-  background: #1f6feb;
-  color: #f0f6fc;
-}
-
-.dark #new-chat-button:hover {
-  background: #388bfd;
 }
 
 /* Search Container */
@@ -332,43 +321,27 @@ function handleNewConversation() {
   height: 36px;
   padding: 0 32px 0 36px;
   background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: none;
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-inset-field), var(--shadow-hairline);
   color: var(--text-primary);
-  font-size: 0.9em;
+  font-size: 0.85em;
   font-family: inherit;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: box-shadow var(--duration) var(--ease-out);
 }
 
 .search-input::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-placeholder);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-a2, rgba(192, 74, 44, 0.2));
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
 }
 
 .search-clear {
   position: absolute;
-  right: 6px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: background 0.15s, color 0.15s;
-}
-
-.search-clear:hover {
-  background: var(--btn-hover);
-  color: var(--text-primary);
+  right: 5px;
 }
 
 .main-content {
@@ -385,49 +358,9 @@ function handleNewConversation() {
   border-top: 1px solid var(--border);
 }
 
-.login-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 10px;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-family: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  text-align: left;
-}
-
-.login-btn:hover {
-  background: var(--btn-hover);
-  color: var(--text-primary);
-}
-
-/* Empty State */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 16px;
-  color: var(--text-secondary);
-  text-align: center;
-}
-
-.empty-state p {
-  margin: 8px 0 0 0;
-  font-size: 0.95em;
-}
-
-.empty-state .empty-hint {
-  font-size: 0.85em;
-  color: var(--text-tertiary);
-  margin-top: 4px;
+/* The footer action reads as a row, not a centred button */
+.login-btn :deep(.ui-btn__body) {
+  margin-right: auto;
 }
 
 /* Conversation List */
@@ -467,24 +400,16 @@ function handleNewConversation() {
 }
 
 .collapse-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  padding: 4px;
-  width: 28px;
-  height: 28px;
   margin-right: -6px;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: background 0.15s, color 0.15s;
 }
 
-.collapse-btn:hover {
-  background: var(--btn-hover);
-  color: var(--text-primary);
+/* One chevron that rotates, so the control's meaning stays put */
+.collapse-btn :deep(svg) {
+  transition: transform var(--duration) var(--ease-out-strong);
+}
+
+.collapse-btn.is-collapsed :deep(svg) {
+  transform: rotate(-90deg);
 }
 
 .conversation-wrapper {
@@ -502,16 +427,16 @@ function handleNewConversation() {
   background: none;
   color: var(--text-primary);
   border: none;
-  border-radius: 6px;
-  padding: 4px 8px;
+  border-radius: var(--radius-chip);
+  padding: 6px 8px;
   padding-right: 40px;
-  font-size: 0.95em;
+  font-size: 0.85em;
   font-family: inherit;
   font-weight: 500;
   text-decoration: none;
   transition:
-    background 0.18s,
-    color 0.18s;
+    background var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out);
   min-width: 0;
   width: 100%;
 }
@@ -527,29 +452,19 @@ function handleNewConversation() {
   color: var(--primary);
 }
 
+.conversation-button {
+  color: var(--text-secondary);
+}
+
 .conversation-button:hover {
   background: var(--btn-hover);
   color: var(--text-primary);
 }
 
 .conversation-button.active {
-  background: var(--btn-hover-2);
-  color: var(--primary);
+  background: var(--accent-tint);
+  color: var(--accent-ink);
   font-weight: 600;
-}
-
-.dark .conversation-button {
-  color: var(--text-secondary);
-}
-
-.dark .conversation-button:hover {
-  background: hsla(250, 18%, 55%, 0.12);
-  color: var(--text-primary);
-}
-
-.dark .conversation-button.active {
-  background: hsla(340, 70%, 55%, 0.12);
-  color: var(--primary);
 }
 
 /* Rename input */
@@ -557,8 +472,9 @@ function handleNewConversation() {
   flex-grow: 1;
   background: var(--bg-input);
   color: var(--text-primary);
-  border: 1px solid var(--primary);
-  border-radius: 6px;
+  border: none;
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
+  border-radius: var(--radius-chip);
   padding: 5px 8px;
   font-size: 0.95em;
   font-family: inherit;
@@ -568,7 +484,7 @@ function handleNewConversation() {
 }
 
 .rename-input:focus {
-  box-shadow: 0 0 0 2px var(--primary-a2, rgba(192, 74, 44, 0.2));
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
 }
 
 /* Menu trigger button (3-dot) */
@@ -581,13 +497,15 @@ function handleNewConversation() {
   background: transparent;
   border: none;
   padding: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-chip);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.15s, background 0.15s;
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
   flex-shrink: 0;
   color: var(--text-primary);
   z-index: 1;
@@ -618,10 +536,10 @@ function handleNewConversation() {
   inset: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--scrim);
   opacity: 0;
   z-index: 1000;
-  transition: opacity 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition: opacity var(--duration-slow) var(--ease-out-strong);
   will-change: opacity;
   pointer-events: none;
   user-select: none;
@@ -631,45 +549,6 @@ function handleNewConversation() {
 .sidebar-overlay.active {
   opacity: 1;
   pointer-events: auto;
-}
-
-.settings-button {
-  border-radius: 8px;
-  height: 36px;
-  width: 36px;
-  transition: background 0.18s;
-  flex-shrink: 0;
-  padding: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.settings-button:hover {
-  background: var(--btn-hover);
-}
-
-.close-button {
-  border-radius: 8px;
-  height: 36px;
-  width: 36px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  margin: 0;
-  transition: background 0.18s;
-  flex-shrink: 0;
-}
-
-.close-button:hover {
-  background: var(--btn-hover);
 }
 
 @media (min-width: 950px) {
@@ -708,9 +587,10 @@ function handleNewConversation() {
   gap: 12px;
   margin: 12px 16px 16px 16px;
   padding: 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  background: var(--orange-tint);
+  border: none;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 25%, transparent);
+  border-radius: var(--radius-card);
   color: var(--text-primary);
 }
 
@@ -741,23 +621,4 @@ function handleNewConversation() {
   text-overflow: ellipsis;
 }
 
-.warning-button {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: var(--btn-hover);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  color: var(--text-primary);
-  transition: background 0.15s, color 0.15s;
-}
-
-.warning-button:hover {
-  background: var(--border);
-  color: var(--warning);
-}
 </style>

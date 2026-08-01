@@ -167,7 +167,7 @@ function dismiss() {
       :class="`chip-${mode}`"
       role="status"
     >
-      <span v-if="mode === 'running'" class="chip-spinner" aria-hidden="true" />
+      <UiSpinner v-if="mode === 'running'" :size="12" :stroke="2" label="Compressing context" />
       <Icon v-else :icon="icon" width="14" height="14" class="chip-icon" />
       <span class="chip-text">{{ text }}</span>
       <button
@@ -186,15 +186,14 @@ function dismiss() {
       >
         Retry
       </button>
-      <button
+      <UiIconButton
         v-if="mode === 'prompt' || mode === 'error' || mode === 'success'"
-        type="button"
         class="chip-dismiss"
-        aria-label="Dismiss"
+        icon="material-symbols:close"
+        label="Dismiss"
+        size="sm"
         @click="dismiss"
-      >
-        <Icon icon="material-symbols:close" width="13" height="13" />
-      </button>
+      />
     </div>
   </Transition>
 </template>
@@ -213,28 +212,27 @@ function dismiss() {
   max-width: 100%;
   margin-bottom: 6px;
   padding: 5px 11px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   font-size: 0.75rem;
   line-height: 1.2;
   background: var(--bg-input);
-  border: 1px solid var(--border);
   color: var(--text-secondary);
-  box-shadow: var(--shadow-default);
+  box-shadow: var(--shadow-raised);
   user-select: none;
   -webkit-user-select: none;
 }
 
 .chip-icon {
   flex-shrink: 0;
-  color: var(--text-muted, var(--text-secondary));
+  color: var(--text-muted);
 }
 
 .chip-success .chip-icon {
-  color: var(--success, #22c55e);
+  color: var(--success);
 }
 
 .chip-error .chip-icon {
-  color: var(--error, #ef4444);
+  color: var(--error);
 }
 
 .chip-text {
@@ -248,12 +246,12 @@ function dismiss() {
   border: none;
   padding: 2px 6px;
   margin: -2px -4px -2px 0;
-  border-radius: 6px;
+  border-radius: var(--radius-chip);
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--primary);
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
 .chip-action:hover {
@@ -261,47 +259,16 @@ function dismiss() {
 }
 
 .chip-dismiss {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  padding: 2px;
-  margin: -2px -4px -2px 0;
-  border-radius: 6px;
-  color: var(--text-muted, var(--text-secondary));
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.chip-dismiss:hover {
-  background: var(--btn-hover);
-  color: var(--text-primary);
-}
-
-.chip-spinner {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: chip-spin 0.8s linear infinite;
-}
-
-@keyframes chip-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  width: 20px;
+  height: 20px;
+  margin: -2px -6px -2px 0;
 }
 
 .chip-fade-enter-active,
 .chip-fade-leave-active {
   transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+    opacity var(--duration-enter) var(--ease-out-strong),
+    transform var(--duration-enter) var(--ease-out-strong);
 }
 
 .chip-fade-enter-from,

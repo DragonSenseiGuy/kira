@@ -110,24 +110,34 @@ const selectModel = (modelId, modelName) => {
 </script>
 
 <style scoped>
+/* Matches UiButton --secondary at size md, so it sits level with the
+   composer's other controls. */
 .model-selector-trigger {
   display: flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px 10px;
-  height: 36px;
-  background: transparent;
+  border: none;
+  border-radius: var(--radius-control);
+  padding: 0 10px;
+  height: 32px;
+  background: var(--card);
+  box-shadow: var(--shadow-btn);
   color: var(--text-primary);
   cursor: pointer;
-  font-size: 13px;
+  font-family: inherit;
+  font-size: 0.85rem;
   font-weight: 500;
-  transition: background 0.15s ease;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out-strong);
 }
 
 .model-selector-trigger:hover {
-  background: var(--btn-hover);
+  background: var(--hover);
+}
+
+.model-selector-trigger:active {
+  transform: scale(var(--press-scale));
 }
 
 .trigger-model-name {
@@ -140,7 +150,7 @@ const selectModel = (modelId, modelName) => {
 .trigger-chevron {
   flex-shrink: 0;
   opacity: 0.6;
-  transition: transform 0.2s ease;
+  transition: transform var(--duration) var(--ease-out-strong);
 }
 
 .model-selector-trigger[data-state="open"] .trigger-chevron {
@@ -152,14 +162,13 @@ const selectModel = (modelId, modelName) => {
 <style>
 .model-popover-content {
   background: var(--popover-bg);
-  border: 1px solid var(--popover-border);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   box-shadow: var(--popover-shadow);
   width: 340px;
   max-height: 420px;
   padding: 0;
   z-index: 1100;
-  animation: modelPopoverIn 0.2s ease-out forwards;
+  animation: popIn var(--duration-enter) var(--ease-out-strong) forwards;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -205,14 +214,14 @@ const selectModel = (modelId, modelName) => {
 }
 
 .model-popover-item {
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 6px 9px;
+  border-radius: var(--radius-chip);
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin: 0 4px;
-  transition: background 0.15s ease;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
 .model-popover-item:hover {
@@ -220,7 +229,11 @@ const selectModel = (modelId, modelName) => {
 }
 
 .model-popover-item.selected {
-  background: var(--btn-hover-2, var(--btn-hover));
+  background: var(--popover-list-item-selected-bg);
+}
+
+.model-popover-item.selected .model-popover-model-name {
+  color: var(--popover-list-item-selected-text);
 }
 
 .model-popover-item-info {
@@ -255,16 +268,5 @@ const selectModel = (modelId, modelName) => {
   text-align: center;
   color: var(--text-muted);
   font-size: 0.85rem;
-}
-
-@keyframes modelPopoverIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.95) translateY(-5px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
 }
 </style>

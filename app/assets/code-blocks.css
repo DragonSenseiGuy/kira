@@ -1,74 +1,62 @@
 /* Code block and inline code styles */
+/* Code block palette — derived from the app tokens in base.css.
+   Syntax hues are pulled from the shared accent/green/orange/red ramp so code
+   blocks read as part of the same system rather than a bolted-on theme. */
 :root {
-  /* Default code block colors (light mode) */
-  --code-bg: #e6e9ef;
-  /* Using Catppuccin Latte Mantle */
-  --code-text: #4c4f69;
-  /* Using Catppuccin Latte Text */
-  --code-action-text: #6c6f85;
-  /* Catppuccin Latte Subtext0 */
-  --code-action-hover-bg: rgba(140, 143, 161, 0.12);
-  /* Catppuccin Latte Overlay1-based */
-  --code-action-hover-text: #4c4f69;
-  --code-comment: #9ca0b0;
-  /* Catppuccin Latte Overlay0 */
-  --code-keyword: #8839ef;
-  /* Catppuccin Latte Mauve */
-  --code-function: #1e66f5;
-  /* Catppuccin Latte Blue */
-  --code-string: #40a02b;
-  /* Catppuccin Latte Green */
-  --code-number: #fe640b;
-  /* Catppuccin Latte Peach */
-  --code-variable: #d20f39;
-  /* Catppuccin Latte Red */
-  --code-property: #1e66f5;
-  /* Catppuccin Latte Blue */
+  --code-bg: var(--inset);
+  --code-text: var(--ink);
+  /* --ink-2, not --ink-3: these labels are 11-12px, and --ink-3 on --inset
+     lands around 2.6:1 (light) / 3.1:1 (dark) — under the 4.5:1 AA floor. */
+  --code-action-text: var(--ink-2);
+  --code-action-hover-bg: var(--overlay-hover);
+  --code-action-hover-text: var(--ink);
 
-  --code-inline-bg: #dce0e8;
-  /* Catppuccin Latte Crust */
+  --code-comment: #9a9da3;
+  --code-keyword: #8250df;
+  --code-function: #0285ff;
+  --code-string: #189a4d;
+  --code-number: #ef720c;
+  --code-variable: #e3474c;
+  --code-property: #0170dd;
+
+  --code-inline-bg: var(--field);
 }
 
 .dark {
-  /* Code block adjustments for dark mode */
-  --code-bg: #181825;
-  /* Catppuccin Mocha Mantle */
-  --code-text: #cdd6f4;
-  /* Catppuccin Mocha Text */
-  --code-action-text: #a6adc8;
-  /* Catppuccin Mocha Subtext0 */
-  --code-action-hover-bg: rgba(108, 112, 134, 0.1);
-  /* Catppuccin Mocha Overlay0-based */
-  --code-action-hover-text: #cdd6f4;
-  --code-comment: #6c7086;
-  /* Catppuccin Mocha Overlay0 */
-  --code-keyword: #cba6f7;
-  /* Catppuccin Mocha Mauve */
-  --code-function: #89b4fa;
-  /* Catppuccin Mocha Blue */
-  --code-string: #a6e3a1;
-  /* Catppuccin Mocha Green */
-  --code-number: #fab387;
-  /* Catppuccin Mocha Peach */
-  --code-variable: #f38ba8;
-  /* Catppuccin Mocha Red */
-  --code-property: #89b4fa;
-  /* Catppuccin Mocha Blue */
+  --code-bg: var(--inset);
+  --code-text: var(--ink);
+  --code-action-text: var(--ink-2);
+  --code-action-hover-bg: var(--overlay-hover);
+  --code-action-hover-text: var(--ink);
 
-  --code-inline-bg: #313244;
-  /* Catppuccin Mocha Surface0 */
+  --code-comment: #6c6f75;
+  --code-keyword: #d2a8ff;
+  --code-function: #3d9aff;
+  --code-string: #3dbb72;
+  --code-number: #f68f3c;
+  --code-variable: #ee5c61;
+  --code-property: #7ec0ff;
+
+  --code-inline-bg: var(--field);
 }
 
 /* Code block wrapper */
 .markdown-content .code-block-wrapper {
   background-color: var(--code-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hairline);
+  overflow: hidden;
   margin: 1em 0;
   max-width: 800px;
   margin-left: auto;
   margin-right: auto;
   box-sizing: border-box;
-  transition: all 0.3s cubic-bezier(0.4, 1, 0.6, 1);
+  transition:
+    background-color var(--duration-slow) var(--ease-out-strong),
+    color var(--duration-slow) var(--ease-out-strong),
+    box-shadow var(--duration-slow) var(--ease-out-strong),
+    transform var(--duration-slow) var(--ease-out-strong),
+    opacity var(--duration-slow) var(--ease-out-strong);
   position: relative;
 }
 
@@ -81,15 +69,18 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background-color: var(--code-bg);
-  border-radius: 8px 8px 0 0;
-  min-height: 40px;
+  background-color: var(--code-header-bg);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  min-height: 38px;
 }
 
 /* Language label */
 .code-language {
-  font-family: monospace;
-  font-size: 0.85em;
+  font-family: var(--font-mono);
+  font-size: 0.75em;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   color: var(--code-action-text);
   text-transform: lowercase;
   white-space: nowrap;
@@ -113,13 +104,18 @@
   gap: 6px;
   background-color: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-chip);
   color: var(--code-action-text);
   padding: 4px 8px;
   font-size: 0.8em;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out),
+    transform var(--duration) var(--ease-out),
+    opacity var(--duration) var(--ease-out);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -127,6 +123,11 @@
 .code-action-button:hover {
   background-color: var(--code-action-hover-bg);
   color: var(--code-action-hover-text);
+}
+
+/* Same press response as every other control */
+.code-action-button:active {
+  transform: scale(var(--press-scale));
 }
 
 .code-action-button.copied {
@@ -148,7 +149,7 @@
   margin: 0;
   padding: 0;
   overflow-x: auto;
-  border-radius: 0 0 8px 8px;
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
 }
 
 .code-block-wrapper pre code.hljs {
@@ -165,7 +166,7 @@
   background-color: var(--code-inline-bg);
   color: var(--code-text);
   padding: 0.2em 0.4em;
-  border-radius: 4px;
+  border-radius: var(--radius-chip);
   font-size: 0.85em;
 }
 
@@ -258,7 +259,12 @@
   max-width: 800px;
   margin: 0 auto;
   box-sizing: border-box;
-  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  transition:
+    background-color var(--duration-slow) var(--ease-out-strong),
+    color var(--duration-slow) var(--ease-out-strong),
+    box-shadow var(--duration-slow) var(--ease-out-strong),
+    transform var(--duration-slow) var(--ease-out-strong),
+    opacity var(--duration-slow) var(--ease-out-strong);
   /* Text wrapping - ensure all content wraps properly */
   overflow-wrap: break-word;
   word-wrap: break-word;
@@ -395,9 +401,14 @@
   width: 1.2em;
   height: 1.2em;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-chip);
   background-color: var(--bg);
-  transition: all 0.2s ease-in-out;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out),
+    transform var(--duration) var(--ease-out),
+    opacity var(--duration) var(--ease-out);
   margin-top: 0.2em;
   pointer-events: none;
   cursor: default;
@@ -441,7 +452,7 @@
   margin: 1.5em 0;
   padding: 0.5em 1.2em;
   color: var(--text-secondary);
-  border-radius: 4px;
+  border-radius: var(--radius-chip);
 }
 
 /* Horizontal rules */
@@ -455,14 +466,21 @@
   border-top-color: var(--border);
 }
 
-/* Tables */
+/* Tables — read as a single carded unit, like the reference "Records Table":
+   hairline ring instead of per-cell borders, a filled header, and zebra rows
+   via the --stripe tokens. `display: block` keeps wide tables scrollable, so
+   the table hugs its content (max-content) rather than stretching the ring. */
 .markdown-content table {
   border-collapse: collapse;
-  width: 100%;
+  width: max-content;
+  max-width: 100%;
   margin: 1em 0;
   display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hairline);
+  font-size: 0.9375em;
 }
 
 .markdown-content table th,
@@ -473,25 +491,19 @@
 }
 
 .markdown-content table th {
-  border-bottom: 2px solid var(--border);
+  background-color: var(--stripe-bg);
+  border-bottom: 1px solid var(--border);
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.dark .markdown-content table th {
-  border-bottom-color: var(--border);
-}
-
 .markdown-content table td {
-  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
 }
 
-.dark .markdown-content table td {
-  border-bottom-color: var(--border);
-}
-
-.markdown-content table tr:last-child td {
-  border-bottom: none;
+/* Zebra striping carries the row rhythm, so rows need no dividers. */
+.markdown-content table tbody tr:nth-child(even) {
+  background-color: var(--stripe);
 }
 
 /* KaTeX math display */
@@ -544,7 +556,7 @@
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: var(--primary);
   margin-left: 4px;
   vertical-align: middle;

@@ -14,23 +14,17 @@ a,
 .green {
   text-decoration: none;
   color: var(--primary);
-  transition: 0.4s;
-  padding: 4px 0;
-  border-radius: 4px;
-}
-
-.dark a {
-  color: var(--primary);
+  transition: color var(--duration) var(--ease-link);
+  border-radius: var(--radius-chip);
+  text-underline-offset: 2px;
 }
 
 @media (hover: hover) {
   a:hover {
-    background-color: rgba(136, 57, 239, 0.1);
+    color: var(--primary-600);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
   }
-}
-
-.dark a:hover {
-  background-color: rgba(203, 166, 247, 0.1);
 }
 
 /* Add dark mode styles for the app */

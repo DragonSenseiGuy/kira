@@ -3,7 +3,6 @@ import { onMounted, ref, watch, computed } from "vue";
 import { navigateTo } from "#app";
 import { useSettings } from "@/composables/useSettings";
 import { useDark, useToggle } from "@vueuse/core";
-import { SwitchRoot, SwitchThumb } from "reka-ui";
 import { Icon } from "@iconify/vue";
 import { loadNotepad } from "@/composables/notepad";
 import {
@@ -13,6 +12,7 @@ import {
 } from "@/composables/contextCompressor";
 import ExportMenu from "@/components/ExportMenu.vue";
 import ImportMenu from "@/components/ImportMenu.vue";
+import { groupShortcuts } from "@/composables/keyboardShortcuts";
 
 // Define props and emits
 const props = defineProps(["isOpen", "initialTab"]);
@@ -26,7 +26,9 @@ const toggleDark = useToggle(isDark);
 const notepadEnabled = ref(false);
 const gptOssLimitTables = ref(false);
 const notepadMetadata = ref(null);
-const isMac = ref(false);
+
+// Reference list for the Keyboard Shortcuts tab, derived from the registry.
+const shortcutGroups = groupShortcuts();
 
 // Context compression settings
 const contextCompressionEnabled = ref(true);
@@ -108,20 +110,19 @@ onMounted(async () => {
 
   // Load notepad metadata
   await loadNotepadData();
-
-  // Detect platform
-  if (typeof window !== "undefined") {
-    isMac.value = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-  }
 });
 
+// The dialog unmounts this panel when it closes, so on the next open the
+// component mounts with `isOpen` already true. A non-immediate watcher would
+// never fire and every deep link into a specific tab would land on General.
 watch(
-  () => props.isOpen,
-  (newVal) => {
-    if (newVal) {
-      currTab.value = props.initialTab || "general";
+  () => [props.isOpen, props.initialTab],
+  ([isOpen, initialTab]) => {
+    if (isOpen) {
+      currTab.value = initialTab || "general";
     }
-  }
+  },
+  { immediate: true }
 );
 
 watch(notepadEnabled, (newVal) => {
@@ -185,9 +186,7 @@ function openNotepad() {
         <div class="header-content">
           <h1 class="panel-title">Settings</h1>
         </div>
-        <button class="close-btn" @click="closeSettings" aria-label="Close settings">
-          <Icon icon="material-symbols:close" width="20" height="20" />
-        </button>
+        <UiIconButton icon="material-symbols:close" label="Close settings" @click="closeSettings" />
       </div>
 
       <div class="panel-content-wrapper">
@@ -217,22 +216,18 @@ function openNotepad() {
                   <h3>Dark Mode</h3>
                   <p>Toggle between light and dark themes</p>
                 </div>
-                <div class="switch-container">
-                  <SwitchRoot class="switch-root" :modelValue="isDark" @update:modelValue="toggleDark()">
-                    <SwitchThumb class="switch-thumb" />
-                  </SwitchRoot>
-                </div>
+                <UiSwitch :model-value="isDark" aria-label="Dark mode" @update:model-value="toggleDark()" />
               </div>
               <div class="setting-item">
                 <div class="setting-info">
                   <h3>Limit Tables for GPT-OSS</h3>
                   <p>When using GPT-OSS models (20B or 120B), limit table usage as much as possible</p>
                 </div>
-                <div class="switch-container">
-                  <SwitchRoot class="switch-root" :modelValue="gptOssLimitTables" @update:modelValue="gptOssLimitTables = $event">
-                    <SwitchThumb class="switch-thumb" />
-                  </SwitchRoot>
-                </div>
+                <UiSwitch
+                  :model-value="gptOssLimitTables"
+                  aria-label="Limit tables for GPT-OSS"
+                  @update:model-value="gptOssLimitTables = $event"
+                />
               </div>
               <div class="setting-item textarea-item">
                 <div class="setting-info">
@@ -246,14 +241,13 @@ function openNotepad() {
                     placeholder="Enter your API key"
                     class="custom-input api-key-input" 
                   />
-                  <button 
-                    type="button" 
-                    class="toggle-visibility-btn" 
+                  <UiIconButton
+                    class="toggle-visibility-btn"
+                    size="sm"
+                    :icon="showApiKey ? 'material-symbols:visibility-off' : 'material-symbols:visibility'"
+                    :label="showApiKey ? 'Hide API key' : 'Show API key'"
                     @click="showApiKey = !showApiKey"
-                    :aria-label="showApiKey ? 'Hide API key' : 'Show API key'"
-                  >
-                    <Icon :icon="showApiKey ? 'material-symbols:visibility-off' : 'material-symbols:visibility'" width="20" height="20" />
-                  </button>
+                  />
                 </div>
               </div>
             </div>
@@ -319,12 +313,11 @@ function openNotepad() {
                   <h3>Enable Notepad</h3>
                   <p>Let Kira maintain a private Notepad about you across conversations</p>
                 </div>
-                <div class="switch-container">
-                  <SwitchRoot class="switch-root" :modelValue="notepadEnabled"
-                    @update:modelValue="toggleNotepad">
-                    <SwitchThumb class="switch-thumb" />
-                  </SwitchRoot>
-                </div>
+                <UiSwitch
+                  :model-value="notepadEnabled"
+                  aria-label="Enable Notepad"
+                  @update:model-value="toggleNotepad"
+                />
               </div>
 
               <div v-if="notepadEnabled" class="notepad-actions-section">
@@ -340,10 +333,9 @@ function openNotepad() {
                 </div>
 
                 <div class="notepad-buttons">
-                  <button @click="openNotepad" class="view-notepad-btn">
-                    <Icon icon="material-symbols:book" width="18" height="18" />
+                  <UiButton variant="secondary" icon="material-symbols:book" @click="openNotepad">
                     View My Notepad
-                  </button>
+                  </UiButton>
                 </div>
 
                 <div class="notepad-info">
@@ -379,12 +371,11 @@ function openNotepad() {
                   <h3>Auto Context Compression</h3>
                   <p>Automatically compress older context once a conversation grows past the threshold</p>
                 </div>
-                <div class="switch-container">
-                  <SwitchRoot class="switch-root" :modelValue="contextCompressionEnabled"
-                    @update:modelValue="contextCompressionEnabled = $event">
-                    <SwitchThumb class="switch-thumb" />
-                  </SwitchRoot>
-                </div>
+                <UiSwitch
+                  :model-value="contextCompressionEnabled"
+                  aria-label="Auto context compression"
+                  @update:model-value="contextCompressionEnabled = $event"
+                />
               </div>
 
               <div class="setting-item textarea-item">
@@ -445,10 +436,9 @@ function openNotepad() {
                   <h3>Export your data</h3>
                   <p>Download a zip archive of your chats, notepad, and settings.</p>
                 </div>
-                <button class="data-action-btn" @click="isExportMenuOpen = true">
-                  <Icon icon="material-symbols:download" width="18" height="18" />
+                <UiButton variant="secondary" icon="material-symbols:download" @click="isExportMenuOpen = true">
                   Export
-                </button>
+                </UiButton>
               </div>
 
               <div class="setting-item data-row">
@@ -456,10 +446,9 @@ function openNotepad() {
                   <h3>Import data</h3>
                   <p>Restore from a Kira export or an OpenWebUI chat export.</p>
                 </div>
-                <button class="data-action-btn" @click="isImportMenuOpen = true">
-                  <Icon icon="material-symbols:upload" width="18" height="18" />
+                <UiButton variant="secondary" icon="material-symbols:upload" @click="isImportMenuOpen = true">
                   Import
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -472,66 +461,18 @@ function openNotepad() {
                 <p>Master Kira with these shortcuts</p>
               </div>
 
-              <div class="keybind-group">
-                <h3>Text Input</h3>
+              <!--
+                Rendered from the shortcut registry in
+                composables/keyboardShortcuts.js, which is the same list the
+                key handler binds — so this page can never document a
+                shortcut that no longer works.
+              -->
+              <div v-for="group in shortcutGroups" :key="group.group" class="keybind-group">
+                <h3>{{ group.group }}</h3>
                 <div class="keybind-list">
-                  <div class="keybind-row">
-                    <span class="keybind-desc">Focus text input</span>
-                    <div class="keybind-keys">
-                      <kbd>/</kbd>
-                    </div>
-                  </div>
-                  <div class="keybind-row">
-                    <span class="keybind-desc">New line</span>
-                    <div class="keybind-keys">
-                      <kbd>{{ isMac ? '⇧' : 'Shift' }}</kbd>
-                      <span class="key-plus">+</span>
-                      <kbd>Enter</kbd>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="keybind-group">
-                <h3>General</h3>
-                <div class="keybind-list">
-                  <div class="keybind-row">
-                    <span class="keybind-desc">Toggle main sidebar</span>
-                    <div class="keybind-keys">
-                      <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd>
-                      <span class="key-plus">+</span>
-                      <kbd>B</kbd>
-                    </div>
-                  </div>
-                  <div class="keybind-row">
-                    <span class="keybind-desc">Toggle secondary sidebar</span>
-                    <div class="keybind-keys">
-                      <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd>
-                      <span class="key-plus">+</span>
-                      <kbd>{{ isMac ? '⌥' : 'Alt' }}</kbd>
-                      <span class="key-plus">+</span>
-                      <kbd>B</kbd>
-                    </div>
-                  </div>
-                  <div class="keybind-row">
-                    <span class="keybind-desc">New chat</span>
-                    <div class="keybind-keys">
-                      <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd>
-                      <span class="key-plus">+</span>
-                      <kbd>{{ isMac ? '⌥' : 'Alt' }}</kbd>
-                      <span class="key-plus">+</span>
-                      <kbd>N</kbd>
-                    </div>
-                  </div>
-                  <div class="keybind-row">
-                    <span class="keybind-desc">Toggle incognito mode</span>
-                    <div class="keybind-keys">
-                      <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd>
-                      <span class="key-plus">+</span>
-                      <kbd>{{ isMac ? '⌥' : 'Alt' }}</kbd>
-                      <span class="key-plus">+</span>
-                      <kbd>I</kbd>
-                    </div>
+                  <div v-for="shortcut in group.shortcuts" :key="shortcut.id" class="keybind-row">
+                    <span class="keybind-desc">{{ shortcut.label }}</span>
+                    <UiKbd :keys="shortcut.combo" />
                   </div>
                 </div>
               </div>
@@ -573,8 +514,8 @@ function openNotepad() {
       <!-- Footer Actions -->
       <div class="panel-footer">
         <div class="footer-actions">
-          <button @click="closeSettings" class="cancel-btn">Cancel</button>
-          <button @click="saveSettings" class="save-btn">Save Changes</button>
+          <UiButton variant="ghost" size="lg" @click="closeSettings">Cancel</UiButton>
+          <UiButton variant="primary" size="lg" @click="saveSettings">Save Changes</UiButton>
         </div>
       </div>
     </div>
@@ -609,26 +550,6 @@ function openNotepad() {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--text-primary);
-}
-
-.close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: var(--btn-hover);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.close-btn:hover {
-  background: var(--btn-hover);
   color: var(--text-primary);
 }
 
@@ -669,7 +590,10 @@ function openNotepad() {
   color: var(--text-secondary);
   cursor: pointer;
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out);
   font-size: 0.875rem;
   font-weight: 500;
   width: 100%;
@@ -787,29 +711,6 @@ function openNotepad() {
   align-items: center;
 }
 
-.data-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0 1rem;
-  height: 36px;
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.data-action-btn:hover {
-  background: var(--btn-hover);
-  border-color: var(--primary-a4);
-  color: var(--primary);
-}
-
 .setting-item.textarea-item .input-container {
   max-width: 400px;
 }
@@ -846,78 +747,6 @@ function openNotepad() {
   font-family: monospace;
 }
 
-.toggle-visibility-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  background: var(--bg-primary);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.toggle-visibility-btn:hover {
-  background: var(--btn-hover);
-  color: var(--text-primary);
-}
-
-.switch-container {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.switch-root {
-  width: 42px;
-  height: 24px;
-  background-color: var(--text-muted);
-  border-radius: 9999px;
-  position: relative;
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  margin: 0;
-  transition: background-color 100ms;
-}
-
-.switch-root[data-state='checked'] {
-  background-color: var(--primary-600);
-}
-
-.switch-thumb {
-  width: 20px;
-  height: 20px;
-  background-color: var(--border);
-  border-radius: 9999px;
-  box-shadow: 0 2px 2px var(--black-a7);
-  transition: transform 100ms;
-  transform: translateX(-9px);
-  will-change: transform;
-  position: relative;
-  z-index: 1;
-}
-
-.switch-thumb[data-state='checked'] {
-  transform: translateX(9px);
-}
-
-.dark .switch-thumb {
-  background-color: var(--bg-primary);
-}
-
-.switch-thumb[data-state='checked'] {
-  transform: translateX(8px);
-  background-color: var(--bg-primary);
-}
-
 .clear-memory-container {
   margin-top: 1.5rem;
   display: flex;
@@ -933,7 +762,10 @@ function openNotepad() {
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out);
   height: 36px;
   display: flex;
   align-items: center;
@@ -970,7 +802,10 @@ function openNotepad() {
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out);
 }
 
 .memory-fact-item:hover {
@@ -996,7 +831,10 @@ function openNotepad() {
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out);
   flex-shrink: 0;
 }
 
@@ -1076,7 +914,6 @@ function openNotepad() {
   margin-bottom: 1.5rem;
 }
 
-.view-notepad-btn,
 .clear-notepad-btn {
   display: flex;
   align-items: center;
@@ -1087,17 +924,9 @@ function openNotepad() {
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.view-notepad-btn {
-  background: var(--primary);
-  color: var(--primary-foreground);
-  border: none;
-}
-
-.view-notepad-btn:hover {
-  background: var(--primary-600);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .clear-notepad-btn {
@@ -1153,40 +982,6 @@ function openNotepad() {
   gap: 0.75rem;
 }
 
-.cancel-btn,
-.save-btn {
-  padding: 0 1.25rem;
-  border-radius: var(--radius-md);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.cancel-btn {
-  background: none;
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-}
-
-.cancel-btn:hover {
-  background: var(--btn-hover);
-  color: var(--text-primary);
-}
-
-.save-btn {
-  background: var(--primary);
-  color: var(--primary-foreground);
-  border: none;
-}
-
-.save-btn:hover {
-  background: var(--primary-600);
-}
-
 /* Keybinds Styling */
 .keybind-group {
   margin-bottom: 2rem;
@@ -1216,52 +1011,21 @@ function openNotepad() {
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  transition: all 0.2s ease;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out);
 }
 
 .keybind-row:hover {
-  border-color: var(--primary-a4);
+  border-color: var(--line-strong);
   background: var(--bg-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
 .keybind-desc {
   font-size: 0.9375rem;
   color: var(--text-primary);
   font-weight: 450;
-}
-
-.keybind-keys {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 8px;
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1;
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 2px 0 var(--border), 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: all 0.1s ease;
-}
-
-.key-plus {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  font-weight: 500;
-  margin: 0 2px;
 }
 
 /* Responsive */

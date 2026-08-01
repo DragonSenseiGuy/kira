@@ -40,7 +40,8 @@ export function useConversation() {
     changeConversation,
     deleteConversation,
     newConversation,
-    toggleIncognito
+    toggleIncognito,
+    revealMessage
   } = messagesManager;
 
   // Set up dynamic page title based on conversation
@@ -143,6 +144,7 @@ export function useConversation() {
     deleteConversation,
     newConversation,
     toggleIncognito,
+    revealMessage, // Switches branches so a deep-linked message is visible
     setChatPanel: messagesManager.setChatPanel, // Add the method from messages manager
     createNewConversationWithMessage, // Added new function for creating conversation with first message
 

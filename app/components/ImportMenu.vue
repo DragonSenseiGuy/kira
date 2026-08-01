@@ -2,13 +2,6 @@
 import { ref, computed, watch } from "vue";
 import { Icon } from "@iconify/vue";
 import {
-  DropdownMenuRoot,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "reka-ui";
-import {
   importFromZipBuffer,
   parseImportArchive,
   readFileAsBuffer,
@@ -26,10 +19,12 @@ const emit = defineEmits(["close", "import-complete"]);
 
 const settingsManager = useSettings();
 
+const fileInput = ref(null);
 const file = ref(null);
 const fileName = ref("");
 const archive = ref(null);
 const parseError = ref("");
+const importError = ref("");
 const isImporting = ref(false);
 const isDragging = ref(false);
 
@@ -66,6 +61,7 @@ function reset() {
   fileName.value = "";
   archive.value = null;
   parseError.value = "";
+  importError.value = "";
   chatsMode.value = "append";
   notepadMode.value = "replace";
   settingsMode.value = "replace";
@@ -87,6 +83,7 @@ async function handleFile(selectedFile) {
   file.value = selectedFile;
   fileName.value = selectedFile.name;
   parseError.value = "";
+  importError.value = "";
   archive.value = null;
 
   try {
@@ -125,6 +122,7 @@ function onFileInputClick(event) {
 async function handleImport() {
   if (isImporting.value || !canImport.value) return;
   isImporting.value = true;
+  importError.value = "";
   try {
     const buffer = await readFileAsBuffer(file.value);
     const result = await importFromZipBuffer(new Uint8Array(buffer), {
@@ -137,235 +135,130 @@ async function handleImport() {
     close();
   } catch (error) {
     console.error("[ImportMenu] Import failed:", error);
-    alert("Import failed. See console for details.");
+    // Kept in the dialog so the chosen merge modes survive a failed attempt.
+    importError.value = "Import failed. See the console for details.";
   } finally {
     isImporting.value = false;
   }
 }
-
-function labelFor(options, value) {
-  return options.find((opt) => opt.value === value)?.label || value;
-}
 </script>
 
 <template>
-  <div class="import-overlay" v-if="isOpen" @click.self="close">
-    <div class="import-panel" role="dialog" aria-modal="true" aria-labelledby="import-title">
-      <div class="panel-header">
-        <h2 id="import-title" class="panel-title">Import Data</h2>
-        <button class="close-btn" @click="close" aria-label="Close import menu">
-          <Icon icon="material-symbols:close" width="20" height="20" />
-        </button>
-      </div>
+  <UiDialog
+    :open="isOpen"
+    title="Import Data"
+    description="Restore from a Kira export or an OpenWebUI chat export."
+    @update:open="(value) => !value && close()"
+  >
+    <!-- The file input lives outside the button: a form control nested in a
+         button is invalid, and the button already forwards the click. -->
+    <input
+      ref="fileInput"
+      type="file"
+      accept=".zip,.json"
+      class="file-input"
+      @change="onFileChange"
+      @click="onFileInputClick"
+    />
 
-      <div class="panel-content">
-        <div
-          class="drop-zone"
-          :class="{ dragging: isDragging, hasFile: !!file }"
-          @drop="onDrop"
-          @dragover="onDragOver"
-          @dragleave="onDragLeave"
-          @click="$refs.fileInput.click()"
-        >
-          <input
-            ref="fileInput"
-            type="file"
-            accept=".zip,.json"
-            class="file-input"
-            @change="onFileChange"
-            @click="onFileInputClick"
-          />
-          <Icon icon="material-symbols:upload-file" width="36" height="36" class="drop-icon" />
-          <p class="drop-title">Drop a zip or JSON file here</p>
-          <p class="drop-hint">or click to browse</p>
-          <p v-if="fileName" class="file-name">Selected: {{ fileName }}</p>
+    <button
+      type="button"
+      class="drop-zone"
+      :class="{ dragging: isDragging, hasFile: !!file }"
+      @drop="onDrop"
+      @dragover="onDragOver"
+      @dragleave="onDragLeave"
+      @click="fileInput.click()"
+    >
+      <Icon icon="material-symbols:upload-file" width="32" height="32" class="drop-icon" />
+      <span class="drop-title">Drop a zip or JSON file here</span>
+      <span class="drop-hint">or click to browse</span>
+      <span v-if="fileName" class="file-name">Selected: {{ fileName }}</span>
+    </button>
+
+    <p v-if="parseError" class="error-text u-enter" role="alert">{{ parseError }}</p>
+
+    <div v-if="archive" class="sections u-enter">
+      <p class="sections-title">Choose how to merge each section:</p>
+
+      <!-- Two or three choices each, so they read better as segments than as
+           a menu you have to open to see the options. -->
+      <div v-if="hasChats" class="section-row">
+        <div class="section-info">
+          <span class="section-label">Chats</span>
+          <span class="section-hint">
+            {{ archive.chats.length }} conversation{{ archive.chats.length === 1 ? '' : 's' }} found
+          </span>
         </div>
+        <UiSegmented v-model="chatsMode" :options="chatOptions" aria-label="Chats merge mode" />
+      </div>
 
-        <p v-if="parseError" class="error-text">{{ parseError }}</p>
-
-        <div v-if="archive" class="sections">
-          <p class="sections-title">Choose how to merge each section:</p>
-
-          <div class="section-row" v-if="hasChats">
-            <div class="section-info">
-              <span class="section-label">Chats</span>
-              <span class="section-hint">{{ archive.chats.length }} conversation{{ archive.chats.length === 1 ? '' : 's' }} found</span>
-            </div>
-            <DropdownMenuRoot>
-              <DropdownMenuTrigger class="model-selector-btn" :aria-label="`Chats merge mode: ${labelFor(chatOptions, chatsMode)}`">
-                <span class="model-name-display">{{ labelFor(chatOptions, chatsMode) }}</span>
-                <Icon icon="material-symbols:keyboard-arrow-down-rounded" class="dropdown-icon" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent class="model-selector-dropdown import-dropdown" side="bottom" align="end" :side-offset="4">
-                <DropdownMenuItem
-                  v-for="opt in chatOptions"
-                  :key="opt.value"
-                  class="model-list-item"
-                  :class="{ selected: chatsMode === opt.value }"
-                  @click="chatsMode = opt.value"
-                >
-                  <span>{{ opt.label }}</span>
-                  <Icon v-if="chatsMode === opt.value" icon="material-symbols:check-rounded" class="icon" width="18" height="18" />
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenuRoot>
-          </div>
-
-          <div class="section-row" v-if="hasNotepad">
-            <div class="section-info">
-              <span class="section-label">Notepad</span>
-              <span class="section-hint">Memory document found</span>
-            </div>
-            <DropdownMenuRoot>
-              <DropdownMenuTrigger class="model-selector-btn" :aria-label="`Notepad merge mode: ${labelFor(binaryOptions, notepadMode)}`">
-                <span class="model-name-display">{{ labelFor(binaryOptions, notepadMode) }}</span>
-                <Icon icon="material-symbols:keyboard-arrow-down-rounded" class="dropdown-icon" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent class="model-selector-dropdown import-dropdown" side="bottom" align="end" :side-offset="4">
-                <DropdownMenuItem
-                  v-for="opt in binaryOptions"
-                  :key="opt.value"
-                  class="model-list-item"
-                  :class="{ selected: notepadMode === opt.value }"
-                  @click="notepadMode = opt.value"
-                >
-                  <span>{{ opt.label }}</span>
-                  <Icon v-if="notepadMode === opt.value" icon="material-symbols:check-rounded" class="icon" width="18" height="18" />
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenuRoot>
-          </div>
-
-          <div class="section-row" v-if="hasSettings">
-            <div class="section-info">
-              <span class="section-label">Settings</span>
-              <span class="section-hint">Preferences found</span>
-            </div>
-            <DropdownMenuRoot>
-              <DropdownMenuTrigger class="model-selector-btn" :aria-label="`Settings merge mode: ${labelFor(binaryOptions, settingsMode)}`">
-                <span class="model-name-display">{{ labelFor(binaryOptions, settingsMode) }}</span>
-                <Icon icon="material-symbols:keyboard-arrow-down-rounded" class="dropdown-icon" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent class="model-selector-dropdown import-dropdown" side="bottom" align="end" :side-offset="4">
-                <DropdownMenuItem
-                  v-for="opt in binaryOptions"
-                  :key="opt.value"
-                  class="model-list-item"
-                  :class="{ selected: settingsMode === opt.value }"
-                  @click="settingsMode = opt.value"
-                >
-                  <span>{{ opt.label }}</span>
-                  <Icon v-if="settingsMode === opt.value" icon="material-symbols:check-rounded" class="icon" width="18" height="18" />
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenuRoot>
-          </div>
-
-          <p v-if="!hasChats && !hasNotepad && !hasSettings" class="empty-archive">
-            No importable data found in this file.
-          </p>
+      <div v-if="hasNotepad" class="section-row">
+        <div class="section-info">
+          <span class="section-label">Notepad</span>
+          <span class="section-hint">Memory document found</span>
         </div>
+        <UiSegmented v-model="notepadMode" :options="binaryOptions" aria-label="Notepad merge mode" />
       </div>
 
-      <div class="panel-footer">
-        <button class="cancel-btn" @click="close">Cancel</button>
-        <button class="import-btn" :disabled="!canImport || isImporting" @click="handleImport">
-          <Icon v-if="isImporting" icon="svg-spinners:180-ring" width="18" height="18" />
-          <span>{{ isImporting ? "Importing..." : "Import" }}</span>
-        </button>
+      <div v-if="hasSettings" class="section-row">
+        <div class="section-info">
+          <span class="section-label">Settings</span>
+          <span class="section-hint">Preferences found</span>
+        </div>
+        <UiSegmented v-model="settingsMode" :options="binaryOptions" aria-label="Settings merge mode" />
       </div>
+
+      <p v-if="!hasChats && !hasNotepad && !hasSettings" class="empty-archive">
+        No importable data found in this file.
+      </p>
     </div>
-  </div>
+
+    <p v-if="importError" class="error-text u-enter" role="alert">{{ importError }}</p>
+
+    <template #footer>
+      <UiButton variant="ghost" @click="close">Cancel</UiButton>
+      <UiButton
+        variant="primary"
+        :disabled="!canImport"
+        :loading="isImporting"
+        @click="handleImport"
+      >
+        Import
+      </UiButton>
+    </template>
+  </UiDialog>
 </template>
 
 <style scoped>
-.import-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2100;
-  padding: 1rem;
-}
-
-.import-panel {
-  background: var(--bg-primary);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
-  width: 100%;
-  max-width: 480px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: var(--btn-hover);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.close-btn:hover {
-  color: var(--text-primary);
-}
-
-.panel-content {
-  padding: 1.5rem;
-  overflow-y: auto;
-  flex: 1;
-}
-
 .drop-zone {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 2rem;
-  border: 2px dashed var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
+  gap: 4px;
+  width: 100%;
+  padding: 28px 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-card);
+  background: var(--inset);
+  color: inherit;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
 }
 
 .drop-zone:hover,
 .drop-zone.dragging {
-  border-color: var(--primary);
-  background: var(--bg-primary);
+  border-color: var(--accent);
+  background: var(--overlay-accent);
 }
 
 .drop-zone.hasFile {
-  border-color: var(--primary-600);
+  border-style: solid;
+  border-color: var(--accent);
 }
 
 .file-input {
@@ -374,45 +267,47 @@ function labelFor(options, value) {
 
 .drop-icon {
   color: var(--text-muted);
+  margin-bottom: 4px;
 }
 
 .drop-title {
-  margin: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .drop-hint {
-  margin: 0;
-  font-size: 0.8125rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
 }
 
 .file-name {
-  margin: 0.5rem 0 0;
-  font-size: 0.8125rem;
+  margin-top: 6px;
+  font-size: 0.8rem;
   color: var(--primary);
   word-break: break-all;
 }
 
 .error-text {
-  margin: 1rem 0 0;
-  font-size: 0.875rem;
-  color: var(--destructive);
-  text-align: center;
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: var(--error-text);
+  background: var(--error-bg);
+  box-shadow: 0 0 0 1px var(--error-border);
+  border-radius: var(--radius-control);
 }
 
 .sections {
-  margin-top: 1.5rem;
+  margin-top: 18px;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 10px;
 }
 
 .sections-title {
-  margin: 0 0 0.25rem;
-  font-size: 0.875rem;
+  margin: 0 0 2px;
+  font-size: 0.82rem;
   color: var(--text-secondary);
 }
 
@@ -420,92 +315,39 @@ function labelFor(options, value) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.875rem 1rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  gap: 16px;
+  padding: 12px 14px;
+  background: var(--inset);
+  box-shadow: var(--shadow-hairline);
+  border-radius: var(--radius-control);
 }
 
 .section-info {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 3px;
+  min-width: 0;
 }
 
 .section-label {
-  font-size: 0.9375rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .section-hint {
-  font-size: 0.8125rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
-}
-
-.import-dropdown {
-  min-width: auto;
-  width: auto;
 }
 
 .empty-archive {
   margin: 0;
-  padding: 1rem;
+  padding: 16px;
   text-align: center;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-
-.panel-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.cancel-btn,
-.import-btn {
-  padding: 0 1.25rem;
-  height: 36px;
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.cancel-btn {
-  background: none;
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-}
-
-.cancel-btn:hover {
-  background: var(--btn-hover);
-  color: var(--text-primary);
-}
-
-.import-btn {
-  background: var(--primary);
-  color: var(--primary-foreground);
-  border: none;
-}
-
-.import-btn:hover:not(:disabled) {
-  background: var(--primary-600);
-}
-
-.import-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  background: var(--inset);
+  box-shadow: var(--shadow-hairline);
+  border-radius: var(--radius-control);
 }
 </style>
