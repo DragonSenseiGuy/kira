@@ -118,3 +118,7 @@ All notable changes to this project are documented in the [CHANGELOG.md](./CHANG
 ## License
 
 This project is licensed under the [MIT License](./LICENSE).
+
+## AI disclosure
+
+AI coding assistance was used during implementation, debugging and build verification. Product direction and final acceptance remained with me.
