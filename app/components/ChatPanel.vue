@@ -3,9 +3,11 @@ import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode } from '../utils/codeBlockUtils';
+import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
 import ContextSummaryMarker from './ContextSummaryMarker.vue';
+import MessageEditArea from './MessageEditArea.vue';
 import { useContextCompression } from '../composables/useContextCompression';
 import { getFormattedStatsFromExecutedTools } from '../composables/searchViewStats';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
@@ -349,7 +351,7 @@ watch(
       }
     });
   },
-  { deep: true, immediate: true },
+  { immediate: true },
 );
 
 watch(
@@ -395,9 +397,24 @@ onUnmounted(() => {
   });
 });
 
-// Render message content with markdown and trigger lazy highlighting
+// Render message content with markdown and trigger lazy highlighting.
+// Complete content never changes, so rendered HTML is memoized by content
+// string — re-renders of a streaming message skip re-parsing finished
+// content groups entirely.
+const markdownHtmlCache = new Map();
+const MARKDOWN_CACHE_MAX = 200;
+
 function renderMessageContent(content) {
-  const html = md.render(content || '');
+  const key = content || '';
+  const cached = markdownHtmlCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const html = md.render(key);
+
+  if (markdownHtmlCache.size >= MARKDOWN_CACHE_MAX) {
+    markdownHtmlCache.clear();
+  }
+  markdownHtmlCache.set(key, html);
 
   // Schedule lazy highlighting for any code blocks in the rendered HTML
   nextTick(() => {
@@ -458,72 +475,32 @@ function copyMessage(message, event) {
   });
 }
 
+// Copy the FULL message (reasoning + tool calls + usage) for debugging.
+function copyDebugDump(message, event) {
+  const button = event.currentTarget;
+  navigator.clipboard
+    .writeText(buildMessageDebugDump(message))
+    .then(() => {
+      button.classList.add('copied');
+      setTimeout(() => button.classList.remove('copied'), 2000);
+    })
+    .catch((err) => console.error('Failed to copy debug dump:', err));
+}
+
 // --- Branching Logic ---
 const editingMessageId = ref(null);
-const editContent = ref("");
-const editAttachments = ref([]);
-const editTextarea = ref(null);
-
-function setEditTextareaRef(el) {
-  editTextarea.value = el;
-}
 
 function startEditing(message) {
   editingMessageId.value = message.id;
-  editContent.value = message.content;
-  // Clone attachments to allow modifications during editing
-  editAttachments.value = message.attachments ? [...message.attachments] : [];
-  resizeEditTextarea();
 }
 
 function cancelEditing() {
   editingMessageId.value = null;
-  editContent.value = "";
-  editAttachments.value = [];
-  if (editTextarea.value) {
-    editTextarea.value.style.height = "auto";
-  }
 }
 
-function submitEdit(messageId) {
-  if (editContent.value.trim() === "" && editAttachments.value.length === 0) return;
-  emit("edit-message", messageId, editContent.value, editAttachments.value);
+function submitEdit(messageId, newContent, newAttachments) {
+  emit("edit-message", messageId, newContent, newAttachments);
   editingMessageId.value = null;
-  editAttachments.value = [];
-  if (editTextarea.value) {
-    editTextarea.value.style.height = "auto";
-  }
-}
-
-function removeEditAttachment(index) {
-  editAttachments.value.splice(index, 1);
-}
-
-/**
- * Resizes the edit textarea to fit its content.
- */
-function resizeEditTextarea() {
-  nextTick(() => {
-    if (editTextarea.value) {
-      editTextarea.value.style.height = "auto";
-      if (editContent.value !== "") {
-        editTextarea.value.style.height = `${editTextarea.value.scrollHeight}px`;
-      }
-    }
-  });
-}
-
-watch(editContent, resizeEditTextarea);
-
-/**
- * Handles Enter key presses in the edit textarea.
- * On desktop, plain Enter submits; Shift+Enter or mobile Enter inserts a newline.
- */
-function handleEditEnterKey(event, messageId) {
-  if (typeof window !== 'undefined' && window.innerWidth >= 768 && !event.shiftKey) {
-    event.preventDefault();
-    submitEdit(messageId);
-  }
 }
 
 function regenerateMessage(messageId) {
@@ -560,7 +537,7 @@ function getPartClass(partType, index, parts) {
 
 // Function to group adjacent reasoning and tool_group parts together
 // Sequential tools/reasoning are visually grouped but each tool gets its own widget
-function getPartGroups(parts) {
+function getPartGroupsUncached(parts) {
   if (!parts || parts.length === 0) return [];
 
   const groups = [];
@@ -599,7 +576,6 @@ function getPartGroups(parts) {
         currentGroup = [part];
         currentGroupType = 'content';
       } else {
-        // Add to current content group
         currentGroup.push(part);
       }
     }
@@ -613,7 +589,6 @@ function getPartGroups(parts) {
         currentGroup = [part];
         currentGroupType = 'image';
       } else {
-        // Add to current image group
         currentGroup.push(part);
       }
     }
@@ -624,6 +599,23 @@ function getPartGroups(parts) {
     groups.push({ type: currentGroupType, parts: currentGroup });
   }
 
+  return groups;
+}
+
+/**
+ * Memoized grouping. The template calls getPartGroups several times per
+ * message per render; since parts arrays are replaced (never mutated),
+ * a WeakMap keyed on array identity caches cleanly across frames.
+ */
+const partGroupsCache = new WeakMap();
+
+function getPartGroups(parts) {
+  if (!parts || parts.length === 0) return [];
+  let groups = partGroupsCache.get(parts);
+  if (!groups) {
+    groups = getPartGroupsUncached(parts);
+    partGroupsCache.set(parts, groups);
+  }
   return groups;
 }
 
@@ -692,6 +684,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                             <ChatWidget
                               type="tool"
                               :tool-calls="part.tools"
+                              :streaming="!message.complete"
                             />
                           </div>
                         </template>
@@ -768,47 +761,11 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                       <div v-if="editingMessageId !== message.id" class="user-text">{{ message.content }}</div>
                       <!-- Edit area -->
                       <div v-else class="edit-area">
-                        <!-- Editable attachments -->
-                        <div v-if="editAttachments.length > 0" class="edit-attachments">
-                          <div
-                            v-for="(attachment, index) in editAttachments"
-                            :key="attachment.id"
-                            class="edit-attachment-item"
-                            :class="attachment.type"
-                          >
-                            <img
-                              v-if="attachment.type === 'image'"
-                              :src="attachment.dataUrl"
-                              :alt="attachment.filename"
-                            />
-                            <div v-else class="edit-pdf-item">
-                              <Icon icon="material-symbols:picture-as-pdf" width="20" height="20" />
-                              <span class="edit-pdf-filename">{{ attachment.filename }}</span>
-                            </div>
-                            <button class="remove-attachment-btn" @click="removeEditAttachment(index)" title="Remove attachment">
-                              <Icon icon="material-symbols:close-rounded" width="16px" height="16px" />
-                            </button>
-                          </div>
-                        </div>
-                        <textarea
-                          v-model="editContent"
-                          class="edit-textarea"
-                          :ref="setEditTextareaRef"
-                          placeholder="Edit your message..."
-                          rows="1"
-                          @keydown.enter="(event) => handleEditEnterKey(event, message.id)"
-                          @keydown.esc="cancelEditing"
-                        ></textarea>
-                        <div class="edit-actions">
-                          <button class="edit-cancel" @click="cancelEditing">
-                            <Icon icon="material-symbols:close-rounded" width="16px" height="16px" />
-                            <span>Cancel</span>
-                          </button>
-                          <button class="edit-save" @click="submitEdit(message.id)">
-                            <Icon icon="material-symbols:check-rounded" width="16px" height="16px" />
-                            <span>Save & Submit</span>
-                          </button>
-                        </div>
+                        <MessageEditArea
+                          :message="message"
+                          @submit="(content, attachments) => submitEdit(message.id, content, attachments)"
+                          @cancel="cancelEditing"
+                        />
                       </div>
                     </div>
                   </div>
@@ -818,7 +775,13 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                     aria-label="Copy message">
                     <Icon icon="material-symbols:content-copy-outline-rounded" width="18px" height="18px" />
                   </button>
-                  
+
+                  <button v-if="message.role === 'assistant'" class="footer-action-btn debug-copy-button"
+                    @click="copyDebugDump(message, $event)" title="Copy debug info (full message: reasoning + tool calls)"
+                    aria-label="Copy debug info">
+                    <Icon icon="material-symbols:bug-report-outline-rounded" width="18px" height="18px" />
+                  </button>
+
                   <!-- Edit button for user messages -->
                   <button v-if="message.role === 'user'" class="footer-action-btn edit-button" 
                     @click="startEditing(message)" title="Edit message" aria-label="Edit message">

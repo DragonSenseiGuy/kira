@@ -1,4 +1,5 @@
 import { reactive } from 'vue';
+import { isKnownModelId, findFullModelById, hasHcFullModels } from './providers';
 
 /**
  * Remote model list configuration for Libre Assistant.
@@ -223,11 +224,22 @@ export async function loadModelList() {
  */
 export function validateSelectedModel(settingsManager) {
   if (!settingsManager?.isLoaded || !settingsManager?.settings) return;
-  // Don't reset while the model list is still loading from cache/remote.
-  if (availableModels.length === 0) return;
+  // Don't reset while no catalog source is available to judge against
+  // (curated list empty AND full catalog not fetched yet).
+  if (availableModels.length === 0 && !hasHcFullModels()) return;
 
   const currentId = settingsManager.settings.selected_model_id;
-  if (findModelById(availableModels, currentId)) return;
+  // Composite custom-provider IDs stay valid as long as their provider
+  // exists — their model list may not be fetched yet, which is fine.
+  if (
+    isKnownModelId(
+      settingsManager.settings,
+      currentId,
+      (id) => findModelById(availableModels, id) || findFullModelById(id),
+    )
+  ) {
+    return;
+  }
 
   if (currentId !== DEFAULT_MODEL_ID) {
     console.warn(

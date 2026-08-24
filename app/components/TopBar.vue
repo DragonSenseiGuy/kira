@@ -9,66 +9,29 @@
       </button>
       <div class="model-selector-container">
         <template v-if="!isMobile">
-          <!-- Desktop: Dropdown menu -->
-          <DropdownMenuRoot>
-            <DropdownMenuTrigger class="model-selector-btn"
-              :aria-label="`Change model, currently ${props.selectedModelName}`">
+          <!-- Desktop: anchored model picker popover -->
+          <div class="ms-popover-wrap">
+            <button
+              class="model-selector-btn"
+              :aria-label="`Change model, currently ${props.selectedModelName}`"
+              :aria-expanded="isPickerOpen"
+              @click.stop="isPickerOpen = !isPickerOpen"
+            >
               <div class="model-logo-name">
                 <Logo v-if="selectedModelLogo" :src="selectedModelLogo" :size="24" class="logo-inline" :alt="props.selectedModelName" />
                 <span class="model-name-display">{{ props.selectedModelName }}</span>
               </div>
               <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="24" height="24" class="icon" />
-            </DropdownMenuTrigger>
+            </button>
 
-            <DropdownMenuContent class="model-selector-dropdown" side="bottom" align="start" :side-offset="8">
-              <DropdownMenuLabel class="dropdown-label">Models</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-
-              <!-- Scroll container to preserve dropdown scrolling while allowing submenus to render outside -->
-              <div class="dropdown-scroll-container">
-                <template v-for="item in availableModels" :key="item.id || item.category">
-                  <!-- Regular model (not in a category) -->
-                  <DropdownMenuItem v-if="!item.category" class="model-list-item"
-                    :class="{ selected: item.id === props.selectedModelId }" @click="() => selectModel(item.id)">
-                    <div class="model-info">
-                      <Logo v-if="item.logo" :src="item.logo" :size="24" class="logo-inline" :alt="item.name" />
-                      <div class="model-text">
-                        <strong>{{ item.name }}</strong>
-                        <div class="model-description">{{ item.description }}</div>
-                      </div>
-                    </div>
-                    <span v-if="item.id === props.selectedModelId">
-                      <Icon icon="material-symbols:check-rounded" width="24" height="24" class="icon" />
-                    </span>
-                  </DropdownMenuItem>
-
-                  <!-- Category with submodels -->
-                  <DropdownMenuSub v-else>
-                    <DropdownMenuSubTrigger class="category-item">
-                      <Logo :src="item.logo" :size="24" class="logo-inline" :alt="item.category" />
-                      {{ item.category }}
-                      <Icon icon="material-symbols:chevron-right" width="24" height="24" class="icon" />
-                    </DropdownMenuSubTrigger>
-
-                    <DropdownMenuSubContent class="subcategory-content">
-                      <DropdownMenuItem v-for="model in item.models" :key="model.id" class="model-list-item"
-                        :class="{ selected: model.id === props.selectedModelId }" @click="() => selectModel(model.id)">
-                        <div class="model-info">
-                          <div class="model-text">
-                            <strong>{{ model.name }}</strong>
-                            <div class="model-description">{{ model.description }}</div>
-                          </div>
-                        </div>
-                        <span v-if="model.id === props.selectedModelId" class="selected-indicator">
-                          <Icon icon="material-symbols:check-rounded" width="24" height="24" class="icon" />
-                        </span>
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                </template>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenuRoot>
+            <Transition name="mp-pop">
+              <ModelPickerPopover
+                v-if="isPickerOpen"
+                :selected-model-id="props.selectedModelId"
+                @close="isPickerOpen = false"
+              />
+            </Transition>
+          </div>
         </template>
       </div>
 
@@ -87,9 +50,9 @@
           :aria-label="isIncognito ? 'Disable incognito mode' : 'Enable incognito mode'">
           <Icon icon="mdi:incognito" width="20" height="20" />
         </button>
-        <button v-if="!parameterConfigOpen" class="action-toggle parameter-config-toggle"
-          @click="$emit('toggle-parameter-config')" aria-label="Model parameters">
-          <Icon icon="material-symbols:tune" width="20" height="20" />
+        <button v-if="!workspaceOpen" class="action-toggle workspace-toggle"
+          @click="$emit('toggle-workspace')" aria-label="Workspace">
+          <Icon icon="material-symbols:folder-open-outline-rounded" width="20" height="20" />
         </button>
       </div>
     </div>
@@ -98,18 +61,12 @@
 
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import {
-  DropdownMenuRoot,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "reka-ui";
+import ModelPickerPopover from "./ModelPickerPopover.vue";
 import { availableModels } from "../composables/availableModels";
+import {
+  getActiveProviderModelGroups,
+} from "../composables/providers";
+import { useSettings } from "../composables/useSettings";
 import { Icon } from "@iconify/vue";
 import { useRoute, useRouter } from "vue-router";
 import Logo from "./Logo.vue";
@@ -148,7 +105,7 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  parameterConfigOpen: {
+  workspaceOpen: {
     type: Boolean,
     default: false
   },
@@ -162,7 +119,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['model-selected', 'toggle-incognito', 'toggle-parameter-config', 'export-chat']);
+const emit = defineEmits(['model-selected', 'toggle-incognito', 'toggle-workspace', 'export-chat']);
 
 // Get the current route
 const route = useRoute();
@@ -192,20 +149,15 @@ const isScrolledTopValue = computed(() => {
     : props.isScrolledTop.value;
 });
 
-function selectModel(modelId) {
-  const selectedModel = availableModels.flatMap(item =>
-    item.category ? item.models : item
-  ).find((model) => model.id === modelId);
+const settingsManager = useSettings();
 
-  if (selectedModel) {
-    emit('model-selected', modelId, selectedModel.name);
+// Desktop model picker modal visibility
+const isPickerOpen = ref(false);
 
-    // Close the bottom sheet on mobile after selection
-    if (isMobile.value) {
-      isBottomSheetOpen.value = false;
-    }
-  }
-}
+/** Groups for the ACTIVE provider (used for the trigger's logo lookup). */
+const activeModelGroups = computed(() =>
+  getActiveProviderModelGroups(availableModels, settingsManager.settings),
+);
 
 // Get window size to determine mobile/desktop view
 const { width: windowWidth } = useWindowSize();
@@ -219,8 +171,8 @@ const isMobile = computed(() => {
 const selectedModelLogo = computed(() => {
   if (!props.selectedModelId) return null;
 
-  // Look for the selected model in the available models
-  for (const item of availableModels) {
+  // Look for the selected model in the ACTIVE provider's groups
+  for (const item of activeModelGroups.value) {
     if (item.category) {
       // If it's a category, look for the model within it
       const modelInCategory = item.models.find(model => model.id === props.selectedModelId);
@@ -252,8 +204,6 @@ function ensureTopBarVisibility() {
 
 
 onMounted(() => {
-  console.log('TopBar mounted');
-
   // Ensure the top bar is visible and properly positioned
   // Use nextTick and requestAnimationFrame to ensure DOM is fully updated
   nextTick(() => {
@@ -301,6 +251,23 @@ watch(() => [props.sidebarOpen, props.isIncognito], () => {
   color: var(--text-primary);
 }
 
+/* Anchoring context for the model picker popover */
+.ms-popover-wrap {
+  position: relative;
+}
+
+/* Popover open/close transition */
+.mp-pop-enter-active,
+.mp-pop-leave-active {
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.mp-pop-enter-from,
+.mp-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+
 .model-list-item :deep(svg) {
   color: var(--text-primary);
 }
@@ -333,13 +300,6 @@ watch(() => [props.sidebarOpen, props.isIncognito], () => {
 .model-text {
   display: flex;
   flex-direction: column;
-}
-
-/* Style for the category item to include logo */
-.category-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 /* Mobile selector button styling */
@@ -431,11 +391,12 @@ watch(() => [props.sidebarOpen, props.isIncognito], () => {
 }
 
 /* Add active state styling for when toggles are enabled */
-.action-toggle:active:not(.parameter-config-toggle),
-.action-toggle.active:not(.parameter-config-toggle) {
+.action-toggle:active:not(.workspace-toggle),
+.action-toggle.active:not(.workspace-toggle) {
   background-color: var(--primary);
   /* Use primary color when enabled */
   color: var(--primary-foreground);
   /* Ensure icon is visible on primary color */
 }
 </style>
+

@@ -1,9 +1,16 @@
 import localforage from "localforage";
 import { reactive } from "vue";
 import { availableModels, findModelById, DEFAULT_MODEL_ID } from './availableModels';
+import {
+  isKnownModelId,
+  parseCustomModelId,
+  findCustomProvider,
+  customProviderModels,
+  findFullModelById,
+  getActiveProviderId,
+} from './providers';
 import DEFAULT_PARAMETERS from './defaultParameters';
 import {
-  DEFAULT_COMPRESSION_MODEL,
   DEFAULT_THRESHOLD_TOKENS,
   DEFAULT_KEEP_RECENT_TOKENS,
 } from './contextCompressor';
@@ -31,7 +38,6 @@ class Settings {
 
       // --- Context Compression Settings ---
       context_compression_enabled: true, // Auto-compress older context past the threshold
-      context_compression_model: DEFAULT_COMPRESSION_MODEL, // Cheap summarizer model
       context_compression_threshold_tokens: DEFAULT_THRESHOLD_TOKENS, // Compress once effective context exceeds this
       context_compression_keep_recent_tokens: DEFAULT_KEEP_RECENT_TOKENS, // How much recent context always stays verbatim
 
@@ -40,6 +46,28 @@ class Settings {
 
       // --- Search Settings ---
       search_enabled: false, // Whether search is enabled by default
+      tool_search_source: 'hackclub', // 'hackclub' | 'exa' | 'off' — where the Exa search tools run
+      exa_api_key: '', // User's own Exa API key (used when tool_search_source === 'exa')
+
+      // --- Workspace / Sandbox Settings ---
+      project_attachments: {}, // convoId -> [projectName] — projects mounted into a chat's workspace
+      net_mode: 'ask', // Sandbox network egress: 'off' | 'ask' | 'auto'
+      net_grants: {}, // domain -> { mode: 'always' } — approved sandbox network domains
+      net_activity: [], // Recent sandbox network requests (capped, newest last)
+
+      // --- Provider Settings ---
+      active_provider_id: '', // Which provider is active ('' = Hack Club)
+      custom_providers: [], // [{id, name, baseUrl, apiKey}] — custom OpenAI-compatible providers
+      provider_last_model: {}, // providerId -> last selected model on it
+      favorite_models: {}, // providerId -> [modelId] favorited in the picker
+      // --- Keybind Settings ---
+      keybinds: {
+        focus_input: '/',
+        new_chat: 'mod+alt+n',
+        toggle_sidebar: 'mod+b',
+        toggle_parameters: 'mod+alt+b',
+        toggle_incognito: 'mod+alt+i',
+      },
 
       // --- Model-Specific Settings ---
       model_settings: {}, // Per-model settings storage
@@ -62,11 +90,27 @@ class Settings {
       version: 5,
       notepad_enabled: false, // Whether the Notepad memory system is enabled
       context_compression_enabled: true, // Auto-compress older context past the threshold
-      context_compression_model: DEFAULT_COMPRESSION_MODEL, // Cheap summarizer model
       context_compression_threshold_tokens: DEFAULT_THRESHOLD_TOKENS, // Compress once effective context exceeds this
       context_compression_keep_recent_tokens: DEFAULT_KEEP_RECENT_TOKENS, // How much recent context always stays verbatim
       selected_model_id: DEFAULT_MODEL_ID, // Default model ID
       search_enabled: false, // Default value for search setting
+      tool_search_source: 'hackclub', // Where the Exa search tools run
+      exa_api_key: '', // Default empty Exa API key
+      project_attachments: {}, // convoId -> [projectName]
+      net_mode: 'ask', // Sandbox network egress mode
+      net_grants: {}, // domain -> { mode: 'always' }
+      net_activity: [], // Recent sandbox network requests (capped)
+      active_provider_id: '',
+      custom_providers: [], // Default: no custom providers configured
+      provider_last_model: {},
+      favorite_models: {}, // Default: no favorites
+      keybinds: {
+        focus_input: '/',
+        new_chat: 'mod+alt+n',
+        toggle_sidebar: 'mod+b',
+        toggle_parameters: 'mod+alt+b',
+        toggle_incognito: 'mod+alt+i',
+      },
       model_settings: {}, // Default value for model settings
       parameter_config: { ...DEFAULT_PARAMETERS },
       gpt_oss_limit_tables: false, // Default value for GPT-OSS table limiting
@@ -138,12 +182,17 @@ class Settings {
           mergedSettings.selected_model_id = DEFAULT_MODEL_ID;
         }
 
-        // If the persisted model is no longer in the available model list,
-        // reset to the default immediately so the UI never shows "Loading..."
-        // with a stale/removed model ID.
+        // If the persisted model is no longer resolvable — neither in the
+        // Hack Club catalog nor a composite ID of an existing custom
+        // provider — reset to the default immediately so the UI never
+        // shows "Loading..." with a stale/removed model ID.
         if (
           availableModels.length > 0 &&
-          !findModelById(availableModels, mergedSettings.selected_model_id)
+          !isKnownModelId(
+            mergedSettings,
+            mergedSettings.selected_model_id,
+            (id) => findModelById(availableModels, id) || findFullModelById(id),
+          )
         ) {
           console.warn(
             `[settings] Selected model ${mergedSettings.selected_model_id} is not available; resetting to ${DEFAULT_MODEL_ID}`
@@ -166,6 +215,10 @@ class Settings {
         // replaced by threshold-based ones (auto compression + manual
         // compress button). Drop the retired keys; enabled/model carry over.
         delete mergedSettings.context_compression_chunk_size;
+        // Migration: compression now runs on the selected model; the old per-task model setting is retired.
+        delete mergedSettings.context_compression_model;
+        // Migration: the curated repo list was retired; the full catalog is always used.
+        delete mergedSettings.show_all_models;
         delete mergedSettings.context_compression_min_chunk_tokens;
         delete mergedSettings.context_compression_keep_recent_chunks;
 
@@ -219,8 +272,6 @@ class Settings {
         "settings",
         JSON.parse(JSON.stringify(this.settings))
       );
-
-      console.log("Settings saved to localForage.");
     } catch (err) {
       console.error("Failed to save settings to localForage:", err);
     }
@@ -288,15 +339,42 @@ class Settings {
     const newDefaults = this._deepMergeReactive({}, this.defaultSettings);
     Object.assign(this.settings, newDefaults);
 
-    console.log("Settings reset to default.");
     await this.saveSettings();
   }
 
   /**
-   * Computed property to get the currently selected model object
+   * Computed property to get the currently selected model object.
+   * Resolves both Hack Club catalog models and custom-provider models
+   * (composite IDs). Custom models are normalized into the same shape so
+   * capability checks keep working.
    */
   get selectedModel() {
-    return findModelById(availableModels, this.settings.selected_model_id);
+    const id = this.settings.selected_model_id;
+    const hackClubModel = findModelById(availableModels, id);
+    if (hackClubModel) return hackClubModel;
+
+    // Full Hack Club/OpenRouter catalog ("show all models")
+    if (!parseCustomModelId(id)) {
+      const full = findFullModelById(id);
+      if (full) return full;
+    }
+
+    const parsed = parseCustomModelId(id);
+    if (!parsed) return null;
+    const provider = findCustomProvider(this.settings, parsed.providerId);
+    if (!provider) return null;
+
+    const raw = (customProviderModels[parsed.providerId] || []).find(
+      (m) => m.id === parsed.modelId,
+    );
+    return {
+      id,
+      name: raw?.name || parsed.modelId,
+      description: '',
+      vision: raw?.vision === true,
+      tool_use: raw?.tool_use !== false,
+      reasoning: raw?.reasoning ?? { supported: false },
+    };
   }
 
   /**

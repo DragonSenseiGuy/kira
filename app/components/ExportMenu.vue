@@ -6,6 +6,7 @@ import {
   generateExportFilename,
   triggerDownload,
 } from "~/composables/importExport";
+import { alertDialog } from "~/composables/useDialogs";
 
 const props = defineProps({
   isOpen: {
@@ -45,7 +46,10 @@ async function handleExport() {
     close();
   } catch (error) {
     console.error("[ExportMenu] Export failed:", error);
-    alert("Export failed. See console for details.");
+    await alertDialog({
+      title: "Export failed",
+      message: "Something went wrong while creating your export. See the console for details.",
+    });
   } finally {
     isExporting.value = false;
   }

@@ -12,7 +12,8 @@ import { onMounted, onUnmounted, watch } from 'vue';
 import './assets/main.css';
 import { runNotepadPipeline } from '~/composables/notepadPipeline';
 import { useSettings } from '~/composables/useSettings';
-import { loadModelList, validateSelectedModel, availableModels } from '~/composables/availableModels';
+import { validateSelectedModel } from '~/composables/availableModels';
+import { fetchHcFullModels } from '~/composables/providers';
 
 const settingsManager = useSettings();
 
@@ -56,22 +57,25 @@ onMounted(async () => {
     );
   }
 
-  // Validate the selected model whenever the model list or settings change.
-  // The model list is loaded from the local cache immediately in the module,
-  // and the remote source is checked in the background.
+  // Validate the selected model whenever settings change. The model
+  // catalog itself is the full Hack Club/OpenRouter list (fetched below).
   const validate = () => validateSelectedModel(settingsManager);
   validate();
-  const unwatchModels = watch(availableModels, validate);
   const unwatchSettingsLoaded = watch(
     () => settingsManager.isLoaded,
     (loaded) => loaded && validate(),
     { immediate: true },
   );
-  await loadModelList();
-  validate();
+
+  // Load the full model catalog in the background (cached after first run),
+  // then re-validate the selection against it.
+  fetchHcFullModels({ apiKey: settingsManager.settings?.custom_api_key })
+    .then(validate)
+    .catch((error) => {
+      console.error('[models] Failed to load the full catalog:', error);
+    });
 
   onUnmounted(() => {
-    unwatchModels();
     unwatchSettingsLoaded();
   });
 

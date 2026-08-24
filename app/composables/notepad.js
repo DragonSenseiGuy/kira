@@ -94,7 +94,7 @@ export async function migrateLegacyNotepadIfNeeded() {
     ]);
 
     if (migrated) {
-      console.log("[notepad] Migrated legacy notebook → notepad");
+      console.info("[notepad] Migrated legacy notebook → notepad");
     }
     return { migrated };
   } catch (error) {

@@ -2,7 +2,14 @@ import { defineEventHandler, getRequestURL, getHeader } from "h3";
 import { isbot } from "isbot";
 import { verifySessionToken } from "../utils/session";
 
-const PROTECTED_PATHS = new Set(["/api/ai", "/api/embeddings"]);
+const PROTECTED_PATHS = new Set([
+  "/api/ai",
+  "/api/embeddings",
+  "/api/models",
+  "/api/search",
+  "/api/exa-contents",
+  "/api/net",
+]);
 
 export default defineEventHandler((event) => {
   const url = getRequestURL(event);

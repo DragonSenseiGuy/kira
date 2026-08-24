@@ -13,6 +13,34 @@ All notable changes to Libre Assistant are documented here.
 
 ---
 
+## [2.0.0] - 2026-08-23
+
+### Added
+- **Code sandbox** - The assistant can now run JavaScript to compute exact answers: math, dates, unit conversions, and processing data you share. When it uses the sandbox, numbers are calculated instead of estimated.
+- **Workspace** - Every chat now has its own private file space. The assistant can create, read, edit, organize, and clean up files in it — notes, reports, data files, small web pages — and they persist across the conversation. A `WORKSPACE.md` file helps it pick up where it left off.
+- **File previews** - Files created in a chat open in a preview pane: rendered markdown, formatted JSON, images and SVGs, and live interactive HTML pages. Previews include back, copy, and download buttons, plus a Preview/Code switch when a file has a visual form.
+- **Projects** - Shared file libraries you can attach to any chat, so files can move between conversations. Manage them in the new Projects page: create projects, upload files, rename, delete, and preview everything. Each project also gets its own dedicated page.
+- **Settings page** - Settings moved to a dedicated page with tabbed sections.
+- **Configurable keyboard shortcuts** - Remap your keyboard shortcuts in Settings -> Shortcuts.
+- **Model picker redesign** - Picking a model now happens in a searchable popover with provider tabs and favorites.
+- **Multiple provider suport** - You can now add any OpenAI-compatible API as a provider, even local ones.
+
+### Changed
+- The parameter panel has merged with the new workspace panel.
+- Now uses Hack Club AI's full model list rather than the curated list we used before.
+- Title generation is now done with GPT-5.6 Luna instead of GLM-4.7 Flash
+- Context summaries are now done with the currently in-use model instead of DeepSeek V4 Pro Preview and notepad summaries are now done with DeepSeek V4 Flash 0731 DeepSeek V4 Flash Preview.
+- Default max_tokens has been increased from 8k to 16k.
+
+### Fixed
+- Fixed how the system prompt is put together.
+- Several streaming and rendering glitches fixed.
+
+### Removed
+- All model parameters outside of max_tokens have been removed
+
+---
+
 ## [1.7.0] - 2026-07-24
 
 ### Added

@@ -14,6 +14,7 @@ import {
   readFileAsBuffer,
 } from "~/composables/importExport";
 import { useSettings } from "~/composables/useSettings";
+import { alertDialog } from "~/composables/useDialogs";
 
 const props = defineProps({
   isOpen: {
@@ -137,7 +138,10 @@ async function handleImport() {
     close();
   } catch (error) {
     console.error("[ImportMenu] Import failed:", error);
-    alert("Import failed. See console for details.");
+    await alertDialog({
+      title: "Import failed",
+      message: "Something went wrong while importing this archive. See the console for details.",
+    });
   } finally {
     isImporting.value = false;
   }

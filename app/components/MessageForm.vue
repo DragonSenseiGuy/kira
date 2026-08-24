@@ -10,11 +10,23 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "reka-ui";
-import { useWindowSize, onKeyStroke, useMagicKeys } from "@vueuse/core";
+import { useWindowSize, useMagicKeys } from "@vueuse/core";
+import { useKeybinds } from "~/composables/useKeybinds";
 import Logo from "./Logo.vue";
 import BottomSheetModelSelector from "./BottomSheetModelSelector.vue";
 import { useAttachments } from "~/composables/useAttachments";
 import { useDraftPrompt } from "~/composables/useDraftPrompt";
+import { useWorkspaceBrowser } from "~/composables/useWorkspaceBrowser";
+import {
+  buildKnownPaths,
+  backspaceTarget,
+  deleteTarget,
+  filterMentionFiles,
+  findMentionSpans,
+  resolveMentions,
+  formatAttachedFiles,
+  MENTION_TRIGGER_RE,
+} from "~/utils/mentions";
 import {
   findModelById,
   showReasoningToggle,
@@ -57,6 +69,177 @@ const searchEnabled = ref(false);
 // --- Reactive State ---
 const inputMessage = ref("");
 const textareaRef = ref(null); // Ref for the textarea element
+
+// --- @file mentions (workspace file references) ---------------------------
+const wb = useWorkspaceBrowser();
+const mentionOpen = ref(false);
+const mentionActive = ref(0);
+const mirrorRef = ref(null); // highlight layer behind the textarea
+
+// Paths that count as real references (chat files + attached projects).
+const knownPaths = computed(() =>
+  buildKnownPaths(wb.chatFiles.value, wb.projectFiles.value),
+);
+
+const mentionItems = computed(() => {
+  if (!mentionOpen.value) return [];
+  return filterMentionFiles(wb.chatFiles.value, wb.projectFiles.value, mentionQuery.value, 8);
+});
+
+// Keep the highlighted row valid as the list refilters.
+watch(mentionItems, (list) => {
+  if (mentionActive.value >= list.length) {
+    mentionActive.value = Math.max(0, list.length - 1);
+  }
+});
+
+// Reactive so the popover refilters on every keystroke (a plain variable
+// here froze the list at whatever was visible when it opened).
+const mentionQuery = ref("");
+let mentionStart = -1;
+
+function onMentionInput() {
+  const el = textareaRef.value;
+  if (!el) return;
+  const caret = el.selectionStart ?? 0;
+  const before = inputMessage.value.slice(0, caret);
+  const match = MENTION_TRIGGER_RE.exec(before);
+  if (!match || !wb.available.value) {
+    if (mentionOpen.value) mentionClose();
+    return;
+  }
+  mentionQuery.value = match[1] || "";
+  mentionStart = caret - (match[1] || "").length;
+  mentionActive.value = 0;
+  mentionOpen.value = true;
+}
+
+function mentionMove(delta) {
+  const n = mentionItems.value.length;
+  if (!n) return;
+  mentionActive.value = (mentionActive.value + delta + n) % n;
+}
+
+function pickMention(item) {
+  const text = inputMessage.value;
+  inputMessage.value =
+    text.slice(0, mentionStart) + item.path + " " + text.slice(mentionStart + mentionQuery.value.length + 1);
+  mentionClose();
+  nextTick(() => textareaRef.value?.focus());
+}
+
+function mentionClose() {
+  mentionOpen.value = false;
+  mentionQuery.value = "";
+}
+
+// --- mention highlighting + atomic token editing ----------------------------
+// Discord/Slack-style chips, emulated in a plain textarea: a mirror layer
+// paints resolved @path tokens, and key handlers treat each token as one
+// unit (Backspace/Delete remove it whole, arrows jump over it).
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const mentionSpans = computed(() =>
+  findMentionSpans(inputMessage.value, knownPaths.value),
+);
+
+const mirrorHtml = computed(() => {
+  const text = inputMessage.value || "";
+  if (!text) return "";
+  if (!mentionSpans.value.length) return escapeHtml(text);
+  let out = "";
+  let last = 0;
+  for (const span of mentionSpans.value) {
+    out += escapeHtml(text.slice(last, span.start));
+    out += `<mark class="mention-token">@${escapeHtml(span.path)}</mark>`;
+    last = span.end;
+  }
+  out += escapeHtml(text.slice(last));
+  return out;
+});
+
+function syncMirror() {
+  const el = textareaRef.value;
+  const mirror = mirrorRef.value;
+  if (el && mirror) {
+    mirror.scrollTop = el.scrollTop;
+    mirror.scrollLeft = el.scrollLeft;
+  }
+}
+
+watch(mirrorHtml, () => nextTick(syncMirror));
+
+function setCaret(pos) {
+  nextTick(() => {
+    const el = textareaRef.value;
+    if (el) {
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    }
+  });
+}
+
+/** Removes a token (and the single space terminating it) atomically. */
+function removeSpan(span) {
+  const text = inputMessage.value;
+  let end = span.end;
+  if (text[end] === " ") end += 1;
+  inputMessage.value = text.slice(0, span.start) + text.slice(end);
+  setCaret(span.start);
+}
+
+function onBackspace(e) {
+  const el = textareaRef.value;
+  if (!el || el.selectionStart !== el.selectionEnd) return;
+  // Null at the chip's left edge → default runs → the character BEHIND the
+  // chip is deleted, exactly like plain text.
+  const span = backspaceTarget(mentionSpans.value, el.selectionStart);
+  if (!span) return;
+  e.preventDefault();
+  removeSpan(span);
+}
+
+function onDeleteKey(e) {
+  // TRAP: Vue's `.delete` key modifier is an alias for the BACKSPACE key
+  // (runtime-dom keyNames: delete → 'backspace'), not the Delete key. Both
+  // handlers fire on Backspace; this one must act only on a real Delete.
+  if (e.key !== "Delete") return;
+  const el = textareaRef.value;
+  if (!el || el.selectionStart !== el.selectionEnd) return;
+  const span = deleteTarget(mentionSpans.value, el.selectionStart);
+  if (!span) return;
+  e.preventDefault();
+  removeSpan(span);
+}
+
+function onArrowLeft(e) {
+  const el = textareaRef.value;
+  if (!el || el.selectionStart !== el.selectionEnd) return;
+  const caret = el.selectionStart;
+  const span = mentionSpans.value.find((sp) => caret > sp.start && caret <= sp.end);
+  if (!span) return;
+  e.preventDefault();
+  setCaret(span.start);
+}
+
+function onArrowRight(e) {
+  const el = textareaRef.value;
+  if (!el || el.selectionStart !== el.selectionEnd) return;
+  const caret = el.selectionStart;
+  const span = mentionSpans.value.find((sp) => caret >= sp.start && caret < sp.end);
+  if (!span) return;
+  e.preventDefault();
+  setCaret(span.end);
+}
+
+function onTabSelect() {
+  if (mentionOpen.value && mentionItems.value.length) {
+    pickMention(mentionItems.value[mentionActive.value] || mentionItems.value[0]);
+  }
+}
 const messageFormRoot = ref(null); // Ref for the root element
 const fileInputRef = ref(null); // Ref for the hidden file input
 const isDragging = ref(false); // Track drag state for visual feedback
@@ -81,12 +264,18 @@ const {
 // Computed property to check if the input is empty (after trimming whitespace)
 const trimmedMessage = computed(() => inputMessage.value.trim());
 
-// Computed property to get the selected model object
+// Computed property to get the selected model object.
+// Falls back to the provider-aware settings lookup so models from the
+// full catalog or custom providers resolve their capabilities too.
 const selectedModel = computed(() => {
-  if (!props.selectedModelId || !props.availableModels) return null;
+  if (!props.selectedModelId) return null;
 
+  const curated = props.availableModels
+    ? findModelById(props.availableModels, props.selectedModelId)
+    : null;
+  if (curated) return curated;
 
-  return findModelById(props.availableModels, props.selectedModelId);
+  return props.settingsManager?.selectedModel || null;
 });
 
 // Computed property to check if the current model supports vision (image attachments)
@@ -116,7 +305,10 @@ const supportsReasoning = computed(() => {
 // in message.js, but the UI was previously still showing the toggle).
 const hasToolUseSupport = computed(() => {
   if (!selectedModel.value) return false;
-  return supportsToolUse(selectedModel.value);
+  if (!supportsToolUse(selectedModel.value)) return false;
+  // Search tools can be disabled entirely (Settings → Search & Tools).
+  const source = props.settingsManager?.settings?.tool_search_source || 'hackclub';
+  return source !== 'off';
 });
 
 // Computed property to check if the current model should show a reasoning toggle
@@ -262,6 +454,12 @@ function handleActionClick() {
  * @param {KeyboardEvent} event
  */
 function handleEnterKey(event) {
+  // @mention picker intercepts Enter to select the highlighted file.
+  if (mentionOpen.value && mentionItems.value.length && !event.shiftKey) {
+    event.preventDefault();
+    pickMention(mentionItems.value[mentionActive.value] || mentionItems.value[0]);
+    return;
+  }
   if (typeof window !== 'undefined' && window.innerWidth >= 768 && !event.shiftKey) {
     event.preventDefault(); // Prevent default newline behavior on desktop
     if (!props.isLoading) {
@@ -281,8 +479,26 @@ function handleEnterKey(event) {
  * Emits the message to the parent, then clears the input.
  */
 async function submitMessage() {
+  // Resolve mentions: unescape literal \@ sequences, then ATTACH the
+  // contents of every referenced workspace file. Read failures are skipped
+  // — their @path stays in the text so the model can retry via its tools.
+  const { cleanText, mentions } = resolveMentions(inputMessage.value, knownPaths.value);
+  let outgoing = cleanText;
+  if (mentions.length && wb.available.value) {
+    const entries = await Promise.all(
+      mentions.map(async (path) => {
+        try {
+          return { path, content: await wb.readEntryText(path) };
+        } catch {
+          return { path, content: null };
+        }
+      }),
+    );
+    const blocks = formatAttachedFiles(entries);
+    if (blocks) outgoing = `${cleanText}\n\n${blocks}`;
+  }
   // Emit the message to parent component, including search enabled state
-  emit("send-message", inputMessage.value, inputMessage.value, toRaw(attachments.value), isSearchEnabled.value);
+  emit("send-message", outgoing, outgoing, toRaw(attachments.value), isSearchEnabled.value);
   inputMessage.value = "";
   // Clear draft for this conversation
   await clearDraft();
@@ -523,21 +739,14 @@ async function handleDrop(event) {
   }
 }
 
-// If text form isn't focused and / is pressed, focus text form
-// We don't use whenever here to prevent the default action
-function isTextInputFocused() {
-  const active = document.activeElement;
-  if (!active) return false;
-  const tag = active.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || active.isContentEditable;
-}
-
-onKeyStroke("/", (e) => {
-  if (!isFocused.value && !isTextInputFocused()) {
-    e.preventDefault();
-    textareaRef.value.focus();
-  }
-})
+// Focus text input via the user-configured shortcut (Settings → Shortcuts).
+// The dispatcher already skips modifier-less binds while typing, which
+// preserves the original "only when not focused" behavior.
+useKeybinds({
+  focus_input: () => {
+    textareaRef.value?.focus();
+  },
+});
 
 // Expose the setMessage function to be called from the parent component
 defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $el: messageFormRoot });
@@ -594,18 +803,51 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
         </div>
       </div>
 
-      <textarea 
-        ref="textareaRef" 
-        v-model="inputMessage" 
-        :disabled="isLoading" 
-        @keydown.enter="handleEnterKey"
-        @paste="handlePaste"
-        @focus="isFocused = true"
-        @blur="isFocused = false"
-        placeholder="Type your message..." 
-        class="chat-textarea" 
-        rows="1"
-      ></textarea>
+      <div class="textarea-stack">
+        <!-- @file mention picker: anchored to the typing line (Discord/Slack
+             style) — above the textarea, below any attachment previews. -->
+        <div v-if="mentionOpen && mentionItems.length" class="mention-pop" role="listbox">
+          <button
+            v-for="(item, i) in mentionItems"
+            :key="item.path"
+            type="button"
+            class="mention-item"
+            :class="{ active: i === mentionActive }"
+            role="option"
+            :aria-selected="i === mentionActive"
+            @mousedown.prevent="pickMention(item)"
+          >
+            <Icon icon="material-symbols:draft-outline-rounded" width="14" height="14" />
+            <span>{{ item.path }}</span>
+          </button>
+        </div>
+        <!-- Highlight mirror: renders the same text with @mentions painted;
+             the textarea above it shows transparent text + caret. -->
+        <div v-if="mirrorHtml" ref="mirrorRef" class="chat-mirror" aria-hidden="true" v-html="mirrorHtml"></div>
+        <textarea
+          ref="textareaRef"
+          v-model="inputMessage"
+          :disabled="isLoading"
+          :class="{ 'text-hidden': !!mirrorHtml }"
+          @keydown.enter="handleEnterKey"
+          @keydown.down.prevent="mentionActive >= 0 && mentionMove(1)"
+          @keydown.up.prevent="mentionActive >= 0 && mentionMove(-1)"
+          @keydown.esc="mentionClose"
+          @keydown.backspace="onBackspace"
+          @keydown.delete="onDeleteKey"
+          @keydown.left="onArrowLeft"
+          @keydown.right="onArrowRight"
+          @keydown.tab.prevent="onTabSelect"
+          @input="onMentionInput"
+          @scroll="syncMirror"
+          @paste="handlePaste"
+          @focus="isFocused = true"
+          @blur="isFocused = false"
+          placeholder="Type your message..."
+          class="chat-textarea"
+          rows="1"
+        ></textarea>
+      </div>
 
       <div class="input-actions">
         <!-- Plus button popover menu - contains toggles and attach media -->
@@ -819,13 +1061,51 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   border: none;
   resize: none;
   color: var(--text-primary);
+  /* Form controls don't inherit the page font by default — without this
+     the highlight mirror (which DOES inherit) misaligns per-glyph. */
+  font-family: inherit;
   font-size: 1rem;
   line-height: 1.5;
   min-height: 24px;
   max-height: 250px;
   overflow-y: auto;
+  position: relative;
+  caret-color: var(--text-primary);
 }
 
+/* When the highlight mirror is showing, the textarea's own text goes
+   transparent so tokens aren't double-drawn; caret + selection still work. */
+.chat-textarea.text-hidden {
+  color: transparent;
+}
+
+/* Mirror layer: identical box metrics to the textarea so glyphs align. */
+.textarea-stack {
+  position: relative;
+}
+.chat-mirror {
+  position: absolute;
+  inset: 0;
+  padding: 10px 12px;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+/* v-html content doesn't receive the scoped-style attribute, so this must
+   be :deep() — otherwise the browser's default yellow <mark> shows through.
+   Metric-safe by design (no padding/border/font-weight changes, or the
+   mirror's glyphs drift off the textarea's), and deliberately quiet: at
+   inline-text sizes a soft tint reads better than a badge. */
+.chat-mirror :deep(.mention-token) {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+  border-radius: 4px;
+}
 .chat-textarea:focus {
   outline: none;
 }
@@ -1302,5 +1582,39 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 
 .attachment-popover .reasoning-effort-dropdown .reasoning-effort-item.selected:hover {
   background: var(--btn-hover);
+}
+</style>
+
+<style scoped>
+.mention-pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 260px;
+  max-width: 380px;
+  background: var(--bg-elevated, var(--bg-primary, #fff));
+  border: 1px solid var(--border, rgba(128,128,128,.3));
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.18);
+  padding: 4px;
+  z-index: 50;
+}
+.mention-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 7px;
+  font-size: .78rem;
+  text-align: left;
+}
+.mention-item.active,
+.mention-item:hover {
+  background: var(--bg-secondary, rgba(128,128,128,.12));
 }
 </style>

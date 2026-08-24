@@ -9,12 +9,11 @@
  */
 
 import localforage from "localforage";
-import { getSessionToken } from "~/composables/useSession";
+import { requestCompletion, extractCompletionText } from "~/composables/apiClient";
+import { getBackgroundTarget } from "~/composables/backgroundCredentials";
+import { collectProjectNames } from "~/composables/workspaceContext";
 
 export const CHAT_SUMMARY_KEY_PREFIX = "chat_summary_";
-
-/** Model used for chat-level summarization. Cheap and fast. */
-const SUMMARIZATION_MODEL = "z-ai/glm-4.7-flash";
 
 /** How many characters of a single message we send to the summarizer. */
 const MAX_MESSAGE_CHARS = 2000;
@@ -131,13 +130,13 @@ export async function getChatsNeedingSummary() {
 }
 
 /**
- * Summarizes a full conversation from scratch using a cheap, fast model.
+ * Summarizes a full conversation from scratch using the currently
+ * selected model/provider.
  *
  * @param {Array} messages
- * @param {string} apiKey
  * @returns {Promise<{summary: string|null, nothingNotable: boolean}>}
  */
-export async function summarizeChat(messages, apiKey) {
+export async function summarizeChat(messages) {
   try {
     const relevantMessages = messages
       .filter((m) => m.role === "user" || m.role === "assistant")
@@ -151,19 +150,26 @@ export async function summarizeChat(messages, apiKey) {
       return { summary: null, nothingNotable: true };
     }
 
-    const sessionToken = await getSessionToken();
-    const response = await fetch("/api/ai", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-session-token": sessionToken,
-      },
-      body: JSON.stringify({
-        model: SUMMARIZATION_MODEL,
-        messages: [
-          {
-            role: "system",
-            content: `You are creating notes about a user based on their conversation with an AI assistant.
+    const target = await getBackgroundTarget();
+
+    if (!target.model) {
+      return { summary: null, nothingNotable: true };
+    }
+
+    // Global context only (project library names) — these prompts summarize
+    // arbitrary conversations, so the active chat's own files would be
+    // misattributed here.
+    const projectNames = await collectProjectNames();
+    const projectsNote = projectNames.length
+      ? `\n\nThe user's shared project libraries: ${projectNames.join(", ")}.`
+      : "";
+
+    const data = await requestCompletion({
+      model: target.model,
+      messages: [
+        {
+          role: "system",
+          content: `You are creating notes about a user based on their conversation with an AI assistant.
 
 Your task: Write a brief summary (2-6 sentences) of what this conversation reveals about the user.
 
@@ -174,23 +180,17 @@ Guidelines:
 - Note any projects mentioned, technical choices, or decisions made.
 - If the conversation is trivial (greeting, small talk, weather), return exactly: NOTHING_NOTABLE
 - Be specific but concise — concrete details over generalizations.`,
-          },
-          {
-            role: "user",
-            content: `Here is the conversation to summarize:\n\n${formatMessagesForSummary(relevantMessages)}`,
-          },
-        ],
-        stream: false,
-        ...(apiKey && { customApiKey: apiKey }),
-      }),
+        },
+        {
+          role: "user",
+          content: `Here is the conversation to summarize:\n\n${formatMessagesForSummary(relevantMessages)}${projectsNote}`,
+        },
+      ],
+      ...(target.customApiKey ? { customApiKey: target.customApiKey } : {}),
+      ...(target.upstreamBaseUrl ? { upstreamBaseUrl: target.upstreamBaseUrl } : {}),
     });
 
-    if (!response.ok) {
-      throw new Error(`Summary request failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const summary = data.choices?.[0]?.message?.content?.trim();
+    const summary = extractCompletionText(data)?.trim();
 
     if (summary === "NOTHING_NOTABLE") {
       return { summary: null, nothingNotable: true };
@@ -207,14 +207,14 @@ Guidelines:
 }
 
 /**
- * Incrementally updates an existing summary with new messages.
+ * Incrementally updates an existing summary with new messages, using the
+ * currently selected model/provider.
  *
  * @param {string} existingSummary
  * @param {Array} newMessages
- * @param {string} apiKey
  * @returns {Promise<{summary: string|null, nothingNotable: boolean}>}
  */
-export async function incrementalSummarize(existingSummary, newMessages, apiKey) {
+export async function incrementalSummarize(existingSummary, newMessages) {
   try {
     const relevantMessages = newMessages
       .filter((m) => m.role === "user" || m.role === "assistant")
@@ -227,19 +227,18 @@ export async function incrementalSummarize(existingSummary, newMessages, apiKey)
       return { summary: existingSummary, nothingNotable: false };
     }
 
-    const sessionToken = await getSessionToken();
-    const response = await fetch("/api/ai", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-session-token": sessionToken,
-      },
-      body: JSON.stringify({
-        model: SUMMARIZATION_MODEL,
-        messages: [
-          {
-            role: "system",
-            content: `You are updating notes about a user based on new conversation activity.
+    const target = await getBackgroundTarget();
+
+    if (!target.model) {
+      return { summary: existingSummary, nothingNotable: false };
+    }
+
+    const data = await requestCompletion({
+      model: target.model,
+      messages: [
+        {
+          role: "system",
+          content: `You are updating notes about a user based on new conversation activity.
 
 You have:
 1. An existing summary of previous conversations.
@@ -255,23 +254,17 @@ Guidelines:
 - Write in third person from an AI observing the user.
 - If the new messages add nothing notable, return the existing summary unchanged.
 - If the existing summary plus new messages reveal nothing notable, return: NOTHING_NOTABLE`,
-          },
-          {
-            role: "user",
-            content: `Existing summary:\n${existingSummary}\n\nNew messages:\n${formatMessagesForSummary(relevantMessages)}\n\nUpdated summary:`,
-          },
-        ],
-        stream: false,
-        ...(apiKey && { customApiKey: apiKey }),
-      }),
+        },
+        {
+          role: "user",
+          content: `Existing summary:\n${existingSummary}\n\nNew messages:\n${formatMessagesForSummary(relevantMessages)}\n\nUpdated summary:`,
+        },
+      ],
+      ...(target.customApiKey ? { customApiKey: target.customApiKey } : {}),
+      ...(target.upstreamBaseUrl ? { upstreamBaseUrl: target.upstreamBaseUrl } : {}),
     });
 
-    if (!response.ok) {
-      throw new Error(`Incremental summary request failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const summary = data.choices?.[0]?.message?.content?.trim();
+    const summary = extractCompletionText(data)?.trim();
 
     if (summary === "NOTHING_NOTABLE") {
       return { summary: null, nothingNotable: true };
@@ -288,14 +281,13 @@ Guidelines:
 
 /**
  * Processes a batch of chats for summarization. Runs summaries in
- * parallel with a concurrency limit.
+ * parallel with a concurrency limit. Uses the currently selected model.
  *
  * @param {Array} chats  Chats needing summary from getChatsNeedingSummary()
- * @param {string} apiKey
  * @param {number} concurrency
  * @returns {Promise<Array<{chatId: string, success: boolean, summary?: string, nothingNotable?: boolean, error?: string}>>}
  */
-export async function processChatSummaries(chats, apiKey, concurrency = 5) {
+export async function processChatSummaries(chats, _legacyApiKey, concurrency = 5) {
   const results = [];
 
   for (let i = 0; i < chats.length; i += concurrency) {
@@ -308,10 +300,9 @@ export async function processChatSummaries(chats, apiKey, concurrency = 5) {
           result = await incrementalSummarize(
             chat.existingSummary,
             chat.newMessages,
-            apiKey,
           );
         } else {
-          result = await summarizeChat(chat.messages, apiKey);
+          result = await summarizeChat(chat.messages);
         }
 
         const lastMessage = chat.messages[chat.messages.length - 1];

@@ -1,6 +1,6 @@
 # Libre Assistant
 
-Libre Assistant is an open-source AI Chatbot that provides various models through [Hack Club's free API](https://ai.hackclub.com).
+Libre Assistant is an open-source AI interface primarily for [Hack Club AI](https://ai.hackclub.com), but with support for external cloud & local OpenAI-compatible APIs.
 Libre Assistant does **not** sell or store user information, and all chat & user data is stored on your device.
 
 ## Features
@@ -9,22 +9,20 @@ Libre Assistant does **not** sell or store user information, and all chat & user
 - Full Markdown & LaTeX Support
 - Document & image upload support
 - Image generation support
-- Code-blocks with syntax highlighting, downloading, and copying
+- Sandboxed local projects & workspaces with code execution
 - Personalizable with name, occupation, and custom instructions
 - Web search & web crawling tools
 - Incognito mode to prevent chat history or memory from being saved
 - Opt-in notepad that remembers user details/preferences/opinions across chats
-- Parameter configuration panel with temperature, top_p, and seed options
 - Conversation branching with message editing/regenerating
-- Near-lossless context compression system
-- Model list loaded from [this repo](https://github.com/Mostlime12195/Libre-Assistant-Model-List)
+- Context compression system
+- Programmable keybinds
 
 ## Todo
 
-- Canvas/Code Panel
-- Tree-of-Thought (Multiple instances of the same or different models working together to solve a problem at the same time)
+- voice-to-text input feature
 
-Please suggest other ideas in the Issues tab.
+You can suggest other ideas in the Issues tab of the GitHub repo
 
 ## VSCode Setup
 

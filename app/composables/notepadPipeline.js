@@ -21,7 +21,8 @@
 
 import localforage from "localforage";
 import mitt from "mitt";
-import { getSessionToken } from "~/composables/useSession";
+import { requestCompletion, extractCompletionText } from "~/composables/apiClient";
+import { getBackgroundTarget } from "~/composables/backgroundCredentials";
 import {
   loadNotepad,
   saveNotepad,
@@ -39,12 +40,6 @@ import {
 
 export const NOTEPAD_PIPELINE_STATE_KEY = "notepad_pipeline_state";
 export const NOTEPAD_PIPELINE_PENDING_KEY = "notepad_pipeline_pending";
-
-/**
- * Model used for Stage 2 (consolidation). Centralized here so it's easy
- * to swap if the model is renamed or a better one becomes available.
- */
-const CONSOLIDATION_MODEL = "anthropic/claude-haiku-4.5";
 
 /** How long a pipeline run is allowed to stay in "running" before we assume it's stuck. */
 const STUCK_THRESHOLD_MS = 30 * 60 * 1000;
@@ -222,10 +217,9 @@ export async function shouldRunNotepadPipeline() {
 // ---------------------------------------------------------------------------
 
 /**
- * @param {string} apiKey
  * @returns {Promise<{success: boolean, error?: string, summaryCount?: number}>}
  */
-async function stage1Summarize(apiKey) {
+async function stage1Summarize() {
   try {
     const chats = await getChatsNeedingSummary();
     if (chats.length === 0) {
@@ -233,15 +227,12 @@ async function stage1Summarize(apiKey) {
     }
 
     const chatsToProcess = chats.slice(0, MAX_CHATS_PER_STAGE_1);
-    const results = await processChatSummaries(chatsToProcess, apiKey, 5);
+    const results = await processChatSummaries(chatsToProcess, undefined, 5);
 
     const successCount = results.filter((r) => r.success).length;
     const summaryCount = results.filter((r) => r.success && !r.nothingNotable).length;
 
-    console.log(
-      `[notepad] Stage 1: summarized ${successCount}/${chatsToProcess.length} chats (${summaryCount} with notable content)`,
-    );
-    return { success: true, summaryCount };
+    return { success: true, summaryCount, successCount, totalChats: chatsToProcess.length };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -252,10 +243,11 @@ async function stage1Summarize(apiKey) {
 // ---------------------------------------------------------------------------
 
 /**
- * @param {string} apiKey
+ * Consolidates the Notepad using the currently selected model/provider.
+ *
  * @returns {Promise<{success: boolean, error?: string, newNotepad?: {content: string, metadata: Object}, noChange?: boolean, summariesUsed?: string[]}>}
  */
-async function stage2Consolidate(apiKey) {
+async function stage2Consolidate() {
   try {
     const [notepad, summaries] = await Promise.all([
       loadNotepad(),
@@ -267,7 +259,6 @@ async function stage2Consolidate(apiKey) {
       return { success: true, newNotepad: notepad, noChange: true, summariesUsed: [] };
     }
 
-    const sessionToken = await getSessionToken();
     const today = new Date().toISOString().split("T")[0];
 
     const prompt = buildConsolidationPrompt({
@@ -276,31 +267,25 @@ async function stage2Consolidate(apiKey) {
       today,
     });
 
-    const response = await fetch("/api/ai", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-session-token": sessionToken,
-      },
-      body: JSON.stringify({
-        model: CONSOLIDATION_MODEL,
-        messages: [
-          { role: "system", content: prompt },
-          { role: "user", content: "Write the complete replacement notepad now." },
-        ],
-        stream: false,
-        temperature: 0.3,
-        max_tokens: 6000,
-        ...(apiKey && { customApiKey: apiKey }),
-      }),
-    });
+    const target = await getBackgroundTarget();
 
-    if (!response.ok) {
-      throw new Error(`Consolidation request failed: ${response.status}`);
+    if (!target.model) {
+      throw new Error("No model is currently selected");
     }
 
-    const data = await response.json();
-    const newContent = data.choices?.[0]?.message?.content?.trim();
+    const data = await requestCompletion({
+      model: target.model,
+      messages: [
+        { role: "system", content: prompt },
+        { role: "user", content: "Write the complete replacement notepad now." },
+      ],
+      temperature: 0.3,
+      max_tokens: 6000,
+      ...(target.customApiKey ? { customApiKey: target.customApiKey } : {}),
+      ...(target.upstreamBaseUrl ? { upstreamBaseUrl: target.upstreamBaseUrl } : {}),
+    });
+
+    const newContent = extractCompletionText(data)?.trim();
 
     if (!newContent) {
       throw new Error("Empty consolidation response");
@@ -498,17 +483,12 @@ async function markSummariesIncorporated(conversationIds) {
  * interrupted run if `state.status === "running"` and we haven't
  * exceeded STUCK_THRESHOLD_MS.
  *
- * @param {string} apiKey  OpenRouter API key (required)
+ * Uses the currently selected model/provider; the legacy apiKey argument
+ * is accepted for backward compatibility but ignored.
+ *
  * @returns {Promise<Object>} Pipeline result
  */
-export async function runNotepadPipeline(apiKey) {
-  if (!apiKey) {
-    return {
-      success: false,
-      error: "API key is required to run the notepad pipeline",
-    };
-  }
-
+export async function runNotepadPipeline() {
   // Bail out early if another run is already in flight in this tab.
   if (inFlightRun) {
     return inFlightRun;
@@ -559,13 +539,11 @@ export async function runNotepadPipeline(apiKey) {
       lastHeartbeat: now,
       lastError: null,
     });
-    console.log(`[notepad] Pipeline starting: ${trigger.reason}`);
 
     try {
       // ---- Stage 1: Summarize ----
       if (currentStage <= 1) {
-        console.log("[notepad] Stage 1: summarizing chats");
-        const r1 = await stage1Summarize(apiKey);
+        const r1 = await stage1Summarize();
         if (!r1.success) throw new Error(`Stage 1 failed: ${r1.error}`);
 
         currentStage = 2;
@@ -578,14 +556,12 @@ export async function runNotepadPipeline(apiKey) {
       // ---- Stage 2: Consolidate ----
       let stage2Result;
       if (currentStage <= 2) {
-        console.log("[notepad] Stage 2: consolidating");
-        stage2Result = await stage2Consolidate(apiKey);
+        stage2Result = await stage2Consolidate();
         if (!stage2Result.success) {
           throw new Error(`Stage 2 failed: ${stage2Result.error}`);
         }
 
         if (stage2Result.noChange) {
-          console.log("[notepad] No new summaries to consolidate; done");
           await savePipelineState({
             status: "completed",
             stage: 0,
@@ -610,7 +586,6 @@ export async function runNotepadPipeline(apiKey) {
 
       // ---- Stage 3: Atomic swap ----
       if (currentStage <= 3) {
-        console.log("[notepad] Stage 3: atomic swap");
         let pending = await localforage.getItem(NOTEPAD_PIPELINE_PENDING_KEY);
         let summariesUsed = [];
 
@@ -631,7 +606,7 @@ export async function runNotepadPipeline(apiKey) {
           console.warn(
             "[notepad] Pending notepad was missing on Stage 3; re-running Stage 2",
           );
-          stage2Result = await stage2Consolidate(apiKey);
+          stage2Result = await stage2Consolidate();
           if (!stage2Result.success || stage2Result.noChange) {
             throw new Error(
               "Could not regenerate pending notepad for Stage 3",
@@ -656,7 +631,6 @@ export async function runNotepadPipeline(apiKey) {
         lastHeartbeat: null,
       });
 
-      console.log("[notepad] Pipeline completed successfully");
       return { success: true, ran: true, notepadUpdated: true };
     } catch (error) {
       console.error(`[notepad] Pipeline failed at stage ${currentStage}:`, error);
@@ -693,10 +667,9 @@ export async function getNotepadPipelineStatus() {
  * this is intended for manual "rebuild from scratch" actions, not for
  * routine UI buttons.
  *
- * @param {string} apiKey
  * @returns {Promise<Object>}
  */
-export async function forceRunNotepadPipeline(apiKey) {
+export async function forceRunNotepadPipeline() {
   await savePipelineState({
     status: "idle",
     stage: 0,
@@ -704,7 +677,7 @@ export async function forceRunNotepadPipeline(apiKey) {
     startedAt: null,
     lastHeartbeat: null,
   });
-  return runNotepadPipeline(apiKey);
+  return runNotepadPipeline();
 }
 
 /**

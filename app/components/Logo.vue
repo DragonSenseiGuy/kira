@@ -1,19 +1,41 @@
 <template>
-  <div class="svg-logo" ref="svgContainerRef"></div>
+  <!-- Providers without an icon get a neutral letter avatar instead of
+       attempting to fetch a nonexistent image. -->
+  <div
+    v-if="!src"
+    class="svg-logo logo-fallback"
+    :style="{ fontSize: `calc(${size}px * 0.55)` }"
+    :aria-label="label"
+  >{{ initialLetter }}</div>
+  <div v-else class="svg-logo" ref="svgContainerRef"></div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 
 const props = defineProps({
   src: {
     type: String,
-    required: true
+    default: ''
+  },
+  // Used by the fallback avatar when no src exists (e.g. the full model
+  // catalog, or custom providers without logos).
+  label: {
+    type: String,
+    default: ''
   },
   size: {
     type: Number,
     default: 24
   }
+});
+
+const initialLetter = computed(() => {
+  const source = (props.label || '').trim();
+  if (!source) return '•';
+  // Use the first alphanumeric character so symbols like "+" don't win.
+  const match = source.match(/[a-z0-9]/i);
+  return (match ? match[0] : source[0]).toUpperCase();
 });
 
 const svgContainerRef = ref(null);
@@ -65,7 +87,7 @@ onMounted(() => {
 
 // Watch for changes to the src prop and reload the SVG content when it changes
 watch(() => props.src, () => {
-  if (isMounted.value) {
+  if (isMounted.value && props.src) {
     loadSvgContent();
   }
 });
@@ -91,5 +113,16 @@ onUnmounted(() => {
   fill: currentColor;
   color: inherit;
   /* Do not apply stroke to preserve original visual weight */
+}
+
+.logo-fallback {
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 22%;
+  background: var(--btn-hover, var(--border));
+  color: var(--text-secondary);
+  user-select: none;
 }
 </style>

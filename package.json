@@ -9,8 +9,9 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test": "vitest run",
+    "test": "node scripts/run-tests.mjs",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "version:patch": "npm version patch",
     "version:minor": "npm version minor",
     "version:major": "npm version major"
@@ -20,8 +21,6 @@
     "@nuxtjs/seo": "^3.2.2",
     "@nuxtjs/sitemap": "^7.4.7",
     "@phosphor-icons/vue": "^2.2.1",
-    "@vercel/analytics": "^1.5.0",
-    "@vercel/speed-insights": "^1.2.0",
     "animejs": "^4.2.2",
     "fflate": "^0.8.3",
     "highlight.js": "^11.11.1",
@@ -41,6 +40,8 @@
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vitest/coverage-v8": "^4.1.11",
     "@vue/test-utils": "^2.4.10",
     "@vueuse/core": "^14.1.0",
     "@vueuse/nuxt": "^14.1.0",

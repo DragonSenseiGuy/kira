@@ -520,7 +520,6 @@ export function parseImportArchive(buffer) {
       chats.push(normalizeChat(rawJson.chat));
     }
 
-    console.log("[importExport] Parsed raw JSON:", { chats: chats.length, isOpenWebUI });
     return {
       manifest: null,
       chats,
@@ -593,7 +592,6 @@ export function parseImportArchive(buffer) {
 
   // Fallback: if no Libre manifest was found, look for native chat files by name.
   if (!manifest || manifest.format !== EXPORT_FORMAT) {
-    console.log("[importExport] No Libre manifest found; scanning for native chat files");
     if (records[SINGLE_CHAT_FILE]) {
       try {
         const chat = normalizeChat(JSON.parse(records[SINGLE_CHAT_FILE]));
@@ -613,13 +611,6 @@ export function parseImportArchive(buffer) {
       }
     }
   }
-
-  console.log("[importExport] Parsed archive:", {
-    hasManifest: !!manifest,
-    chats: chats.length,
-    hasNotepad: !!notepad,
-    hasSettings: !!settings,
-  });
 
   return {
     manifest,
@@ -655,7 +646,6 @@ export async function importFromZipBuffer(
   } = {}
 ) {
   const archive = parseImportArchive(buffer);
-  console.log("[importExport] Import options:", { chatsMode, notepadMode, settingsMode });
 
   const result = {
     chats: { imported: 0, replaced: 0, skipped: 0 },
@@ -670,7 +660,6 @@ export async function importFromZipBuffer(
     const { chats: preparedChats, skipped } = prepareChatsForImport(archive.chats, existingIds, chatsMode);
     const persistResult = await persistImportedChats(preparedChats, chatsMode);
     result.chats = { ...persistResult, skipped: skipped.length };
-    console.log("[importExport] Chats import result:", result.chats);
   }
 
   // When chats are skipped entirely, count them as skipped.
@@ -690,7 +679,6 @@ export async function importFromZipBuffer(
     result.settings = ok;
   }
 
-  console.log("[importExport] Import result:", result);
   return result;
 }
 

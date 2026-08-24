@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app-container" :style="{ '--dock-w': dockWidth + 'px' }">
     <Suspense v-if="sidebarOpen !== null">
       <AppSidebar :curr-convo="route.params.id" :messages="[]" :is-open="sidebarOpen"
         @close-sidebar="sidebarOpen = false" @toggle-sidebar="toggleSidebar"
@@ -8,8 +8,12 @@
         @reload-settings="settingsManager.loadSettings" @open-settings="openSettingsPanel('general')" />
       <!-- Opens to General tab -->
     </Suspense>
-    <ParameterConfigPanel :is-open="parameterConfigPanelOpen" :settings-manager="settingsManager"
-      @close="parameterConfigPanelOpen = false" @save="handleParameterConfigSave" />
+    <WorkspacePanel :is-open="workspacePanelOpen" :settings-manager="settingsManager"
+      :sidebar-open="sidebarOpen === true"
+      @close="workspacePanelOpen = false" @save="handleWorkspacePanelSave"
+      @resize="(w) => (dockWidth = w)" @sidebar-close="sidebarOpen = false" />
+    <NetConsentHost />
+    <AppDialogHost />
     <!--
       Restructured layout:
       - app-container: Main flex container with sidebar
@@ -17,34 +21,19 @@
       - NuxtPage: Takes full width with internal max-width constraint (contains page-specific content)
     -->
     <div class="main-container"
-      :class="{ 'sidebar-open': sidebarOpen, 'parameter-config-open': parameterConfigPanelOpen }">
+      :class="{ 'sidebar-open': sidebarOpen, 'workspace-open': workspacePanelOpen }">
       <TopBar :is-scrolled-top="isScrolledTop" :selected-model-name="selectedModelName"
         :selected-model-id="selectedModelId" :toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen"
         :is-incognito="isIncognito" :show-incognito-button="!route.params.id && messages.length === 0" :messages="messages"
-        :parameter-config-open="parameterConfigPanelOpen" :conversation-id="route.params.id"
+        :workspace-open="workspacePanelOpen" :conversation-id="route.params.id"
         :can-export="canExport" @model-selected="handleModelSelect"
         @toggle-incognito="toggleIncognito"
-        @toggle-parameter-config="parameterConfigPanelOpen = !parameterConfigPanelOpen"
+        @toggle-workspace="workspacePanelOpen = !workspacePanelOpen"
         @export-chat="handleExportChat" />
 
       <!-- Chat panel from the current page -->
       <slot />
     </div>
-    <DialogRoot v-model:open="isSettingsOpen">
-      <DialogPortal>
-        <DialogOverlay class="fixed inset-0 bg-black/25" />
-        <div class="fixed inset-0 overflow-y-auto">
-          <div class="flex min-h-full items-center justify-center p-4 text-center">
-            <DialogContent
-              class="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all dark:bg-gray-800 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-top-[48%]">
-              <SettingsPanel :is-open="isSettingsOpen" :initial-tab="settingsInitialTab"
-                @close="isSettingsOpen = false; settingsInitialTab = 'general';"
-                @reload-settings="settingsManager.loadSettings" />
-            </DialogContent>
-          </div>
-        </div>
-      </DialogPortal>
-    </DialogRoot>
   </div>
 </template>
 
@@ -52,31 +41,27 @@
 import { ref, nextTick, onMounted, computed, watch, onBeforeUnmount } from 'vue';
 import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
-import { inject } from "@vercel/analytics"
-import { injectSpeedInsights } from '@vercel/speed-insights';
-import { useDark, useMagicKeys, whenever } from "@vueuse/core";
+import { useDark } from "@vueuse/core";
 import { useHead } from '@unhead/vue';
-import { DialogRoot, DialogContent, DialogPortal, DialogOverlay } from 'reka-ui';
 import { useRoute, useRouter } from 'vue-router';
 
 import { availableModels } from '~/composables/availableModels';
 import { useSettings } from '~/composables/useSettings';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
 import { useGlobalIncognito } from '~/composables/useGlobalIncognito';
+import { useKeybinds } from '~/composables/useKeybinds';
+import { useLayoutRouteWatch } from '~/composables/useLayoutRouteWatch';
 
 import AppSidebar from '~/components/AppSidebar.vue'
-import SettingsPanel from '~/components/SettingsPanel.vue'
-import ParameterConfigPanel from '~/components/ParameterConfigPanel.vue'
+import WorkspacePanel from '~/components/WorkspacePanel.vue'
 import TopBar from '~/components/TopBar.vue'
+import NetConsentHost from '~/components/NetConsentHost.vue'
+import AppDialogHost from '~/components/AppDialogHost.vue'
 import {
   exportSingleChatToZip,
   triggerDownload,
   generateSingleChatExportFilename,
 } from '~/composables/importExport';
-
-// Inject Vercel's analytics and performance insights
-inject();
-injectSpeedInsights();
 
 const isDark = useDark();
 
@@ -93,19 +78,19 @@ const { isIncognito, toggleIncognito: globalToggleIncognito } = useGlobalIncogni
 const selectedModelName = computed(() => settingsManager.selectedModelName);
 const selectedModelId = computed(() => settingsManager.settings.selected_model_id);
 
-// Initialize shortcut keys
-const keys = useMagicKeys()
-
-const isMac = process.client ? navigator.userAgent.includes('Mac') : false;
-const mod = isMac ? keys.meta : keys.ctrl;
-
 const route = useRoute(); // Get current route
 const router = useRouter();
 
 const sidebarOpen = ref(null); // null = indeterminate, will be set in onMounted based on screen width
-const parameterConfigPanelOpen = ref(false);
-const isSettingsOpen = ref(false);
-const settingsInitialTab = ref('general'); // Controls which tab opens in settings panel
+const workspacePanelOpen = ref(false);
+const dockWidth = ref(0); // px; driven by the Files dock (normal vs expanded)
+
+// Route side effects (workspace scope, staging discard, mobile panel
+// closes) live in a composable so they can be unit-tested.
+useLayoutRouteWatch(route, {
+  sidebarOpen,
+  dockOpen: workspacePanelOpen,
+});
 
 // Set up dynamic page title
 const title = computed(() => {
@@ -163,12 +148,12 @@ function toggleSidebar() {
 }
 
 function openSettingsPanel(tabKey = 'general') {
-  settingsInitialTab.value = tabKey;
-  isSettingsOpen.value = true;
+  // Settings now live on their own page; deep-link the section.
+  router.push({ path: '/settings', query: tabKey && tabKey !== 'general' ? { tab: tabKey } : {} });
 }
 
-function handleParameterConfigSave(params) {
-  // The settings are already saved in the ParameterConfigPanel component.
+function handleWorkspacePanelSave(params) {
+  // The settings are already saved in the WorkspacePanel component.
   // Hook kept for any future additional actions (e.g. analytics).
 }
 
@@ -208,19 +193,15 @@ function toggleIncognito() {
   globalToggleIncognito();
 }
 
-//-- Keyboard shortcuts
-
-// Toggle main sidebar
-whenever( () => mod.value && keys.b.value && !keys.alt.value, () => { toggleSidebar(); });
-
-// Toggle secondary sidebar
-whenever( () => mod.value && keys.alt.value && keys.b.value, () => { parameterConfigPanelOpen.value = !parameterConfigPanelOpen.value; });
-
-// Create new chat
-whenever( () => mod.value && keys.alt.value && keys.n.value, () => { handleNewConversation(); });
-
-// Toggle incognito mode
-whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncognito(); });
+//-- Keyboard shortcuts (user-configurable, see Settings → Shortcuts)
+useKeybinds({
+  toggle_sidebar: () => toggleSidebar(),
+  toggle_parameters: () => {
+    workspacePanelOpen.value = !workspacePanelOpen.value;
+  },
+  new_chat: () => handleNewConversation(),
+  toggle_incognito: () => toggleIncognito(),
+});
 </script>
 
 <style scoped>
@@ -260,13 +241,13 @@ whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncog
     margin-left: 280px;
   }
 
-  .main-container.parameter-config-open {
-    margin-right: 300px;
+  .main-container.workspace-open {
+    margin-right: var(--dock-w, 380px);
   }
 
-  .main-container.sidebar-open.parameter-config-open {
+  .main-container.sidebar-open.workspace-open {
     margin-left: 280px;
-    margin-right: 300px;
+    margin-right: var(--dock-w, 380px);
   }
 }
 
@@ -314,8 +295,8 @@ whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncog
   }
 
   .main-container.sidebar-open,
-  .main-container.parameter-config-open,
-  .main-container.sidebar-open.parameter-config-open {
+  .main-container.workspace-open,
+  .main-container.sidebar-open.workspace-open {
     transform: none;
     margin: 0;
   }
@@ -332,7 +313,7 @@ whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncog
 
   /* Use overlay positioning for mobile panels */
   .sidebar-open .main-container,
-  .parameter-config-open .main-container {
+  .workspace-open .main-container {
     transform: none;
     margin: 0;
   }
@@ -358,3 +339,5 @@ whenever( () => mod.value && keys.alt.value && keys.i.value, () => { toggleIncog
   gap: 8px;
 }
 </style>
+
+

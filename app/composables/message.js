@@ -17,7 +17,21 @@ import {
 } from "~/composables/availableModels";
 import { generateSystemPrompt } from "~/composables/systemPrompt";
 import { toolManager } from "~/composables/toolsManager";
-import { getSessionToken } from "~/composables/useSession";
+import { postChatCompletion } from "~/composables/apiClient";
+import { resolveChatTarget } from "~/composables/providers";
+
+/**
+ * Typed error for failures reported inside the SSE stream (or by the
+ * proxy). Carries structured details so the UI can render exactly one
+ * canonical error block instead of stacking duplicated error text.
+ */
+class StreamError extends Error {
+  constructor(message, details) {
+    super(message);
+    this.name = "StreamError";
+    this.details = details || { name: "APIError", message };
+  }
+}
 
 /**
  * Formats a message object for the API, handling multimodal content including:
@@ -27,9 +41,16 @@ import { getSessionToken } from "~/composables/useSession";
  * - Tool calls and results
  *
  * @param {Object} msg - The message object from the messages array
+ * @param {Object} [options]
+ * @param {boolean} [options.includeReasoning=true] - When false, reasoning is
+ *   omitted from the formatted output. History replay only includes reasoning
+ *   for the most recent assistant message: older thinking rarely helps the
+ *   next turn and its token cost compounds on long conversations.
  * @returns {Object|Array} Formatted message(s) for the API. Returns array for assistant messages with tools.
  */
-function formatMessageForAPI(msg) {
+function formatMessageForAPI(msg, options = {}) {
+  const includeReasoning = options.includeReasoning !== false;
+
   // User messages: handle attachments
   if (msg.role === "user") {
     const baseMessage = { 
@@ -66,7 +87,7 @@ function formatMessageForAPI(msg) {
 
   // Assistant messages: Convert parts to interleaved assistant/tool messages
   if (msg.role === "assistant") {
-    return formatAssistantMessageForAPI(msg);
+    return formatAssistantMessageForAPI(msg, includeReasoning);
   }
 
   // Tool messages (for tool results in conversation)
@@ -89,20 +110,22 @@ function formatMessageForAPI(msg) {
 /**
  * Formats an assistant message for the API, converting parts to interleaved messages.
  * For true agentic behavior: content -> tool -> result -> tool -> result -> content
- * 
+ *
  * @param {Object} msg - The assistant message with parts
+ * @param {boolean} includeReasoning - Whether to replay reasoning as <thinking> text
  * @returns {Array} Array of API messages (assistant and tool messages interleaved)
  */
-function formatAssistantMessageForAPI(msg) {
+function formatAssistantMessageForAPI(msg, includeReasoning = true) {
   const messages = [];
   let currentContentParts = [];
-  
+
   // Helper to build content from parts
   const buildContent = (parts) => {
     const contentParts = [];
     for (const part of parts) {
       switch (part.type) {
         case "reasoning":
+          if (!includeReasoning) break;
           if (part.content && part.content.trim()) {
             contentParts.push({
               type: "text",
@@ -196,7 +219,7 @@ function formatAssistantMessageForAPI(msg) {
   } else {
     // No parts - use legacy formatting
     let content = msg.content || "";
-    if (msg.reasoning && msg.reasoning.trim()) {
+    if (includeReasoning && msg.reasoning && msg.reasoning.trim()) {
       content = `<thinking>\n${msg.reasoning}\n</thinking>\n\n${content}`;
     }
     if (content.trim()) {
@@ -353,7 +376,7 @@ class StreamAccumulator {
  * @param {Array} plainMessages - Conversation history WITHOUT the current user message
  * @param {AbortController} controller - AbortController instance for cancelling API requests
  * @param {string} selectedModel - The model chosen by the user
- * @param {object} modelParameters - Object containing all configurable model parameters (temperature, top_p, seed, reasoning)
+ * @param {object} modelParameters - Model parameters (max_tokens, reasoning)
  * @param {object} settings - User settings object containing user_name, user_occupation, and custom_instructions
  * @param {string[]} toolNames - Array of available tool names
  * @param {boolean} isSearchEnabled - Whether the Exa search tools are enabled
@@ -368,6 +391,7 @@ class StreamAccumulator {
  * @property {Array} annotations - PDF annotations for reuse
  * @property {Array} images - Generated images
  * @property {boolean} iterationComplete - Signals end of one agent iteration
+ * @property {boolean} canceled - The turn was stopped by the user (no content)
  **/
 export async function* handleIncomingMessage(
   query,
@@ -395,9 +419,28 @@ export async function* handleIncomingMessage(
 
     const enabledToolNames = [];
 
-    // Enable Exa search tools if search is enabled
-    if (modelHasToolUse && isSearchEnabled) {
+    // Enable Exa search tools if search is enabled AND the user has a
+    // search backend configured ('off' disables the tools entirely).
+    const searchSource = settings.tool_search_source || "hackclub";
+    if (modelHasToolUse && isSearchEnabled && searchSource !== "off") {
       enabledToolNames.push("search", "getPageContents");
+    }
+
+    // Code execution + workspace tools are always offered to tool-capable
+    // models; they run entirely client-side and need no configuration.
+    if (modelHasToolUse) {
+      enabledToolNames.push(
+        "run_javascript",
+        "write_file",
+        "append_file",
+        "read_file",
+        "edit_file",
+        "delete_file",
+        "move_file",
+        "rename_file",
+        "list_files",
+        "search_files",
+      );
     }
 
     // Generate system prompt based on settings and used tools
@@ -434,9 +477,19 @@ export async function* handleIncomingMessage(
     }
 
     // Build base messages for this user turn
-    // formatMessageForAPI can return single message or array (for assistant with tools)
+    // formatMessageForAPI can return single message or array (for assistant with tools).
+    // Reasoning is only replayed for the most recent assistant message — older
+    // thinking adds token cost without helping the next turn.
+    let lastAssistantIndex = -1;
+    for (let i = plainMessages.length - 1; i >= 0; i--) {
+      if (plainMessages[i]?.role === "assistant") {
+        lastAssistantIndex = i;
+        break;
+      }
+    }
+
     const formattedHistory = plainMessages
-      .map(formatMessageForAPI)
+      .map((m, i) => formatMessageForAPICached(m, i === lastAssistantIndex))
       .flat()
       .filter((m) => m !== null);
     
@@ -452,15 +505,15 @@ export async function* handleIncomingMessage(
       : [];
     const modelSupportsTools = modelHasToolUse && enabledToolSchemas.length > 0;
 
-    // Agent loop configuration
-    const maxToolIterations = settings.tool_max_iterations ?? 10; // Reasonable default
+    // Agent loop configuration. Unlimited iterations by default; an
+    // optional cap can be set via Settings → Search (tool_max_iterations).
+    const configuredMax = Number(settings.tool_max_iterations);
+    const maxToolIterations =
+      Number.isFinite(configuredMax) && configuredMax >= 1 ? configuredMax : Infinity;
     let iteration = 0;
 
     // Accumulator for this assistant turn
     const accumulator = new StreamAccumulator();
-    
-    // Track if we've yielded initial content
-    let hasYieldedContent = false;
 
     while (iteration < maxToolIterations) {
       iteration++;
@@ -483,16 +536,28 @@ export async function* handleIncomingMessage(
           tools: enabledToolSchemas,
           tool_choice: "auto",
         }),
+        // Output budget only — sampling params (temperature/top_p/seed) are
+        // left at provider defaults on purpose.
         ...(modelParameters && {
-          temperature: modelParameters.temperature,
-          top_p: modelParameters.top_p,
-          seed: modelParameters.seed,
           max_tokens: modelParameters.max_tokens,
         }),
-        ...(settings.custom_api_key && {
-          customApiKey: settings.custom_api_key,
-        }),
       };
+
+      // Multi-provider routing. Composite model IDs (`provider::model`)
+      // select a user-configured OpenAI-compatible endpoint; plain IDs
+      // go through the built-in Hack Club proxy.
+      const chatTarget = resolveChatTarget(settings);
+      requestBody.model = chatTarget.modelId;
+      if (chatTarget.apiKey) {
+        requestBody.customApiKey = chatTarget.apiKey;
+      }
+      if (chatTarget.upstreamBaseUrl && chatTarget.direct) {
+        // Loopback runtimes (Ollama/LM Studio): call them straight from
+        // the browser so they work even on hosted deployments.
+        requestBody.directBaseUrl = chatTarget.upstreamBaseUrl;
+      } else if (chatTarget.upstreamBaseUrl) {
+        requestBody.upstreamBaseUrl = chatTarget.upstreamBaseUrl;
+      }
 
       // Add reasoning parameters
       if (selectedModelInfo) {
@@ -520,26 +585,12 @@ export async function* handleIncomingMessage(
         }
       }
 
-      const sessionToken = await getSessionToken();
-
-      // Make the API request
-      const response = await fetch("/api/ai", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-session-token": sessionToken,
-        },
-        body: JSON.stringify(requestBody),
+      // Make the API request through the shared proxy client. The BYOK
+      // key rides in the x-api-key header; the session token is attached
+      // automatically.
+      const response = await postChatCompletion(requestBody, {
         signal: controller.signal,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error?.message || "Unknown error";
-        throw new Error(
-          `API request failed with status ${response.status}: ${errorMessage}`,
-        );
-      }
 
       // Process the stream
       const reader = response.body.getReader();
@@ -549,14 +600,23 @@ export async function* handleIncomingMessage(
       // Reset accumulator for this iteration
       accumulator.reset();
       
-      // Stream timeout configuration
+      // Stream timeout configuration. A stalled stream must surface as an
+      // error, not look like a normal completion — canceling the reader
+      // alone would make the next read() return done:true and silently
+      // truncate the reply.
       const STREAM_TIMEOUT_MS = 60000;
       let streamTimeoutId = null;
+      let streamTimedOut = false;
 
       const resetStreamTimeout = () => {
         if (streamTimeoutId) clearTimeout(streamTimeoutId);
         streamTimeoutId = setTimeout(() => {
-          reader.cancel("Stream timeout: no data received for 60 seconds");
+          streamTimedOut = true;
+          try {
+            reader.cancel();
+          } catch {
+            // Reader already released - nothing to do.
+          }
         }, STREAM_TIMEOUT_MS);
       };
 
@@ -593,18 +653,19 @@ export async function* handleIncomingMessage(
               continue;
             }
 
-            // Handle errors
+            // Handle errors surfaced inside the stream. Throw a typed
+            // error so the single catch below emits exactly ONE error
+            // event — error text is never appended to message content
+            // here (that caused duplicated error blocks in the UI).
             if (parsed.error) {
-              yield {
-                content: `\n\n[ERROR: ${parsed.error.message}]`,
-                reasoning: null,
-                error: true,
-                errorDetails: {
+              throw new StreamError(
+                parsed.error.message || "API error",
+                {
                   name: parsed.error.type || "APIError",
-                  message: parsed.error.message,
+                  message: parsed.error.message || "API error",
+                  status: parsed.error.code,
                 },
-              };
-              throw new Error(parsed.error.message || "API error");
+              );
             }
 
             // Process the chunk
@@ -615,7 +676,6 @@ export async function* handleIncomingMessage(
 
               // Yield content updates
               if (delta?.content) {
-                hasYieldedContent = true;
                 yield {
                   content: delta.content,
                   reasoning: null,
@@ -675,7 +735,22 @@ export async function* handleIncomingMessage(
         }
       } finally {
         clearStreamTimeout();
-        reader.releaseLock();
+        try {
+          reader.releaseLock();
+        } catch {
+          // Lock already released via cancel() - nothing to do.
+        }
+      }
+
+      if (streamTimedOut) {
+        throw new StreamError(
+          "The model stopped responding (no data for 60 seconds).",
+          {
+            name: "StreamTimeout",
+            message: "The model stopped responding (no data for 60 seconds).",
+            status: null,
+          },
+        );
       }
 
       // Check if we need to execute tools
@@ -701,8 +776,23 @@ export async function* handleIncomingMessage(
         })),
       });
 
-      // Execute tools and get results
-      const toolResults = await executeTools(completedToolCalls, plainMessages);
+      // Execute tools. Only tools that were actually OFFERED to the model
+      // may run — anything else (stale/disabled/hallucinated names) gets a
+      // structured refusal fed back instead of executing hidden logic.
+      const allowedToolNames = new Set(enabledToolNames);
+      const toolResults = await executeTools(
+        completedToolCalls,
+        plainMessages,
+        controller.signal,
+        allowedToolNames,
+      );
+
+      // User pressed Stop while tools were running - end the turn as canceled.
+      if (controller.signal.aborted) {
+        const abortError = new Error("Aborted during tool execution");
+        abortError.name = "AbortError";
+        throw abortError;
+      }
 
       // Yield tool results for UI updates
       for (const result of toolResults) {
@@ -750,87 +840,196 @@ export async function* handleIncomingMessage(
     };
 
   } catch (error) {
-    // Handle abort errors specifically
+    // Handle abort errors specifically. Cancellation is reported as a
+    // dedicated event (never as content text); the UI layer appends a
+    // single "stopped" marker at exactly one site.
     if (error.name === "AbortError") {
-      yield { content: "\n\n[STREAM CANCELED]", reasoning: null, complete: true };
+      yield { content: null, reasoning: null, canceled: true, complete: true };
       return;
     }
 
+    // Emit exactly ONE structured error event. The UI layer is
+    // responsible for rendering it once; no error text is embedded in
+    // `content` so nothing can be duplicated into the message body.
+    const isStreamError = error instanceof StreamError;
     const errorMessage = error.message || "No detailed information";
     yield {
-      content: `\n\n[CRITICAL ERROR: Libre Assistant failed to dispatch request. ${errorMessage}]`,
+      content: null,
       reasoning: null,
       error: true,
-      errorDetails: {
-        name: error.name || "UnknownError",
-        message: errorMessage,
-        rawError: error.toString(),
-      },
+      errorDetails: isStreamError
+        ? { ...error.details }
+        : {
+            name: error.name || "UnknownError",
+            message: errorMessage,
+            rawError: error.toString(),
+          },
       complete: true,
     };
   }
 }
 
 /**
- * Execute tools and return results
+ * Watchdog for a single tool execution: resolves with a tagged outcome
+ * when the executor finishes, the turn is aborted, or the timeout fires —
+ * whichever comes first. A hung backend can no longer stall the turn.
  */
-async function executeTools(toolCalls, messageHistory = []) {
-  const results = [];
+const TOOL_TIMEOUT_MS = 120000;
 
-  for (const toolCall of toolCalls) {
-    const name = toolCall.function.name;
-    let args = {};
+function runToolWithWatchdog(executorPromise, signal) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timeoutId = null;
 
-    try {
-      args = JSON.parse(toolCall.function.arguments || "{}");
-    } catch (err) {
-      console.error("Failed to parse tool arguments:", toolCall.function.arguments, err);
-      results.push({
+    const settle = (outcome) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", onAbort);
+      resolve(outcome);
+    };
+
+    const onAbort = () => settle({ aborted: true });
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    timeoutId = setTimeout(() => settle({ timedOut: true }), TOOL_TIMEOUT_MS);
+
+    executorPromise.then(
+      (value) => settle({ value }),
+      (error) => settle({ error }),
+    );
+  });
+}
+
+/**
+ * Execute tools and return results. Independent tool calls run in
+ * parallel; results keep the original call order.
+ */
+async function executeTools(toolCalls, messageHistory = [], signal = null, allowedNames = null) {
+  const outcomes = await Promise.all(
+    toolCalls.map((toolCall) =>
+      runToolWithWatchdog(
+        executeSingleTool(toolCall, messageHistory, allowedNames),
+        signal,
+      ),
+    ),
+  );
+
+  // Aborted calls surface as structured tool errors here; the caller
+  // checks signal.aborted afterwards to end the whole turn as canceled.
+  return outcomes.map((outcome, i) => {
+    if (outcome.aborted) {
+      return {
         role: "tool",
-        tool_call_id: toolCall.id,
-        name,
+        tool_call_id: toolCalls[i].id,
+        name: toolCalls[i].function.name,
+        content: JSON.stringify({ error: "Canceled by user" }),
+      };
+    }
+    if (outcome.timedOut) {
+      return {
+        role: "tool",
+        tool_call_id: toolCalls[i].id,
+        name: toolCalls[i].function.name,
         content: JSON.stringify({
-          error: `Invalid JSON in tool arguments: ${err.message}`,
+          error: `Tool timed out after ${TOOL_TIMEOUT_MS / 1000}s`,
         }),
-      });
-      continue;
+      };
     }
+    return outcome.value;
+  });
+}
 
-    const tool = toolManager.getTool(name);
-    if (!tool) {
-      console.warn(`Tool not found: ${name}`);
-      results.push({
-        role: "tool",
-        tool_call_id: toolCall.id,
-        name,
-        content: JSON.stringify({ error: `Unknown tool '${name}'` }),
-      });
-      continue;
-    }
+async function executeSingleTool(toolCall, messageHistory, allowedNames = null) {
+  const name = toolCall.function.name;
 
-    try {
-      const result = await tool.executor(args, messageHistory);
-      results.push({
-        role: "tool",
-        tool_call_id: toolCall.id,
-        name,
-        content: JSON.stringify(result ?? null),
-      });
-    } catch (err) {
-      console.error(`Error executing tool "${name}"`, err);
-      results.push({
-        role: "tool",
-        tool_call_id: toolCall.id,
-        name,
-        content: JSON.stringify({
-          error: `Tool execution failed: ${err.message || String(err)}`,
-        }),
-      });
-    }
+  if (allowedNames && !allowedNames.has(name)) {
+    return {
+      role: "tool",
+      tool_call_id: toolCall.id,
+      name,
+      content: JSON.stringify({
+        error: `Tool '${name}' is not available in this session.`,
+      }),
+    };
   }
 
-  return results;
+  let args = {};
+
+  try {
+    args = JSON.parse(toolCall.function.arguments || "{}");
+  } catch (err) {
+    const raw = String(toolCall.function.arguments || "");
+    // Large tool calls can exceed the model's per-turn output budget,
+    // truncating the argument JSON mid-string. Give an actionable hint.
+    const looksTruncated = raw.length > 2000 && !raw.trimEnd().endsWith("}");
+    const hint = looksTruncated
+      ? " The arguments look TRUNCATED — the file content exceeded this turn's output limit. Build the file in pieces instead: write_file the first section, then extend it with append_file."
+      : "";
+    console.error("Failed to parse tool arguments:", err);
+    return {
+      role: "tool",
+      tool_call_id: toolCall.id,
+      name,
+      content: JSON.stringify({
+        error: `Invalid JSON in tool arguments: ${err.message}.${hint}`,
+      }),
+    };
+  }
+
+  const tool = toolManager.getTool(name);
+  if (!tool) {
+    console.warn(`Tool not found: ${name}`);
+    return {
+      role: "tool",
+      tool_call_id: toolCall.id,
+      name,
+      content: JSON.stringify({ error: `Unknown tool '${name}'` }),
+    };
+  }
+
+  try {
+    const result = await tool.executor(args, messageHistory);
+    return {
+      role: "tool",
+      tool_call_id: toolCall.id,
+      name,
+      content: JSON.stringify(result ?? null),
+    };
+  } catch (err) {
+    console.error(`Error executing tool "${name}"`, err);
+    return {
+      role: "tool",
+      tool_call_id: toolCall.id,
+      name,
+      content: JSON.stringify({
+        error: `Tool execution failed: ${err.message || String(err)}`,
+      }),
+    };
+  }
 }
 
 // Re-export for backward compatibility
 export { formatMessageForAPI };
+
+/**
+ * Memoized formatting for conversation history. Loaded messages are stable
+ * objects that persist across sends, so their formatted API shape is cached
+ * per object (both reasoning variants) instead of being rebuilt — including
+ * large tool results — on every send. Streaming messages are replaced with
+ * fresh objects on each update, so they naturally recompute.
+ */
+const formattedMessageCache = new WeakMap();
+
+function formatMessageForAPICached(msg, includeReasoning) {
+  let entry = formattedMessageCache.get(msg);
+  if (!entry) {
+    entry = { plain: null, lastAssistant: null };
+    formattedMessageCache.set(msg, entry);
+  }
+  const slot = includeReasoning ? "lastAssistant" : "plain";
+  if (!entry[slot]) {
+    entry[slot] = formatMessageForAPI(msg, { includeReasoning });
+  }
+  return entry[slot];
+}

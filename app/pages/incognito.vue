@@ -36,8 +36,6 @@
 import { ref, nextTick, onMounted, computed, watch, onBeforeUnmount } from 'vue';
 import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
-import { inject } from "@vercel/analytics"
-import { injectSpeedInsights } from '@vercel/speed-insights';
 import { useDark } from "@vueuse/core";
 import { useRoute, useRouter } from '#app';
 import { useHead } from '@unhead/vue';
@@ -48,10 +46,6 @@ import { useConversation } from '~/composables/useConversation';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
 
 import ChatPanel from '~/components/ChatPanel.vue';
-
-// Inject Vercel's analytics and performance insights
-inject();
-injectSpeedInsights();
 
 const isDark = useDark();
 

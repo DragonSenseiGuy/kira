@@ -1,11 +1,21 @@
 import { defineEventHandler, getQuery, getHeader } from 'h3';
 
+const HC_EXA_SEARCH_URL = 'https://ai.hackclub.com/proxy/v1/exa/search';
+const EXA_DIRECT_SEARCH_URL = 'https://api.exa.ai/search';
+
+/**
+ * Web-search relay. Two backends:
+ *   - source=hackclub (default): Exa via the Hack Club AI proxy; key is
+ *     the user's Hack Club AI key (search is bundled with it).
+ *   - source=exa: the user's own Exa API key against api.exa.ai directly.
+ *
+ * The key arrives in the x-api-key header and is forwarded to whichever
+ * backend was selected. Route is protected by the session-token guard.
+ */
 export default defineEventHandler(async (event) => {
     const query = getQuery(event);
-    
-    // Get API key from header
+
     const apiKey = getHeader(event, 'x-api-key');
-    
     if (!apiKey) {
         throw createError({
             statusCode: 401,
@@ -13,8 +23,7 @@ export default defineEventHandler(async (event) => {
         });
     }
 
-    const { q, numResults = 5 } = query;
-
+    const { q, numResults = 5, source = 'hackclub' } = query;
     if (!q) {
         throw createError({
             statusCode: 400,
@@ -22,12 +31,21 @@ export default defineEventHandler(async (event) => {
         });
     }
 
+    const useExaDirect = source === 'exa';
+    const upstreamUrl = useExaDirect ? EXA_DIRECT_SEARCH_URL : HC_EXA_SEARCH_URL;
+
+    // The Hack Club proxy expects a Bearer token; Exa's own API uses the
+    // x-api-key header.
+    const authHeaders = useExaDirect
+        ? { 'x-api-key': apiKey }
+        : { Authorization: `Bearer ${apiKey}` };
+
     try {
-        const response = await fetch('https://ai.hackclub.com/proxy/v1/exa/search', {
+        const response = await fetch(upstreamUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
+                ...authHeaders
             },
             body: JSON.stringify({
                 query: q,
@@ -46,7 +64,7 @@ export default defineEventHandler(async (event) => {
         }
 
         const data = await response.json();
-        
+
         // Transform Exa API response to match expected format
         return {
             results: data.results?.map(r => ({

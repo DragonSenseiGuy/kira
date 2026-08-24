@@ -42,13 +42,11 @@
 
 <script setup>
 // This page is for displaying a specific conversation by ID
-import { ref, nextTick, onMounted, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, nextTick, onMounted, computed } from 'vue';
 import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
-import { inject } from "@vercel/analytics"
-import { injectSpeedInsights } from '@vercel/speed-insights';
 import { useDark } from "@vueuse/core";
-import { useRoute, navigateTo } from '#app';
+import { useRoute } from '#app';
 import { useHead } from '@unhead/vue';
 
 import { availableModels } from '~/composables/availableModels';
@@ -62,10 +60,6 @@ import ContextCompressionChip from '~/components/ContextCompressionChip.vue';
 // Get the route and conversation ID
 const route = useRoute();
 const conversationId = route.params.id;
-
-// Inject Vercel's analytics and performance insights
-inject();
-injectSpeedInsights();
 
 const isDark = useDark();
 
