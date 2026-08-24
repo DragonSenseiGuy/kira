@@ -20,7 +20,7 @@
         </SwitchRoot>
       </div>
 
-      <div class="stx-item" style="border-bottom: none">
+      <div class="stx-item">
         <div class="stx-info">
           <h3>Limit Tables for GPT-OSS</h3>
           <p>When using GPT-OSS models (20B or 120B), limit table usage as much as possible</p>
@@ -29,6 +29,20 @@
           class="switch-root stx-switch-root"
           :model-value="settings.gpt_oss_limit_tables"
           @update:model-value="set('gpt_oss_limit_tables', $event)"
+        >
+          <SwitchThumb class="switch-thumb stx-switch-thumb" />
+        </SwitchRoot>
+      </div>
+
+      <div class="stx-item" style="border-bottom: none">
+        <div class="stx-info">
+          <h3>Show Debug Options</h3>
+          <p>Show developer-facing tools, like the copy-debug-info button on assistant messages</p>
+        </div>
+        <SwitchRoot
+          class="switch-root stx-switch-root"
+          :model-value="settings.show_debug_options"
+          @update:model-value="set('show_debug_options', $event)"
         >
           <SwitchThumb class="switch-thumb stx-switch-thumb" />
         </SwitchRoot>

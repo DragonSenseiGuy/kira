@@ -352,6 +352,7 @@ describe("exportAllToZip", () => {
       model_settings: {},
       parameter_config: { temperature: 1.0, top_p: 0.95, seed: null, max_tokens: 16384, grounding: false },
       gpt_oss_limit_tables: false,
+      show_debug_options: false,
       custom_api_key: "",
     });
     const chat = createSampleChat("c1");

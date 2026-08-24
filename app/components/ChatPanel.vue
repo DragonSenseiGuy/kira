@@ -11,6 +11,12 @@ import MessageEditArea from './MessageEditArea.vue';
 import { useContextCompression } from '../composables/useContextCompression';
 import { getFormattedStatsFromExecutedTools } from '../composables/searchViewStats';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
+import { useSettings } from '../composables/useSettings';
+
+// Debug tooling (e.g. the message debug copy button) is opt-in via
+// Settings → General → Show Debug Options.
+const settingsManager = useSettings();
+const showDebugOptions = computed(() => !!settingsManager.settings.show_debug_options);
 
 const props = defineProps({
   currConvo: {
@@ -776,7 +782,7 @@ defineExpose({ scrollToEnd, isAtBottom, chatWrapper });
                     <Icon icon="material-symbols:content-copy-outline-rounded" width="18px" height="18px" />
                   </button>
 
-                  <button v-if="message.role === 'assistant'" class="footer-action-btn debug-copy-button"
+                  <button v-if="message.role === 'assistant' && showDebugOptions" class="footer-action-btn debug-copy-button"
                     @click="copyDebugDump(message, $event)" title="Copy debug info (full message: reasoning + tool calls)"
                     aria-label="Copy debug info">
                     <Icon icon="material-symbols:bug-report-outline-rounded" width="18px" height="18px" />

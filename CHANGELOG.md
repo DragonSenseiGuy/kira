@@ -13,6 +13,16 @@ All notable changes to Libre Assistant are documented here.
 
 ---
 
+## [2.0.1] - 2026-08-24
+
+### Added
+- **Show Debug Options** - New toggle in Settings that reveals developer tools.
+
+### Fixed
+- Fixed 502 errors after code execution.
+
+---
+
 ## [2.0.0] - 2026-08-23
 
 ### Added

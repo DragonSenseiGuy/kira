@@ -943,6 +943,26 @@ async function executeTools(toolCalls, messageHistory = [], signal = null, allow
 async function executeSingleTool(toolCall, messageHistory, allowedNames = null) {
   const name = toolCall.function.name;
 
+  // A single tool result that is too large can make the FOLLOW-UP request
+  // unsendable (gateways answer huge tool payloads with opaque 502s). The
+  // sandbox already caps its own pieces; this bounds the total envelope.
+  const MAX_TOOL_CONTENT_CHARS = 48000;
+
+  function capToolContent(text) {
+    if (text.length <= MAX_TOOL_CONTENT_CHARS) return text;
+    return (
+      text.slice(0, MAX_TOOL_CONTENT_CHARS) +
+      '\n[…tool result truncated — work with what is shown or narrow the query…]'
+    );
+  }
+
+  // Lone surrogates (possible in sandboxed output) would produce an invalid
+  // UTF-8 request body downstream; normalize before it leaves.
+  function toWellFormedText(text) {
+    if (typeof text.toWellFormed === "function") return text.toWellFormed();
+    return new TextDecoder().decode(new TextEncoder().encode(text));
+  }
+
   if (allowedNames && !allowedNames.has(name)) {
     return {
       role: "tool",
@@ -994,7 +1014,7 @@ async function executeSingleTool(toolCall, messageHistory, allowedNames = null) 
       role: "tool",
       tool_call_id: toolCall.id,
       name,
-      content: JSON.stringify(result ?? null),
+      content: capToolContent(toWellFormedText(JSON.stringify(result ?? null))),
     };
   } catch (err) {
     console.error(`Error executing tool "${name}"`, err);

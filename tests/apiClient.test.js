@@ -27,8 +27,97 @@ import {
   postChatCompletion,
   requestCompletion,
   extractCompletionText,
+  toWellFormedText,
   ApiRequestError,
 } from "../app/composables/apiClient.js";
+
+describe("postChatCompletion retries transient upstream failures", () => {
+  let fetchSpy;
+
+  beforeEach(() => {
+    fetchSpy = vi.fn();
+    globalThis.fetch = fetchSpy;
+  });
+
+  afterEach(() => {
+    delete globalThis.fetch;
+  });
+
+  it("retries a 502 and succeeds on the next attempt", async () => {
+    fetchSpy
+      .mockResolvedValueOnce(new Response("bad gateway", { status: 502 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ choices: [] }), { status: 200 }),
+      );
+
+    const response = await postChatCompletion({ model: "m", messages: [] });
+
+    expect(response.ok).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up after the final attempt and surfaces the last status", async () => {
+    for (let i = 0; i < 3; i++) {
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { message: "upstream down" } }), { status: 502 }),
+      );
+    }
+
+    await expect(postChatCompletion({ model: "m", messages: [] })).rejects.toThrow(
+      /upstream down/,
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry client errors like 400", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { message: "bad request" } }), { status: 400 }),
+    );
+
+    await expect(postChatCompletion({ model: "m", messages: [] })).rejects.toThrow(
+      /bad request/,
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("request body well-formedness (lone surrogates)", () => {
+  let fetchSpy;
+
+  beforeEach(() => {
+    fetchSpy = vi.fn();
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ choices: [] }), { status: 200 }),
+    );
+    globalThis.fetch = fetchSpy;
+  });
+
+  afterEach(() => {
+    delete globalThis.fetch;
+  });
+
+  it("serializes bodies containing lone surrogates into valid UTF-8", async () => {
+    const loneSurrogate = "before \uD800 after";
+    await postChatCompletion({
+      model: "m",
+      messages: [{ role: "tool", content: loneSurrogate }],
+    });
+
+    const rawBody = fetchSpy.mock.calls[0][1].body;
+    // The raw body must not contain the unpaired surrogate (it would be an
+    // invalid UTF-8 sequence once encoded).
+    expect(rawBody).not.toContain("\uD800");
+    // And it must survive a strict UTF-8 round-trip.
+    const bytes = new TextEncoder().encode(rawBody);
+    expect(new TextDecoder("utf-8", { fatal: true }).decode(bytes)).toBeTruthy();
+  });
+
+  it("toWellFormedText replaces lone surrogates with U+FFFD", () => {
+    const cleaned = toWellFormedText("a\uD800b");
+    expect(cleaned).toContain("\uFFFD");
+    expect(cleaned).toHaveLength(3);
+  });
+});
 
 function jsonResponse(body, status = 200) {
   return {
