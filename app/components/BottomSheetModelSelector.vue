@@ -20,122 +20,90 @@
     @click.stop
   >
 
-    <!-- Sheet header and content with sliding effect -->
     <div class="content-wrapper">
-      <!-- Sheet header -->
+      <!-- Grabber + title -->
+      <div class="sheet-grabber" aria-hidden="true"></div>
       <div class="sheet-header">
-        <div class="nav-content">
-          <div class="nav-side">
-            <button v-if="currentView === 'models'" class="nav-button" @click="goBackToProviders" aria-label="Go back">
-              <Icon icon="material-symbols:arrow-back-ios-new" width="20" height="20" />
-            </button>
-            <div v-else class="nav-placeholder"></div>
-          </div>
-          <h2 class="header-text">
-            <template v-if="currentView === 'models'">
-              {{ activeProviderName }}
-            </template>
-            <template v-else>
-              Choose a model
-            </template>
-          </h2>
-          <div class="nav-side">
-            <!-- Right side placeholder for alignment -->
-          </div>
-        </div>
+        <h2 class="header-text">Choose a model</h2>
       </div>
 
-      <!-- Content container -->
-      <div class="content-container">
-        <!-- Providers page: one entry per configured provider -->
-        <Motion
-          :initial="firstOpen && currentView === 'providers' ? { x: 0 } : (currentView === 'providers' ? { x: 0 } : { x: '-100%' })"
-          :animate="currentView === 'providers' ? { x: 0 } : { x: '-100%' }"
-          :transition="{ type: 'spring', stiffness: 300, damping: 25 }"
-          class="providers-page"
+      <!-- Provider tabs: one tap switches the visible catalog. Horizontally
+           scrollable so any number of custom providers fits. -->
+      <div class="provider-tabs" role="tablist" aria-label="Providers">
+        <button
+          v-for="provider in providers"
+          :key="provider.id"
+          type="button"
+          role="tab"
+          class="provider-tab"
+          :class="{ active: provider.id === activeProviderId }"
+          :aria-selected="provider.id === activeProviderId"
+          @click="onProviderTap(provider)"
         >
-          <div v-if="providers.length === 0" class="no-providers">
-            No providers found
-          </div>
-          <div
-            v-for="provider in providers"
-            :key="provider.id"
-            class="provider-item"
-            :class="{ 'active-provider': provider.id === activeProviderId }"
-            @click="onProviderTap(provider)"
-          >
-            <span class="provider-name">{{ provider.name }}</span>
-            <span v-if="provider.id === activeProviderId" class="active-provider-badge">Active</span>
-            <Icon icon="material-symbols:chevron-right" width="20" height="20" class="chevron-icon" />
-          </div>
-        </Motion>
+          {{ provider.name }}
+        </button>
+      </div>
 
-        <!-- Models page: searchable list of the active provider's models -->
-        <Motion
-          :initial="firstOpen && currentView === 'models' ? { x: 0 } : (currentView === 'models' ? { x: 0 } : { x: '100%' })"
-          :animate="currentView === 'models' ? { x: 0 } : { x: '100%' }"
-          :transition="{ type: 'spring', stiffness: 300, damping: 25 }"
-          class="models-page"
-        >
-          <div class="model-search-box" @keydown.stop>
-            <Icon icon="material-symbols:search-rounded" width="18" height="18" class="search-icon" />
-            <input
-              v-model="query"
-              type="text"
-              placeholder="Search by name or id…"
-              class="model-search-input"
-            />
-          </div>
+      <!-- Active provider's searchable model list -->
+      <div class="models-body">
+        <div class="model-search-box" @keydown.stop>
+          <Icon icon="material-symbols:search-rounded" width="18" height="18" class="search-icon" />
+          <input
+            v-model="query"
+            type="text"
+            placeholder="Search by name or id…"
+            class="model-search-input"
+          />
+        </div>
 
-          <div v-if="loadingCatalog" class="no-providers">Loading models…</div>
+        <div v-if="loadingCatalog" class="no-providers">Loading models…</div>
 
-          <template v-else>
-            <!-- Favorites -->
-            <template v-if="visibleFavorites.length > 0">
-              <div class="mp-section-label">Favorites</div>
-              <ModelPickerRow
-                v-for="model in visibleFavorites"
-                :key="`fav-${model.id}`"
-                :model="model"
-                :selected="model.id === selectedModelId"
-                :favorite="true"
-                @select="onSelect(model.id)"
-                @toggle-favorite="toggleFavorite(model.id)"
-              />
-              <div v-if="visibleModels.length > 0" class="mp-divider"></div>
-            </template>
-
+        <template v-else>
+          <!-- Favorites -->
+          <template v-if="visibleFavorites.length > 0">
+            <div class="mp-section-label">Favorites</div>
             <ModelPickerRow
-              v-for="model in visibleModels"
-              :key="model.id"
+              v-for="model in visibleFavorites"
+              :key="`fav-${model.id}`"
               :model="model"
               :selected="model.id === selectedModelId"
-              :favorite="isFavorite(model.id)"
+              :favorite="true"
               @select="onSelect(model.id)"
               @toggle-favorite="toggleFavorite(model.id)"
             />
-
-            <button
-              v-if="hiddenCount > 0"
-              type="button"
-              class="show-more-btn"
-              @click="showMore"
-            >
-              Show more ({{ hiddenCount }} more)
-            </button>
-
-            <div v-if="visibleModels.length === 0 && visibleFavorites.length === 0" class="no-providers">
-              No models match "{{ query }}"
-            </div>
+            <div v-if="visibleModels.length > 0" class="mp-divider"></div>
           </template>
-        </Motion>
+
+          <ModelPickerRow
+            v-for="model in visibleModels"
+            :key="model.id"
+            :model="model"
+            :selected="model.id === selectedModelId"
+            :favorite="isFavorite(model.id)"
+            @select="onSelect(model.id)"
+            @toggle-favorite="toggleFavorite(model.id)"
+          />
+
+          <button
+            v-if="hiddenCount > 0"
+            type="button"
+            class="show-more-btn"
+            @click="showMore"
+          >
+            Show more ({{ hiddenCount }} more)
+          </button>
+
+          <div v-if="visibleModels.length === 0 && visibleFavorites.length === 0" class="no-providers">
+            No models match "{{ query }}"
+          </div>
+        </template>
       </div>
-    </div> <!-- Close content-wrapper div -->
-  </Motion> <!-- Close main sheet container Motion -->
+    </div>
+  </Motion>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { Motion } from 'motion-v';
 import { Icon } from '@iconify/vue';
 import ModelPickerRow from './ModelPickerRow.vue';
@@ -160,12 +128,6 @@ const emit = defineEmits(['close', 'model-selected']);
 
 const isClosing = ref(false);
 
-// Navigation state
-const currentView = ref('providers'); // 'providers' or 'models'
-const selectedProvider = ref(null);
-// State for tracking if this is the first time opening (not just initial render)
-let firstOpen = true;
-
 // Shared picker logic (search, pagination, favorites, provider switching)
 const picker = useModelPicker();
 const {
@@ -175,7 +137,6 @@ const {
   providers,
   activeProviderId,
   allModels,
-  filteredModels,
   visibleModels,
   hiddenCount,
   visibleFavorites,
@@ -186,25 +147,15 @@ const {
   showMore,
   resetForOpen,
   ensureCatalogLoaded,
+  switchProvider,
 } = picker;
-
-const activeProviderName = computed(
-  () => providers.value.find((p) => p.id === activeProviderId.value)?.name || 'Models',
-);
 
 // Watch for changes in isOpen to reset the state when opening
 watch(() => props.isOpen, async (newIsOpen) => {
   if (newIsOpen) {
-    // Reset states when opening
-    currentView.value = 'providers';
-    selectedProvider.value = null;
     resetForOpen();
     isClosing.value = false;
-    firstOpen = false;
     await ensureCatalogLoaded();
-  } else {
-    // When closing, reset firstOpen for the next time it opens
-    firstOpen = true;
   }
 });
 
@@ -216,18 +167,11 @@ const onSelect = (modelId) => {
 };
 
 /**
- * Tapping a provider makes it the ACTIVE provider, then shows its
- * searchable model list.
+ * Tapping a provider tab makes it the ACTIVE provider and swaps the model
+ * list (switchProvider is a no-op when it's already active).
  */
-const onProviderTap = async (provider) => {
-  await picker.switchProvider(provider.id);
-  currentView.value = 'models';
-};
-
-const goBackToProviders = () => {
-  currentView.value = 'providers';
-  // Reset the selected provider when going back
-  selectedProvider.value = null;
+const onProviderTap = (provider) => {
+  switchProvider(provider.id);
 };
 
 // Function to animate closing when backdrop is clicked
@@ -274,32 +218,17 @@ const onAnimationComplete = () => {
   overflow: hidden;
 }
 
+.sheet-grabber {
+  flex-shrink: 0;
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 10px auto 4px;
+}
+
 .sheet-header {
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.nav-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-}
-
-.nav-side {
-  width: 40px;
-  display: flex;
-}
-
-.nav-button {
-  background: none;
-  border: none;
-  color: var(--text-primary);
-  cursor: pointer;
-  padding: 8px;
-  margin-left: -8px;
-  display: flex;
-  align-items: center;
 }
 
 .header-text {
@@ -308,24 +237,58 @@ const onAnimationComplete = () => {
   color: var(--text-primary);
   margin: 0;
   text-align: center;
-  flex: 1;
+  padding: 4px 16px 8px;
 }
 
-.content-container {
-  position: relative;
+/* --- Provider tabs --- */
+.provider-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.provider-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.provider-tab {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.provider-tab:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.provider-tab.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  font-weight: 600;
+}
+
+/* --- Model list body --- */
+.models-body {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
-}
-
-.providers-page,
-.models-page {
-  position: absolute;
-  inset: 0;
   overflow-y: auto;
-}
-
-.models-page {
+  -webkit-overflow-scrolling: touch;
   padding: 8px 0 16px;
 }
 
@@ -333,36 +296,6 @@ const onAnimationComplete = () => {
   padding: 24px 16px;
   text-align: center;
   color: var(--text-secondary);
-}
-
-.provider-item {
-  display: flex;
-  align-items: center;
-  padding: 16px;
-  cursor: pointer;
-  transition: background 0.2s;
-  gap: 12px;
-}
-
-.provider-item:hover {
-  background: var(--btn-hover);
-}
-
-.provider-item.active-provider {
-  border-left: 3px solid var(--primary);
-}
-
-.active-provider-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.provider-name {
-  flex-grow: 1;
-  font-weight: 500;
 }
 
 /* --- Model search box (mobile) --- */

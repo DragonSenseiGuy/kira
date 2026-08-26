@@ -161,6 +161,52 @@ const mirrorHtml = computed(() => {
   return out;
 });
 
+// --- IME composition (mobile keyboards) -------------------------------------
+// Soft keyboards deliver every word as a composition session (autocorrect /
+// predictive text): between compositionstart and compositionend the
+// textarea's value changes while Vue's v-model deliberately ignores input
+// events. Anything driven by `inputMessage` — the chip mirror AND the send
+// button's disabled state — stayed stale until the word was committed with
+// space/punctuation, which read as "typed words are invisible" and "the send
+// button never lights up" on mobile. We therefore track the composition
+// state, hide the mirror while composing (native text must stay visible),
+// and sync straight from the DOM on every input event.
+
+const isComposing = ref(false);
+
+/**
+ * The transparency/mirror layer may only paint when there are chips to
+ * render AND the user isn't mid-composition — otherwise freshly typed words
+ * would exist only in the (stale) mirror and be invisible.
+ */
+const mirrorVisible = computed(
+  () => !isComposing.value && mentionSpans.value.length > 0,
+);
+
+function onCompositionStart() {
+  isComposing.value = true;
+}
+
+function onCompositionEnd(event) {
+  isComposing.value = false;
+  syncFromElement(event?.target);
+  onMentionInput();
+}
+
+/** Copies the textarea's live DOM value into reactive state (idempotent). */
+function syncFromElement(el) {
+  const value = el?.value;
+  if (typeof value !== "string") return;
+  if (value !== inputMessage.value) inputMessage.value = value;
+}
+
+function handleInput(event) {
+  syncFromElement(event?.target);
+  // Skip @-trigger detection mid-composition: picking a suggestion would
+  // rewrite the text under the keyboard's feet.
+  if (!isComposing.value) onMentionInput();
+}
+
 function syncMirror() {
   const el = textareaRef.value;
   const mirror = mirrorRef.value;
@@ -822,13 +868,14 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
           </button>
         </div>
         <!-- Highlight mirror: renders the same text with @mentions painted;
-             the textarea above it shows transparent text + caret. -->
-        <div v-if="mirrorHtml" ref="mirrorRef" class="chat-mirror" aria-hidden="true" v-html="mirrorHtml"></div>
+             the textarea above it shows transparent text + caret. Suppressed
+             during IME composition so freshly composed words stay visible. -->
+        <div v-if="mirrorVisible" ref="mirrorRef" class="chat-mirror" aria-hidden="true" v-html="mirrorHtml"></div>
         <textarea
           ref="textareaRef"
           v-model="inputMessage"
           :disabled="isLoading"
-          :class="{ 'text-hidden': !!mirrorHtml }"
+          :class="{ 'text-hidden': mirrorVisible }"
           @keydown.enter="handleEnterKey"
           @keydown.down.prevent="mentionActive >= 0 && mentionMove(1)"
           @keydown.up.prevent="mentionActive >= 0 && mentionMove(-1)"
@@ -838,7 +885,9 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
           @keydown.left="onArrowLeft"
           @keydown.right="onArrowRight"
           @keydown.tab.prevent="onTabSelect"
-          @input="onMentionInput"
+          @compositionstart="onCompositionStart"
+          @compositionend="onCompositionEnd"
+          @input="handleInput"
           @scroll="syncMirror"
           @paste="handlePaste"
           @focus="isFocused = true"

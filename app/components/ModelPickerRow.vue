@@ -153,6 +153,31 @@ defineEmits(['select', 'toggle-favorite']);
   opacity: 1;
 }
 
+/* Keyboard reachability: reveal the star while the row has focus. */
+.mpr-row:focus-visible .mpr-star {
+  opacity: 1;
+}
+
+/* Touch devices have no hover, so a hover-revealed star is undiscoverable.
+   Always render it there — dimmed until favorited — with a larger touch
+   target. Desktop keeps the clean hover-only treatment. */
+@media (hover: none) {
+  .mpr-star {
+    opacity: 0.55;
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Sticky tap-hover shouldn't leave rows stuck highlighted */
+  .mpr-row:hover {
+    background: transparent;
+  }
+
+  .mpr-row.selected {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+  }
+}
+
 .mpr-star:hover {
   color: var(--text-primary);
 }

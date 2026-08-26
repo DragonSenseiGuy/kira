@@ -7,6 +7,8 @@
  *     above the whole composer)
  *   - The list refilters live as you type (reactive query)
  *   - Enter picks the highlighted file into the input
+ *   - IME composition (mobile keyboards): reactive state stays in sync while
+ *     composing so the send button enables and native text never hides
  *
  * Heavy dependency surface is mocked; mentions helpers stay real.
  */
@@ -181,6 +183,69 @@ describe("MessageForm — @mention autocomplete", () => {
     expect(wrapper.find("textarea").element.value).toBe("@data/words.csv ");
     // Picker closed after selection.
     expect(wrapper.find(".mention-pop").exists()).toBe(false);
+    wrapper.unmount();
+  });
+});
+
+describe("MessageForm — mobile IME composition", () => {
+  /**
+   * Simulates a mobile soft keyboard word: compositionstart, value edits,
+   * input events (which Vue's v-model ignores while composing).
+   */
+  async function compose(ta, text) {
+    ta.element.value = text;
+    await ta.trigger("compositionstart");
+    await ta.trigger("input");
+  }
+
+  it("keeps reactive state in sync mid-composition so the send button enables", async () => {
+    const wrapper = mountForm();
+    const ta = wrapper.find("textarea");
+
+    expect(wrapper.find(".send-btn").element.disabled).toBe(true);
+
+    // A composed (not yet committed) word must already enable the button —
+    // on mobile every word is a composition until space/punctuation.
+    await compose(ta, "hello wor");
+
+    expect(wrapper.find(".send-btn").element.disabled).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("never hides native text while composing, even with mention chips present", async () => {
+    wb.chatFiles.value = [{ path: "notes.md", size: 3 }];
+    const wrapper = mountForm();
+
+    // Committed mention → chip mirror engaged (textarea glyphs transparent).
+    const ta = await type(wrapper, "@notes.md ");
+    await flushPromises();
+    expect(wrapper.find(".chat-mirror").exists()).toBe(true);
+    expect(ta.classes()).toContain("text-hidden");
+
+    // Mid-composition → mirror suppressed so the composing word is visible.
+    ta.element.value = "@notes.md wor";
+    await ta.trigger("compositionstart");
+    await ta.trigger("input");
+    await flushPromises();
+    expect(wrapper.find(".chat-mirror").exists()).toBe(false);
+    expect(wrapper.find("textarea").classes()).not.toContain("text-hidden");
+
+    // Composition commits (space) → chips render again.
+    ta.element.value = "@notes.md world ";
+    await ta.trigger("compositionend");
+    await ta.trigger("input");
+    await flushPromises();
+    expect(wrapper.find(".chat-mirror").exists()).toBe(true);
+    expect(wrapper.find("textarea").classes()).toContain("text-hidden");
+    wrapper.unmount();
+  });
+
+  it("plain text without mentions never engages the transparency layer", async () => {
+    const wrapper = mountForm();
+    const ta = await type(wrapper, "just some words");
+    await flushPromises();
+    expect(wrapper.find(".chat-mirror").exists()).toBe(false);
+    expect(ta.classes()).not.toContain("text-hidden");
     wrapper.unmount();
   });
 });
