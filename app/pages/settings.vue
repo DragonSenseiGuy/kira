@@ -62,6 +62,7 @@ import { useDark, useToggle } from '@vueuse/core';
 import ExportMenu from '~/components/ExportMenu.vue';
 import ImportMenu from '~/components/ImportMenu.vue';
 import SettingsGeneral from '~/components/settings/SettingsGeneral.vue';
+import SettingsCustomization from '~/components/settings/SettingsCustomization.vue';
 import SettingsProviders from '~/components/settings/SettingsProviders.vue';
 import SettingsSearch from '~/components/settings/SettingsSearch.vue';
 import SettingsAutonomy from '~/components/settings/SettingsAutonomy.vue';
@@ -76,6 +77,7 @@ const router = useRouter();
 
 const navItems = [
   { key: 'general', label: 'General', icon: 'material-symbols:tune-rounded', component: SettingsGeneral },
+  { key: 'customization', label: 'Customization', icon: 'material-symbols:person-outline-rounded', component: SettingsCustomization },
   { key: 'providers', label: 'Providers', icon: 'material-symbols:lan-outline-rounded', component: SettingsProviders },
   { key: 'search', label: 'Search & Tools', icon: 'material-symbols:travel-explore-outline-rounded', component: SettingsSearch },
   { key: 'autonomy', label: 'Autonomy', icon: 'material-symbols:settings-accessibility-outline-rounded', component: SettingsAutonomy },

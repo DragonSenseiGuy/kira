@@ -13,6 +13,15 @@ All notable changes to Libre Assistant are documented here.
 
 ---
 
+## [2.0.2] - 2026
+
+### Fixed
+- Re-attached customization options to settings
+- Fixed chat box text rendering & submit button rendering on mobile
+- Modified model selector on mobile to better suit touchscreens
+
+---
+
 ## [2.0.1] - 2026-08-24
 
 ### Added
