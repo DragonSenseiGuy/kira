@@ -5,10 +5,7 @@
  * @version 3.0.0
  */
 
-import {
-  availableModels,
-  findModelById,
-} from "~/composables/availableModels";
+import { findFullModelById } from "~/composables/providers";
 import {
   loadNotepad,
   getNotepadSection,
@@ -162,7 +159,7 @@ export async function generateSystemPrompt(
     gpt_oss_limit_tables,
   } = settings;
 
-  const modelInfo = findModelById(availableModels, selected_model_id);
+  const modelInfo = findFullModelById(selected_model_id);
   const modelName = modelInfo?.name || "an AI model";
 
   const CORE_IDENTITY = `You are Libre, a helpful and capable AI assistant from the open-source Libre Assistant project. Your goal is to provide clear, accurate, and useful responses. Your underlying model is NOT called 'Libre' nor is it developed by Libre Assistant; you are ${modelName} developed by a third-party and integrated into Libre Assistant through OpenRouter. The current date is ${new Date().toISOString().split("T")[0]}. This current date is NOT your context cutoff date, but is the user's current date.`;

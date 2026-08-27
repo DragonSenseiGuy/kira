@@ -45,7 +45,6 @@ import { useDark } from "@vueuse/core";
 import { useHead } from '@unhead/vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { availableModels } from '~/composables/availableModels';
 import { useSettings } from '~/composables/useSettings';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
 import { useGlobalIncognito } from '~/composables/useGlobalIncognito';

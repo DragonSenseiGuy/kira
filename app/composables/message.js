@@ -10,11 +10,10 @@
  */
 
 import {
-  availableModels,
-  findModelById,
   DEFAULT_MODEL_ID,
   buildReasoningParams,
 } from "~/composables/availableModels";
+import { findFullModelById } from "~/composables/providers";
 import { generateSystemPrompt } from "~/composables/systemPrompt";
 import { toolManager } from "~/composables/toolsManager";
 import { postChatCompletion } from "~/composables/apiClient";
@@ -412,7 +411,7 @@ export async function* handleIncomingMessage(
     }
 
     // Find the selected model info
-    const selectedModelInfo = findModelById(availableModels, selectedModel);
+    const selectedModelInfo = findFullModelById(selectedModel);
 
     // Determine which tools are actually being used
     const modelHasToolUse = selectedModelInfo?.tool_use !== false;

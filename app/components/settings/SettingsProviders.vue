@@ -25,9 +25,20 @@
             </div>
             <div class="stx-provider-url">https://ai.hackclub.com/proxy/v1</div>
           </div>
-          <span class="stx-badge" :class="{ muted: !hackClubKey }">
-            {{ hackClubKey ? 'key set' : 'no key' }}
-          </span>
+          <div class="stx-provider-actions">
+            <span
+              class="stx-count"
+              :title="hcFullModels.length === 0 ? 'Model list not fetched yet' : `${hcFullModels.length} models available`"
+            >
+              {{ hcFullModels.length === 0 ? '—' : `${hcFullModels.length} models` }}
+            </span>
+            <span class="stx-badge" :class="{ muted: !hackClubKey }">
+              {{ hackClubKey ? 'key set' : 'no key' }}
+            </span>
+            <button class="stx-btn ghost" :disabled="refreshingHc" @click="refreshHcModels" aria-label="Refresh model list" title="Refresh model list">
+              <Icon icon="material-symbols:refresh-rounded" width="18" height="18" :class="{ spin: refreshingHc }" />
+            </button>
+          </div>
         </div>
 
         <div class="stx-input-container wide" style="margin-top: 12px">
@@ -194,6 +205,8 @@ import {
   generateProviderId,
   clearCachedProviderModels,
   fetchProviderModels,
+  fetchHcFullModels,
+  hcFullModels,
   customProviderModels,
   isLocalBaseUrl,
 } from '~/composables/providers';
@@ -213,6 +226,7 @@ function set(key, value) {
 }
 
 const refreshing = reactive({});
+const refreshingHc = ref(false);
 const editingId = ref(null);
 const editDraft = reactive({ name: '', baseUrl: '', apiKey: '' });
 const editError = ref('');
@@ -248,6 +262,25 @@ async function refreshModels(provider) {
     ui?.showToast(error?.message || 'Could not load models');
   } finally {
     refreshing[provider.id] = false;
+  }
+}
+
+async function refreshHcModels() {
+  refreshingHc.value = true;
+  try {
+    const models = await fetchHcFullModels({
+      apiKey: settingsManager.settings.custom_api_key,
+      force: true,
+    });
+    ui?.showToast(
+      models.length > 0
+        ? `Refreshed ${models.length} Hack Club models`
+        : 'No models reported by Hack Club',
+    );
+  } catch (error) {
+    ui?.showToast(error?.message || 'Could not refresh Hack Club models');
+  } finally {
+    refreshingHc.value = false;
   }
 }
 

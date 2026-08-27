@@ -499,16 +499,15 @@ export function getActiveProviderId(settings) {
  * Model groups for the ACTIVE provider only. Always returns an array of
  * `{category?, logo, models}` groups ready for the selectors.
  *
- * @param {Array} curatedCategories  Reactive curated repo catalog.
  * @param {Object} settings  Settings snapshot.
  */
-export function getActiveProviderModelGroups(curatedCategories, settings) {
+export function getActiveProviderModelGroups(settings) {
   const activeId = getActiveProviderId(settings);
 
   if (activeId !== HACKCLUB_PROVIDER_ID) {
     const provider = findCustomProvider(settings, activeId);
     if (!provider) {
-      return [...(curatedCategories || [])]; // stale state → curated fallback
+      return []; // stale state → no usable group
     }
     return [
       {
@@ -564,12 +563,11 @@ export function getLastModelForProvider(settings, providerId) {
  * @param {string} providerId
  * @returns {string|null} A full selected_model_id value, or null.
  */
-export function pickModelForProvider(curatedCategories, settings, providerId) {
+export function pickModelForProvider(settings, providerId) {
   // 1. Restore the provider's current model when it still exists.
   const last = getLastModelForProvider(settings, providerId);
   if (last) {
     const groups = getActiveProviderModelGroupsForProvider(
-      curatedCategories,
       settings,
       providerId,
     );
@@ -583,7 +581,6 @@ export function pickModelForProvider(curatedCategories, settings, providerId) {
   }
 
   const groups = getActiveProviderModelGroupsForProvider(
-    curatedCategories,
     settings,
     providerId,
   );
@@ -598,14 +595,13 @@ export function pickModelForProvider(curatedCategories, settings, providerId) {
  * providerId — no reliance on settings.active_provider_id.
  */
 function getActiveProviderModelGroupsForProvider(
-  curatedCategories,
   settings,
   providerId,
 ) {
-  return evaluateGroupsForProvider(curatedCategories, settings, providerId);
+  return evaluateGroupsForProvider(settings, providerId);
 }
 
-function evaluateGroupsForProvider(curatedCategories, settings, providerId) {
+function evaluateGroupsForProvider(settings, providerId) {
   if (providerId !== HACKCLUB_PROVIDER_ID) {
     const provider = findCustomProvider(settings, providerId);
     if (!provider) return [];
@@ -648,11 +644,10 @@ export function getFavoriteModelIds(settings, providerId) {
  * Resolves a provider's favorites to full model objects (skipping ones no
  * longer present in the provider's catalog).
  */
-export function getFavoriteModels(curatedCategories, settings, providerId) {
+export function getFavoriteModels(settings, providerId) {
   const ids = getFavoriteModelIds(settings, providerId);
   if (ids.length === 0) return [];
   const all = getActiveProviderModelGroupsForProvider(
-    curatedCategories,
     settings,
     providerId,
   ).flatMap((g) => g.models || []);
@@ -701,18 +696,40 @@ export function isFavoriteModel(settings, providerId, modelId) {
 const HC_FULL_MODELS_CACHE_KEY = "libre-hc-full-models";
 
 /**
+ * How long the cached catalog is treated as fresh before we re-check it in
+ * the background. The list is large (~840 models) and changes infrequently,
+ * so re-fetching it on every page load is wasteful — we only refresh at most
+ * once per this window, and even then only rewrite the cache when the catalog
+ * actually changed.
+ */
+const MODEL_LIST_MAX_AGE_MS = 30 * 60 * 1000;
+
+/**
  * Reactive array of normalized models from the FULL Hack Club catalog
  * (which mirrors every OpenRouter model). Entries are slimmed before
  * caching to keep localStorage usage sane on a very large list.
  */
 export const hcFullModels = reactive([]);
 
+// Catalog freshness bookkeeping (mirrors what we persist to localStorage).
+let cachedSig = null; // cheap signature of the catalog, for change detection
+let cachedAt = 0; // epoch ms of the last successful fetch/persist
+let currentSig = null;
+
 if (typeof window !== "undefined") {
   try {
     const cached = window.localStorage.getItem(HC_FULL_MODELS_CACHE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed)) hcFullModels.push(...parsed);
+      // Newer wrapped format: { models, sig, at }. Older caches stored the
+      // bare array — accept both so existing caches aren't silently dropped.
+      const models = Array.isArray(parsed) ? parsed : parsed?.models;
+      if (Array.isArray(models)) {
+        hcFullModels.push(...models);
+        cachedSig = Array.isArray(parsed) ? null : parsed?.sig ?? null;
+        cachedAt = Array.isArray(parsed) ? 0 : typeof parsed?.at === "number" ? parsed.at : 0;
+        currentSig = cachedSig;
+      }
     }
   } catch {
     // Malformed cache — will be refetched.
@@ -724,11 +741,30 @@ function persistHcFullModels() {
   try {
     window.localStorage.setItem(
       HC_FULL_MODELS_CACHE_KEY,
-      JSON.stringify(hcFullModels),
+      JSON.stringify({ models: hcFullModels, sig: currentSig, at: cachedAt }),
     );
   } catch {
     // Quota exceeded — the in-memory list still works this session.
   }
+}
+
+/**
+ * Cheap, stable signature of the catalog used for change detection without
+ * serialising the entire (large) list. FNV-1a hash over each model's id+name;
+ * collisions are astronomically unlikely for a change-detection signal.
+ * @param {Array} models
+ * @returns {string}
+ */
+function signatureOf(models) {
+  let h = 0x811c9dc5;
+  for (const m of models) {
+    const s = `${m?.id ?? ""} ${m?.name ?? ""}`;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+  }
+  return (h >>> 0).toString(16);
 }
 
 /**
@@ -824,10 +860,16 @@ export function dedupeModelsById(models) {
  * @returns {Promise<Array>} Normalized model objects.
  */
 export async function fetchHcFullModels({ apiKey, force = false } = {}) {
-  if (!force && hcFullModels.length > 0) return hcFullModels;
   if (hcFullModelsInflight) return hcFullModelsInflight;
 
   hcFullModelsInflight = (async () => {
+    // Skip the network entirely while the cached catalog is still fresh — the
+    // list is large and changes infrequently, so re-fetching on every page
+    // load is wasteful. We only re-check once per MODEL_LIST_MAX_AGE_MS.
+    if (!force && cachedAt && Date.now() - cachedAt < MODEL_LIST_MAX_AGE_MS) {
+      return hcFullModels;
+    }
+
     try {
       const response = await fetch("/api/models", {
         method: "POST",
@@ -858,9 +900,25 @@ export async function fetchHcFullModels({ apiKey, force = false } = {}) {
         raw.map(normalizeFullModel).filter(Boolean),
       );
 
-      hcFullModels.length = 0;
-      hcFullModels.push(...normalized);
+      // Only rewrite the cache and the reactive list when the catalog actually
+      // changed. The signature is a cheap hash over id+name, so we avoid the
+      // expensive full-list serialisation a naive deep compare would need.
+      const sig = signatureOf(normalized);
+      if (force || sig !== cachedSig) {
+        hcFullModels.length = 0;
+        hcFullModels.push(...normalized);
+        currentSig = sig;
+        cachedSig = sig;
+      }
+      // Either way, mark the catalog as freshly checked so we don't hit the
+      // network again until MODEL_LIST_MAX_AGE_MS elapses.
+      cachedAt = Date.now();
       persistHcFullModels();
+      return hcFullModels;
+    } catch (error) {
+      // On failure keep whatever is already in memory (cached or empty) so the
+      // UI never drops to an empty list just because a refresh failed.
+      console.error("[models] Failed to load the full catalog:", error);
       return hcFullModels;
     } finally {
       hcFullModelsInflight = null;

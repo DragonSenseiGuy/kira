@@ -1,6 +1,6 @@
 import localforage from "localforage";
 import { reactive } from "vue";
-import { availableModels, findModelById, DEFAULT_MODEL_ID } from './availableModels';
+import { DEFAULT_MODEL_ID } from './availableModels';
 import {
   isKnownModelId,
   parseCustomModelId,
@@ -8,6 +8,7 @@ import {
   customProviderModels,
   findFullModelById,
   getActiveProviderId,
+  hasHcFullModels,
 } from './providers';
 import DEFAULT_PARAMETERS from './defaultParameters';
 import {
@@ -191,11 +192,11 @@ class Settings {
         // provider — reset to the default immediately so the UI never
         // shows "Loading..." with a stale/removed model ID.
         if (
-          availableModels.length > 0 &&
+          hasHcFullModels() &&
           !isKnownModelId(
             mergedSettings,
             mergedSettings.selected_model_id,
-            (id) => findModelById(availableModels, id) || findFullModelById(id),
+            (id) => findFullModelById(id),
           )
         ) {
           console.warn(
@@ -354,7 +355,7 @@ class Settings {
    */
   get selectedModel() {
     const id = this.settings.selected_model_id;
-    const hackClubModel = findModelById(availableModels, id);
+    const hackClubModel = findFullModelById(id);
     if (hackClubModel) return hackClubModel;
 
     // Full Hack Club/OpenRouter catalog ("show all models")

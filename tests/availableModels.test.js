@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import modelList from "./model-list-fixture.json";
 import {
   findModelById,
   normalizeReasoningConfig,
@@ -19,13 +20,16 @@ import {
   isReasoningEnabled,
   buildReasoningParams,
   supportsToolUse,
-  availableModels,
   DEFAULT_MODEL_ID,
 } from "../app/composables/availableModels.js";
 
+// The model catalog is the flat Hack Club / OpenRouter list (no curated
+// categories wrapper), so tests that need real entries flatten the fixture.
+const catalog = modelList.categories.flatMap((c) => c.models);
+
 describe("DEFAULT_MODEL_ID", () => {
   it("points to a real model in the catalog", () => {
-    const found = findModelById(availableModels, DEFAULT_MODEL_ID);
+    const found = findModelById(catalog, DEFAULT_MODEL_ID);
     expect(found).not.toBeNull();
     expect(found.id).toBe(DEFAULT_MODEL_ID);
   });
@@ -58,8 +62,8 @@ describe("findModelById", () => {
   });
 
   it("finds real catalog models (spot checks)", () => {
-    expect(findModelById(availableModels, "anthropic/claude-opus-4.8").name).toBe("Claude Opus 4.8");
-    expect(findModelById(availableModels, "moonshotai/kimi-k3").name).toBe("Kimi K3");
+    expect(findModelById(catalog, "anthropic/claude-opus-4.8").name).toBe("Claude Opus 4.8");
+    expect(findModelById(catalog, "moonshotai/kimi-k3").name).toBe("Kimi K3");
   });
 });
 
@@ -451,19 +455,19 @@ describe("supportsToolUse", () => {
 
   it("matches the catalog's tool_use: false models", () => {
     // Spot-check the four catalog models explicitly marked as not supporting tool use
-    expect(supportsToolUse(findModelById(availableModels, "deepseek/deepseek-v3.2-speciale"))).toBe(false);
-    expect(supportsToolUse(findModelById(availableModels, "google/gemini-3.1-flash-image-preview"))).toBe(false);
-    expect(supportsToolUse(findModelById(availableModels, "google/gemini-2.5-flash-image"))).toBe(false);
+    expect(supportsToolUse(findModelById(catalog, "deepseek/deepseek-v3.2-speciale"))).toBe(false);
+    expect(supportsToolUse(findModelById(catalog, "google/gemini-3.1-flash-image-preview"))).toBe(false);
+    expect(supportsToolUse(findModelById(catalog, "google/gemini-2.5-flash-image"))).toBe(false);
   });
 
   it("matches the catalog's tool_use: true models", () => {
-    expect(supportsToolUse(findModelById(availableModels, "deepseek/deepseek-v4-pro"))).toBe(true);
-    expect(supportsToolUse(findModelById(availableModels, "perplexity/sonar-deep-research"))).toBe(true);
+    expect(supportsToolUse(findModelById(catalog, "deepseek/deepseek-v4-pro"))).toBe(true);
+    expect(supportsToolUse(findModelById(catalog, "perplexity/sonar-deep-research"))).toBe(true);
   });
 
   it("treats catalog models without a tool_use field as tool-capable (default)", () => {
     // Most catalog models don't declare tool_use at all and are still considered tool-capable
-    expect(supportsToolUse(findModelById(availableModels, "anthropic/claude-sonnet-4.6"))).toBe(true);
-    expect(supportsToolUse(findModelById(availableModels, "openai/gpt-5.5"))).toBe(true);
+    expect(supportsToolUse(findModelById(catalog, "anthropic/claude-sonnet-4.6"))).toBe(true);
+    expect(supportsToolUse(findModelById(catalog, "openai/gpt-5.5"))).toBe(true);
   });
 });

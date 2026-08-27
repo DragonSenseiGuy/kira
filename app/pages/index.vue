@@ -30,7 +30,7 @@
         ref="messageFormRef"
         :is-loading="isLoading"
         :selected-model-id="settingsManager.settings.selected_model_id"
-        :available-models="availableModels"
+        :models="hcFullModels"
         :selected-model-name="selectedModelName"
         :settings-manager="settingsManager"
         :conversation-id="currConvo"
@@ -52,7 +52,8 @@ import { useDark } from "@vueuse/core";
 import { useRoute, useRouter } from '#app';
 import { useHead } from '@unhead/vue';
 
-import { availableModels, findModelById } from '~/composables/availableModels';
+import { findModelById } from '~/composables/availableModels';
+import { hcFullModels } from '~/composables/providers';
 import { useSettings } from '~/composables/useSettings';
 import { useConversation } from '~/composables/useConversation';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
@@ -160,12 +161,12 @@ onMounted(async () => {
       ].filter(Boolean);
 
       const matchedModel = modelCandidates
-        .map(candidate => findModelById(availableModels, candidate))
+        .map(candidate => findModelById(hcFullModels, candidate))
         .find(Boolean);
 
-      const matchedByName = availableModels
-        .flatMap(category => category.models || [])
-        .find(model => model.name.toLowerCase() === normalizedModel.toLowerCase());
+      const matchedByName = hcFullModels.find(
+        model => model.name.toLowerCase() === normalizedModel.toLowerCase(),
+      );
 
       if (matchedModel || matchedByName) {
         settingsManager.settings.selected_model_id = (matchedModel || matchedByName).id;

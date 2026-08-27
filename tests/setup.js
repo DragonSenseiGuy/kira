@@ -1,5 +1,3 @@
-import modelList from './model-list-fixture.json';
-
 // Ensure a usable localStorage exists before the composables are imported.
 // In some runtimes (e.g. Node 26, which ships a built-in but disabled
 // `localStorage` global) `window.localStorage` is `undefined` even under
@@ -46,12 +44,3 @@ function ensureLocalStorage() {
 }
 
 ensureLocalStorage();
-
-// Populate localStorage with a minimal model list before the composables
-// are imported by tests.  This mirrors the production behaviour where the
-// app loads the cached model list immediately on startup.  The old curated
-// repo list (with logos) was retired in v2.0.0 — the full Hack Club /
-// OpenRouter catalog is fetched at runtime instead.
-if (typeof window !== 'undefined') {
-  window.localStorage.setItem('libre-model-list', JSON.stringify(modelList));
-}

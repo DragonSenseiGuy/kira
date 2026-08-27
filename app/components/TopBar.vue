@@ -62,9 +62,9 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import ModelPickerPopover from "./ModelPickerPopover.vue";
-import { availableModels } from "../composables/availableModels";
 import {
   getActiveProviderModelGroups,
+  hcFullModels,
 } from "../composables/providers";
 import { useSettings } from "../composables/useSettings";
 import { Icon } from "@iconify/vue";
@@ -156,7 +156,7 @@ const isPickerOpen = ref(false);
 
 /** Groups for the ACTIVE provider (used for the trigger's logo lookup). */
 const activeModelGroups = computed(() =>
-  getActiveProviderModelGroups(availableModels, settingsManager.settings),
+  getActiveProviderModelGroups(settingsManager.settings),
 );
 
 // Get window size to determine mobile/desktop view

@@ -18,7 +18,7 @@
         ref="messageFormRef"
         :is-loading="isLoading"
         :selected-model-id="settingsManager.settings.selected_model_id"
-        :available-models="availableModels"
+        :models="hcFullModels"
         :selected-model-name="selectedModelName"
         :settings-manager="settingsManager"
         conversation-id="incognito"
@@ -40,7 +40,7 @@ import { useDark } from "@vueuse/core";
 import { useRoute, useRouter } from '#app';
 import { useHead } from '@unhead/vue';
 
-import { availableModels } from '~/composables/availableModels';
+import { hcFullModels } from '~/composables/providers';
 import { useSettings } from '~/composables/useSettings';
 import { useConversation } from '~/composables/useConversation';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';

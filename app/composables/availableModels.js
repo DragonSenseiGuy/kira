@@ -1,219 +1,19 @@
-import { reactive } from 'vue';
-import { isKnownModelId, findFullModelById, hasHcFullModels } from './providers';
+import { isKnownModelId, findFullModelById, hasHcFullModels, HACKCLUB_DEFAULT_MODEL_ID } from './providers';
 
 /**
- * Remote model list configuration for Libre Assistant.
+ * @file availableModels.js
+ * @description Pure helpers that derive UI / API behaviour from a model's
+ * metadata, plus selection validation.
  *
- * The model catalog is now decentralised: it is fetched from the
- * Libre-Assistant-Model-List repository and cached locally so it is
- * available immediately on startup. After startup, the app always checks
- * the remote source for updates and refreshes the local cache when the list
- * (or logos) have changed.
- *
- * Logo assets are also fetched from the remote repository and cached as
- * base64 data URLs so the local public/ai_logos folder is no longer needed.
+ * The model catalog itself is decentralised: Libre Assistant uses the full
+ * Hack Club / OpenRouter catalog (see `hcFullModels` in providers.js). That
+ * catalog is fetched at runtime through the `/api/models` relay, cached in
+ * localStorage, and refreshed in the background whenever it changes (see
+ * `fetchHcFullModels`). There is no separate curated list anymore.
  */
 
-const REMOTE_MODEL_LIST_URL =
-  'https://raw.githubusercontent.com/Mostlime12195/Libre-Assistant-Model-List/refs/heads/main/model-list.json';
-
-const REPO_RAW_BASE =
-  'https://raw.githubusercontent.com/Mostlime12195/Libre-Assistant-Model-List/refs/heads/main';
-
-const MODEL_LIST_CACHE_KEY = 'libre-model-list';
-const LOGO_CACHE_PREFIX = 'libre-model-logo:';
-
-/** Reactive array of the currently available model categories. */
-export const availableModels = reactive([]);
-
-/**
- * The default model ID. This is updated from the remote model list once it
- * has been loaded, but starts with a hard-coded fallback so that settings can
- * be constructed before the remote catalog is available.
- */
-export let DEFAULT_MODEL_ID = 'moonshotai/kimi-k2.6';
-
-/** True once the initial (cached or fallback) model list has been applied. */
-let isInitialised = false;
-
-let loadPromise = null;
-
-/**
- * Converts a logo path from the remote catalog into an absolute URL.
- * @param {string} logoPath
- * @returns {string|null}
- */
-function resolveLogoUrl(logoPath) {
-  if (!logoPath) return null;
-  if (logoPath.startsWith('http')) return logoPath;
-  if (logoPath.startsWith('/')) return `${REPO_RAW_BASE}${logoPath}`;
-  return `${REPO_RAW_BASE}/${logoPath}`;
-}
-
-/**
- * Tries to read a cached logo data URL from localStorage.
- * @param {string} logoPath
- * @returns {string|null}
- */
-function getCachedLogoUrl(logoPath) {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(`${LOGO_CACHE_PREFIX}${logoPath}`);
-  } catch (e) {
-    console.error('[models] Failed to read cached logo:', e);
-    return null;
-  }
-}
-
-/**
- * Applies a fetched/cached model list to the reactive `availableModels` array
- * and updates the default model ID. Logo paths are rewritten to use cached
- * data URLs when available, otherwise absolute remote URLs.
- *
- * @param {Object} data
- * @param {string} [data.defaultModelId]
- * @param {Array}  [data.categories]
- */
-export function applyModelList(data) {
-  if (!data || !Array.isArray(data.categories)) return;
-
-  if (data.defaultModelId) {
-    DEFAULT_MODEL_ID = data.defaultModelId;
-  }
-
-  const processedCategories = data.categories.map((category) => ({
-    ...category,
-    logo: getCachedLogoUrl(category.logo) || resolveLogoUrl(category.logo),
-    models: Array.isArray(category.models)
-      ? category.models.map((model) => ({ ...model }))
-      : [],
-  }));
-
-  availableModels.length = 0;
-  availableModels.push(...processedCategories);
-  isInitialised = true;
-}
-
-/**
- * Loads the model list from the local cache, if one exists.
- * @returns {boolean} Whether a cached list was found and applied.
- */
-export function loadModelListFromCache() {
-  if (typeof window === 'undefined') return false;
-  try {
-    const cached = window.localStorage.getItem(MODEL_LIST_CACHE_KEY);
-    if (cached) {
-      applyModelList(JSON.parse(cached));
-      return true;
-    }
-  } catch (e) {
-    console.error('[models] Failed to load cached model list:', e);
-  }
-  return false;
-}
-
-/**
- * Fetches the current remote model list.
- * @returns {Promise<Object|null>}
- */
-async function fetchRemoteModelList() {
-  try {
-    const response = await fetch(REMOTE_MODEL_LIST_URL);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    return await response.json();
-  } catch (e) {
-    console.error('[models] Failed to fetch remote model list:', e);
-    return null;
-  }
-}
-
-/**
- * Encodes a string to base64 in a Unicode-safe way.
- * @param {string} str
- * @returns {string}
- */
-function toBase64(str) {
-  return btoa(unescape(encodeURIComponent(str)));
-}
-
-/**
- * Fetches and caches any logos that are not already in localStorage.
- *
- * @param {Array} categories
- * @returns {Promise<void>}
- */
-async function cacheLogos(categories) {
-  if (typeof window === 'undefined') return;
-
-  const logoPaths = new Set();
-  for (const category of categories) {
-    if (category.logo) logoPaths.add(category.logo);
-  }
-
-  await Promise.all(
-    Array.from(logoPaths).map(async (logoPath) => {
-      const cacheKey = `${LOGO_CACHE_PREFIX}${logoPath}`;
-      if (window.localStorage.getItem(cacheKey)) return;
-
-      try {
-        const url = resolveLogoUrl(logoPath);
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const svgText = await response.text();
-        const dataUrl = `data:image/svg+xml;base64,${toBase64(svgText)}`;
-        window.localStorage.setItem(cacheKey, dataUrl);
-      } catch (e) {
-        console.error(`[models] Failed to cache logo ${logoPath}:`, e);
-      }
-    }),
-  );
-}
-
-/**
- * Loads the remote model list, caches it, caches any missing logos, and
- * refreshes the reactive model list if the remote version differs from the
- * cached version. If no local cache exists yet, the remote list is applied
- * immediately.
- *
- * This function is safe to call multiple times: concurrent calls share the
- * same promise.
- *
- * @returns {Promise<void>}
- */
-export async function loadModelList() {
-  if (typeof window === 'undefined') return;
-  if (loadPromise) return loadPromise;
-
-  loadPromise = (async () => {
-    const hadCache = isInitialised;
-    const remoteData = await fetchRemoteModelList();
-    if (!remoteData) return;
-
-    const cachedDataStr = window.localStorage.getItem(MODEL_LIST_CACHE_KEY);
-    const cachedData = cachedDataStr ? JSON.parse(cachedDataStr) : null;
-
-    // Update the cache and the reactive list whenever the remote list differs.
-    if (JSON.stringify(remoteData) !== JSON.stringify(cachedData)) {
-      window.localStorage.setItem(MODEL_LIST_CACHE_KEY, JSON.stringify(remoteData));
-      applyModelList(remoteData);
-    } else if (!hadCache) {
-      // If the cache was identical to remote but we had no local cache applied
-      // (e.g. fresh browser profile), still apply the remote list now.
-      applyModelList(remoteData);
-    }
-
-    // Cache any logos that are missing locally, then re-apply so the cached
-    // data URLs are used.
-    await cacheLogos(remoteData.categories);
-    applyModelList(remoteData);
-  })();
-
-  return loadPromise;
-}
+/** The default model ID — Hack Club's designated default. */
+export const DEFAULT_MODEL_ID = HACKCLUB_DEFAULT_MODEL_ID;
 
 /**
  * If the user's currently selected model ID is not present in the available
@@ -224,20 +24,13 @@ export async function loadModelList() {
  */
 export function validateSelectedModel(settingsManager) {
   if (!settingsManager?.isLoaded || !settingsManager?.settings) return;
-  // Don't reset while no catalog source is available to judge against
-  // (curated list empty AND full catalog not fetched yet).
-  if (availableModels.length === 0 && !hasHcFullModels()) return;
+  // Don't reset until the catalog has been fetched at least once.
+  if (!hasHcFullModels()) return;
 
   const currentId = settingsManager.settings.selected_model_id;
   // Composite custom-provider IDs stay valid as long as their provider
   // exists — their model list may not be fetched yet, which is fine.
-  if (
-    isKnownModelId(
-      settingsManager.settings,
-      currentId,
-      (id) => findModelById(availableModels, id) || findFullModelById(id),
-    )
-  ) {
+  if (isKnownModelId(settingsManager.settings, currentId, (id) => findFullModelById(id))) {
     return;
   }
 
@@ -493,12 +286,3 @@ export function findModelById(models, id) {
   }
   return null;
 }
-
-// On the client, initialise the model list from the local cache immediately so
-// the UI can render without waiting for the network. The remote check is
-// started from app.vue once the application mounts.
-if (typeof window !== 'undefined') {
-  loadModelListFromCache();
-}
-
-export default availableModels;

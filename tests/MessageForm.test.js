@@ -112,7 +112,7 @@ function mountForm() {
     props: {
       isLoading: false,
       selectedModelId: "",
-      availableModels: [],
+      models: [],
       settingsManager: { settings: {}, saveSettings: vi.fn() },
       selectedModelName: "Test Model",
       conversationId: "",

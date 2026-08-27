@@ -13,7 +13,6 @@
 
 import { computed, ref, watch } from "vue";
 import { useSettings } from "./useSettings";
-import { availableModels } from "./availableModels";
 import {
   getConfiguredProviders,
   getActiveProviderId,
@@ -61,7 +60,7 @@ export function useModelPicker() {
 
   /** Groups for the ACTIVE provider (Hack Club = full catalog). */
   const groups = computed(() =>
-    getActiveProviderModelGroups(availableModels, settingsManager.settings),
+    getActiveProviderModelGroups(settingsManager.settings),
   );
 
   /** Flat model list for the active provider, deduplicated by id. */
@@ -86,7 +85,7 @@ export function useModelPicker() {
 
   /** Favorites for the active provider, resolved to model objects. */
   const favoriteModels = computed(() =>
-    getFavoriteModels(availableModels, settingsManager.settings, activeProviderId.value),
+    getFavoriteModels(settingsManager.settings, activeProviderId.value),
   );
 
   /**
@@ -177,7 +176,6 @@ export function useModelPicker() {
     // Switch to the provider's "current" model: its last-used model, or
     // its default (Hack Club → kimi-k2.6; customs → first in list).
     const nextModel = pickModelForProvider(
-      availableModels,
       settingsManager.settings,
       providerId,
     );

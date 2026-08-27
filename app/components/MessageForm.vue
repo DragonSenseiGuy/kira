@@ -43,7 +43,7 @@ import {
 const props = defineProps({
   isLoading: Boolean,
   selectedModelId: String, // Add selected model ID to determine if search is supported
-  availableModels: Array, // Add available models to check tool support
+  models: Array, // Full model catalog (Hack Club / OpenRouter) to check capabilities
   settingsManager: Object, // Add settings manager prop
   selectedModelName: String,
   conversationId: {
@@ -316,8 +316,8 @@ const trimmedMessage = computed(() => inputMessage.value.trim());
 const selectedModel = computed(() => {
   if (!props.selectedModelId) return null;
 
-  const curated = props.availableModels
-    ? findModelById(props.availableModels, props.selectedModelId)
+  const curated = props.models
+    ? findModelById(props.models, props.selectedModelId)
     : null;
   if (curated) return curated;
 
@@ -443,16 +443,9 @@ const isMobile = computed(() => windowWidth.value < 600);
 const isBottomSheetOpen = ref(false);
 
 const selectedModelLogo = computed(() => {
-  if (!props.selectedModelId || !props.availableModels) return null;
-  for (const item of props.availableModels) {
-    if (item.category) {
-      const modelInCategory = item.models.find(model => model.id === props.selectedModelId);
-      if (modelInCategory) return item.logo;
-    } else if (item.id === props.selectedModelId) {
-      return item.logo;
-    }
-  }
-  return null;
+  if (!props.selectedModelId || !props.models) return null;
+  const model = findModelById(props.models, props.selectedModelId);
+  return model?.logo ?? null;
 });
 
 function openBottomSheet() {

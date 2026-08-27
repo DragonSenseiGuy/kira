@@ -13,6 +13,16 @@ All notable changes to Libre Assistant are documented here.
 
 ---
 
+## [2.1.0] - 2026-08-27
+
+### Added
+- Manual Hack Club AI model list update button.
+
+### Fixed
+- Model list properly updates every ~30 minutes.
+
+---
+
 ## [2.0.4] - 2026-08-27
 
 ### Fixed
@@ -20,6 +30,10 @@ All notable changes to Libre Assistant are documented here.
 
 ### Removed
 - Removed deprecated testing code for the old model list.
+- Removed the separate curated model list (the `Libre-Assistant-Model-List` remote fetch, its logo caching, and the `availableModels` curated catalog). The Hack Club / OpenRouter catalog is now the single source of truth.
+
+### Changed
+- The HCAI model list now refreshes on a staleness window (30 min) instead of on every page load: while the cached catalog is fresh the network is skipped entirely, and when it does re-check the cache is only rewritten if a cheap catalog signature changed (no full-list serialisation). Consumers were repointed from the retired `availableModels` curated list to the full `hcFullModels` catalog.
 
 ---
 

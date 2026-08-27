@@ -315,14 +315,6 @@ describe("buildAllModelGroups", () => {
     }
   });
 
-  const curated = [
-    {
-      category: "Anthropic",
-      logo: "/logos/anthropic.svg",
-      models: [{ id: "anthropic/claude-fable-5", name: "Claude Fable 5" }],
-    },
-    { id: "standalone-model", name: "Standalone" },
-  ];
 
   it("getConfiguredProviders lists Hack Club first (locked) plus customs", () => {
     const providers = getConfiguredProviders({
@@ -360,7 +352,7 @@ describe("buildAllModelGroups", () => {
     // Seed the fetched list for pr_a (as fetchProviderModels would).
     customProviderModels["pr_a"] = [{ id: "groq-model" }];
 
-    const groups = getActiveProviderModelGroups(curated, settings);
+    const groups = getActiveProviderModelGroups(settings);
     expect(groups).toHaveLength(1);
     expect(groups[0].category).toBe("Groq");
     expect(groups[0]._providerId).toBe("pr_a");
@@ -373,7 +365,7 @@ describe("buildAllModelGroups", () => {
     hcFullModels.push(
       { id: "stealth/ox-alpha", name: "Ox Alpha", _fullList: true },
     );
-    const groups = getActiveProviderModelGroups(curated, {
+    const groups = getActiveProviderModelGroups({
       custom_providers: [],
     });
 
@@ -384,7 +376,7 @@ describe("buildAllModelGroups", () => {
   });
 
   it("returns an empty full-catalog group before the fetch completes", () => {
-    const groups = getActiveProviderModelGroups(curated, { custom_providers: [] });
+    const groups = getActiveProviderModelGroups({ custom_providers: [] });
     expect(groups).toHaveLength(1);
     expect(groups[0]._fullCatalog).toBe(true);
     expect(groups[0].models).toEqual([]);
@@ -414,7 +406,7 @@ describe("buildAllModelGroups", () => {
     toggleFavoriteModel(settings, HACKCLUB_PROVIDER_ID, "stealth/ox-alpha");
     toggleFavoriteModel(settings, HACKCLUB_PROVIDER_ID, "deleted/model");
 
-    const favorites = getFavoriteModels(curated, settings, HACKCLUB_PROVIDER_ID);
+    const favorites = getFavoriteModels(settings, HACKCLUB_PROVIDER_ID);
     expect(favorites).toHaveLength(1);
     expect(favorites[0].id).toBe("stealth/ox-alpha");
   });
@@ -434,7 +426,7 @@ describe("buildAllModelGroups", () => {
     };
 
     // Nothing cached for pr_a yet → no pick possible.
-    expect(pickModelForProvider(curated, settings, "pr_a")).toBeNull();
+    expect(pickModelForProvider(settings, "pr_a")).toBeNull();
 
     // Simulate a fetched model list by seeding the reactive cache via
     // the same shape fetchProviderModels would produce.
@@ -444,13 +436,13 @@ describe("buildAllModelGroups", () => {
     ];
 
     // First available model is chosen…
-    expect(pickModelForProvider(curated, settings, "pr_a")).toBe(
+    expect(pickModelForProvider(settings, "pr_a")).toBe(
       buildCustomModelId("pr_a", "llama-3"),
     );
 
     // …unless this provider has a remembered last model that still exists.
     settings.provider_last_model["pr_a"] = buildCustomModelId("pr_a", "mixtral");
-    expect(pickModelForProvider(curated, settings, "pr_a")).toBe(
+    expect(pickModelForProvider(settings, "pr_a")).toBe(
       buildCustomModelId("pr_a", "mixtral"),
     );
   });
@@ -470,20 +462,20 @@ describe("buildAllModelGroups", () => {
     const settings = { provider_last_model: {} };
 
     // No remembered model → the designated default, NOT hcFullModels[0].
-    expect(pickModelForProvider([], settings, HACKCLUB_PROVIDER_ID)).toBe(
+    expect(pickModelForProvider(settings, HACKCLUB_PROVIDER_ID)).toBe(
       HACKCLUB_DEFAULT_MODEL_ID,
     );
 
     // A remembered ("current") model wins over the default…
     settings.provider_last_model[HACKCLUB_PROVIDER_ID] = "deepseek/deepseek-v4-flash-vision-exp";
-    expect(pickModelForProvider([], settings, HACKCLUB_PROVIDER_ID)).toBe(
+    expect(pickModelForProvider(settings, HACKCLUB_PROVIDER_ID)).toBe(
       "deepseek/deepseek-v4-flash-vision-exp",
     );
 
     // …but only while it still exists in the catalog.
     delete settings.provider_last_model[HACKCLUB_PROVIDER_ID];
     settings.provider_last_model[HACKCLUB_PROVIDER_ID] = "deleted/model";
-    expect(pickModelForProvider([], settings, HACKCLUB_PROVIDER_ID)).toBe(
+    expect(pickModelForProvider(settings, HACKCLUB_PROVIDER_ID)).toBe(
       HACKCLUB_DEFAULT_MODEL_ID,
     );
   });
