@@ -92,15 +92,24 @@ export async function createConversation(plainMessages, lastUpdated) {
   }
 }
 
+/** Model ID used for title generation when the active provider is Hack Club AI. */
+const TITLE_GENERATION_MODEL = "z-ai/glm-5.3-flash";
+
 async function generateTitleInBackground(conversationId, plainMessages, lastUpdated) {
   const systemPrompt = `You are an AI with the task of shortening and summarising messages into a short title. You must summarise the given messages based on their content into at most a 40 character title. Each conversation is between a user and an AI chatbot. The messages provided to you are the first messages of the conversation. The title must be general enough to apply to what you think the conversation will be about. Only output the title, without any additional explainations or commentary.`;
 
   try {
-    // Titles use the currently selected model/provider.
     const target = await getBackgroundTarget();
     if (!target.model || !target.customApiKey) {
       console.warn("No usable model/key for title generation, skipping");
       return;
+    }
+
+    // When using the Hack Club AI provider, always use the dedicated
+    // title-generation model rather than the user's currently selected model.
+    // Custom providers use whatever model the user has chosen.
+    if (!target.upstreamBaseUrl) {
+      target.model = TITLE_GENERATION_MODEL;
     }
 
     const data = await requestCompletion({

@@ -13,6 +13,16 @@ All notable changes to Libre Assistant are documented here.
 
 ---
 
+## [2.0.4] - 2026-08-27
+
+### Fixed
+- When HC AI is selected, only use GLM 5.3 Flash for title generation.
+
+### Removed
+- Removed deprecated testing code for the old model list.
+
+---
+
 ## [2.0.3] - 2026-08-27
 
 ### Security

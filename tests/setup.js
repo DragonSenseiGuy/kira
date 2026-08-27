@@ -1,11 +1,5 @@
 import modelList from './model-list-fixture.json';
 
-const REMOTE_MODEL_LIST_URL =
-  'https://raw.githubusercontent.com/Mostlime12195/Libre-Assistant-Model-List/refs/heads/main/model-list.json';
-
-const REPO_RAW_BASE =
-  'https://raw.githubusercontent.com/Mostlime12195/Libre-Assistant-Model-List/refs/heads/main';
-
 // Ensure a usable localStorage exists before the composables are imported.
 // In some runtimes (e.g. Node 26, which ships a built-in but disabled
 // `localStorage` global) `window.localStorage` is `undefined` even under
@@ -53,28 +47,11 @@ function ensureLocalStorage() {
 
 ensureLocalStorage();
 
-// Populate localStorage with a cached model list before the composables are
-// imported by tests. This mirrors the production behaviour where the app
-// loads the cached model list immediately on startup.
+// Populate localStorage with a minimal model list before the composables
+// are imported by tests.  This mirrors the production behaviour where the
+// app loads the cached model list immediately on startup.  The old curated
+// repo list (with logos) was retired in v2.0.0 — the full Hack Club /
+// OpenRouter catalog is fetched at runtime instead.
 if (typeof window !== 'undefined') {
   window.localStorage.setItem('libre-model-list', JSON.stringify(modelList));
-
-  // Intercept the remote model-list and logo fetches so tests stay offline
-  // and do not log network errors during the background refresh.
-  const originalFetch = window.fetch;
-  window.fetch = async (url, ...args) => {
-    if (url === REMOTE_MODEL_LIST_URL) {
-      return new Response(JSON.stringify(modelList), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-    if (typeof url === 'string' && url.startsWith(`${REPO_RAW_BASE}/logos/`)) {
-      return new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', {
-        status: 200,
-        headers: { 'Content-Type': 'image/svg+xml' },
-      });
-    }
-    return originalFetch(url, ...args);
-  };
 }
