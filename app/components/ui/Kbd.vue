@@ -6,7 +6,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { formatCombo } from "../../composables/keyboardShortcuts";
+import { formatComboParts } from "~/utils/keybinds";
 
 const props = defineProps({
   /** A combo string such as "mod+k" — rendered with platform glyphs. */
@@ -22,7 +22,7 @@ const isMac = computed(
   () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent),
 );
 
-const caps = computed(() => formatCombo(props.keys, isMac.value));
+const caps = computed(() => formatComboParts(props.keys, isMac.value));
 </script>
 
 <style scoped>

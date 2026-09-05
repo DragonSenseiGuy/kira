@@ -34,6 +34,7 @@ import {
   saveContextSummary,
   deleteContextSummary,
   resolveCompressionSettings,
+  DEFAULT_COMPRESSION_MODEL,
   estimateMessageTokens,
   estimateChunkTokens,
   findValidSummaries,
@@ -101,15 +102,15 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('resolveCompressionSettings', () => {
-  it('returns defaults for empty settings', () => {
+  it('returns defaults for empty settings (no separate model — compression uses the selected model)', () => {
     const s = resolveCompressionSettings({});
     expect(s.enabled).toBe(true);
-    expect(s.model).toBe('deepseek/deepseek-v4-pro');
+    expect(s.model).toBeUndefined();
     expect(s.thresholdTokens).toBe(DEFAULT_THRESHOLD_TOKENS);
     expect(s.keepRecentTokens).toBe(DEFAULT_KEEP_RECENT_TOKENS);
   });
 
-  it('respects explicit values', () => {
+  it('respects explicit values and ignores the retired model field', () => {
     const s = resolveCompressionSettings({
       context_compression_enabled: false,
       context_compression_model: '  custom/model  ',
@@ -117,7 +118,7 @@ describe('resolveCompressionSettings', () => {
       context_compression_keep_recent_tokens: 3000,
     });
     expect(s.enabled).toBe(false);
-    expect(s.model).toBe('custom/model');
+    expect(s.model).toBeUndefined();
     expect(s.thresholdTokens).toBe(20000);
     expect(s.keepRecentTokens).toBe(3000);
   });

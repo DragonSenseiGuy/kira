@@ -1,8 +1,8 @@
 import localforage from "localforage";
 import { emitter } from "~/composables/emitter";
 import { migrateMessages } from "./branchManager";
-import { getSessionToken } from "~/composables/useSession";
-import { useSettings } from "~/composables/useSettings";
+import { requestCompletion, extractCompletionText } from "~/composables/apiClient";
+import { getBackgroundTarget } from "~/composables/backgroundCredentials";
 import { deleteChatSummary } from "./chatSummarizer";
 import { deleteContextSummary } from "./contextCompressor";
 import { useCloudSync } from "~/composables/useCloudSync";
@@ -62,7 +62,7 @@ function serializeMessage(msg) {
   return baseMessage;
 }
 
-export async function createConversation(plainMessages, lastUpdated, customApiKey = '') {
+export async function createConversation(plainMessages, lastUpdated) {
   const conversationId = crypto.randomUUID();
   const rawMessages = plainMessages.map(serializeMessage);
   const title = "Untitled";
@@ -81,7 +81,6 @@ export async function createConversation(plainMessages, lastUpdated, customApiKe
     await localforage.setItem("conversations_metadata", metadata);
 
     emitter.emit("updateConversations");
-    console.log("Conversation saved successfully with Untitled title!");
 
     // Mirror to the signed-in account in the background; a no-op when
     // running local-only.
@@ -91,65 +90,59 @@ export async function createConversation(plainMessages, lastUpdated, customApiKe
       branchPath: [],
     });
 
-    generateTitleInBackground(conversationId, plainMessages, lastUpdated, customApiKey);
+    generateTitleInBackground(conversationId, plainMessages, lastUpdated);
 
     return conversationId;
   } catch (error) {
     console.error("Error creating conversation:", error);
+    // Propagate so callers can surface the failure instead of silently
+    // continuing with an unusable conversation id.
+    throw error;
   }
 }
 
-async function generateTitleInBackground(conversationId, plainMessages, lastUpdated, customApiKey = '') {
+/** Model ID used for title generation when the active provider is Hack Club AI. */
+const TITLE_GENERATION_MODEL = "z-ai/glm-5.3-flash";
+
+async function generateTitleInBackground(conversationId, plainMessages, lastUpdated) {
   const systemPrompt = `You are an AI with the task of shortening and summarising messages into a short title. You must summarise the given messages based on their content into at most a 40 character title. Each conversation is between a user and an AI chatbot. The messages provided to you are the first messages of the conversation. The title must be general enough to apply to what you think the conversation will be about. Only output the title, without any additional explainations or commentary.`;
 
   try {
-    // Load settings to get the API key
-    const settings = await localforage.getItem("settings") || {};
-    const customApiKey = settings.custom_api_key;
-
-    if (!customApiKey) {
-      console.warn("No API key found in settings, skipping title generation");
+    const target = await getBackgroundTarget();
+    if (!target.model || !target.customApiKey) {
+      console.warn("No usable model/key for title generation, skipping");
       return;
     }
 
-    const sessionToken = await getSessionToken();
-    const response = await fetch("/api/ai", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-session-token": sessionToken,
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...plainMessages.map((msg) => ({
-            role: msg.role,
-            content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
-          })),
-        ],
-        model: "z-ai/glm-4.7-flash",
-        stream: false,
-        ...(customApiKey && {
-          customApiKey: customApiKey,
-        }),
-      }),
+    // When using the Hack Club AI provider, always use the dedicated
+    // title-generation model rather than the user's currently selected model.
+    // Custom providers use whatever model the user has chosen.
+    if (!target.upstreamBaseUrl) {
+      target.model = TITLE_GENERATION_MODEL;
+    }
+
+    const data = await requestCompletion({
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...plainMessages.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        })),
+      ],
+      model: target.model,
+      customApiKey: target.customApiKey,
+      ...(target.upstreamBaseUrl ? { upstreamBaseUrl: target.upstreamBaseUrl } : {}),
     });
 
     let newTitle = "Untitled"; // Default to Untitled if API call fails
-    if (response.ok) {
-      const data = await response.json();
-      // Handle both regular responses and potential streaming data
-      if (data.choices) {
-        newTitle = data.choices?.[0]?.message?.content || "Untitled";
-        // Truncate title to 40 characters if needed
-        if (newTitle.length > 40) {
-          newTitle = newTitle.substring(0, 40);
-        }
-      } else {
-        console.error("Unexpected response format for title generation:", data);
+    if (data.choices) {
+      newTitle = extractCompletionText(data) || "Untitled";
+      // Truncate title to 40 characters if needed
+      if (newTitle.length > 40) {
+        newTitle = newTitle.substring(0, 40);
       }
     } else {
-      console.error("Title generation request failed:", response.status, response.statusText);
+      console.error("Unexpected response format for title generation:", data);
     }
 
     // Update the conversation with the new title
@@ -168,7 +161,6 @@ async function generateTitleInBackground(conversationId, plainMessages, lastUpda
 
       emitter.emit("updateConversations");
       emitter.emit("conversationTitleUpdated", { conversationId, title: newTitle });
-      console.log(`Title updated for conversation ${conversationId}: ${newTitle}`);
 
       useCloudSync().syncConversation(conversationId, conversation);
     }
@@ -211,7 +203,6 @@ export async function storeMessages(
     branchPath,
   });
 
-  console.log("Conversation saved successfully!");
 }
 
 export async function deleteConversation(conversationId) {
@@ -236,8 +227,6 @@ export async function deleteConversation(conversationId) {
 
   // Emit an event with the deleted conversation ID so pages can react
   emitter.emit("conversationDeleted", { conversationId });
-
-  console.log(`Conversation ${conversationId} deleted successfully!`);
 }
 
 /**

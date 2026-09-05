@@ -57,6 +57,18 @@ export class PartsBuilder {
   }
 
   /**
+   * Get a shallow snapshot of all parts.
+   *
+   * Parts are immutable-by-replacement (every update creates new part
+   * objects via _addPart/_replacePart), so a shallow array copy is always
+   * consistent. This is O(number of parts) instead of O(total content
+   * size), which matters during streaming where this runs every frame.
+   */
+  getPartsSnapshot() {
+    return this.parts.slice();
+  }
+
+  /**
    * Get all tools as a flat array (for backward compatibility)
    */
   getAllTools() {
@@ -69,7 +81,7 @@ export class PartsBuilder {
    * Append text content
    */
   appendContent(text) {
-    if (!text) return this.getParts();
+    if (!text) return this;
 
     const contentPart = this.parts.find(p => p.type === 'content' && !p._finalized);
 
@@ -85,7 +97,7 @@ export class PartsBuilder {
       });
     }
 
-    return this.getParts();
+    return this;
   }
 
   /**
@@ -96,14 +108,14 @@ export class PartsBuilder {
     if (contentPart) {
       this._replacePart(contentPart._id, { ...contentPart, _finalized: true });
     }
-    return this.getParts();
+    return this;
   }
 
   /**
    * Append reasoning text
    */
   appendReasoning(text) {
-    if (!text || !text.trim() || text.trim() === 'None') return this.getParts();
+    if (!text || !text.trim() || text.trim() === 'None') return this;
 
     const reasoningPart = this.parts.find(p => p.type === 'reasoning' && !p._finalized);
 
@@ -119,7 +131,7 @@ export class PartsBuilder {
       });
     }
 
-    return this.getParts();
+    return this;
   }
 
   /**
@@ -130,7 +142,7 @@ export class PartsBuilder {
     if (reasoningPart) {
       this._replacePart(reasoningPart._id, { ...reasoningPart, _finalized: true });
     }
-    return this.getParts();
+    return this;
   }
 
   /**
@@ -177,7 +189,7 @@ export class PartsBuilder {
           };
 
           this._replacePart(partId, { ...part, tools: [updatedTool] });
-          return this.getParts();
+          return this;
         }
       }
     }
@@ -208,7 +220,7 @@ export class PartsBuilder {
           if (toolId) {
             this.toolIdToPartId.set(toolId, partId);
           }
-          return this.getParts();
+          return this;
         }
         // Tool has completed - this is a new tool with the same index (new iteration)
         // Fall through to create new tool
@@ -242,7 +254,7 @@ export class PartsBuilder {
       this.toolIdToPartId.set(toolId, newPart._id);
     }
 
-    return this.getParts();
+    return this;
   }
 
   /**
@@ -285,7 +297,7 @@ export class PartsBuilder {
    * Add an image
    */
   addImage(url, revisedPrompt = null) {
-    if (!url) return this.getParts();
+    if (!url) return this;
 
     const imagePart = this.parts.find(p => p.type === 'image');
 
@@ -303,7 +315,7 @@ export class PartsBuilder {
       });
     }
 
-    return this.getParts();
+    return this;
   }
 
   /**
@@ -316,7 +328,7 @@ export class PartsBuilder {
     if (url) {
       return this.addImage(url, revisedPrompt);
     }
-    return this.getParts();
+    return this;
   }
 
   /**
@@ -324,7 +336,7 @@ export class PartsBuilder {
    */
   ensureContentPartFirst(content) {
     if (this.parts.some(p => p.type === 'content') || !content) {
-      return this.getParts();
+      return this;
     }
 
     const newPart = {
@@ -337,7 +349,7 @@ export class PartsBuilder {
     this.parts = [newPart, ...this.parts];
     this.partMap.set(newPart._id, newPart);
 
-    return this.getParts();
+    return this;
   }
 
   /**
@@ -424,3 +436,4 @@ export class TimingTracker {
     return endTime.getTime() - this.message.reasoningStartTime.getTime();
   }
 }
+

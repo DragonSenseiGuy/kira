@@ -84,6 +84,13 @@ function closeSidebar() {
 function handleNewConversation() {
   router.push("/");
 }
+
+function handleMiddleClickNewChat(e) {
+  if (e.button === 1) {
+    e.preventDefault();
+    window.open('/', '_blank');
+  }
+}
 </script>
 
 <template>
@@ -114,6 +121,7 @@ function handleNewConversation() {
         icon="material-symbols:add-rounded"
         block
         @click="handleNewConversation"
+        @auxclick="handleMiddleClickNewChat"
       >
         New Chat
       </UiButton>

@@ -1,6 +1,19 @@
-import { defineEventHandler, readBody } from 'h3';
+import { defineEventHandler, getHeader, readBody } from 'h3';
 import OpenAI from 'openai';
 import { resolveApiKey } from '../utils/apiKeys';
+
+const UPSTREAM_BASE_URL = 'https://ai.hackclub.com/proxy/v1';
+
+/**
+ * Sends a JSON error response, guarding against headers already sent.
+ */
+function sendJsonError(event, statusCode, payload) {
+    const res = event.node.res;
+    if (res.headersSent) return;
+    res.statusCode = statusCode;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(payload));
+}
 
 /**
  * Quantizes a float embedding vector to binary (0 or 1).
@@ -20,45 +33,37 @@ function quantizeToBinary(embedding) {
 export default defineEventHandler(async (event) => {
     const body = await readBody(event);
 
-    // Extract custom API key from body (user-provided)
-    const customApiKey = body.customApiKey;
-    delete body.customApiKey;
-
-    // Everyone uses their own key: the one just sent, or the one saved on
-    // their account.
-    const apiKey = await resolveApiKey(event, customApiKey);
+    // BYOK: the user's own API key travels in the x-api-key header. Falling
+    // back to the key saved on their account is what makes a new device work.
+    const apiKey = await resolveApiKey(event, getHeader(event, 'x-api-key'));
 
     if (!apiKey) {
-        event.node.res.statusCode = 401;
-        event.node.res.setHeader('Content-Type', 'application/json');
-        event.node.res.end(JSON.stringify({
+        sendJsonError(event, 401, {
             error: {
                 type: 'authentication_error',
                 message: 'API key is required. Please add your own API key in settings.',
                 code: 401
             }
-        }));
+        });
         return;
     }
 
     const openai = new OpenAI({
-        apiKey: apiKey || '',
-        baseURL: 'https://ai.hackclub.com/proxy/v1'
+        apiKey,
+        baseURL: UPSTREAM_BASE_URL
     });
 
     try {
         const { input, model = "qwen/qwen3-embedding-8b" } = body;
 
         if (!input) {
-            event.node.res.statusCode = 400;
-            event.node.res.setHeader('Content-Type', 'application/json');
-            event.node.res.end(JSON.stringify({
+            sendJsonError(event, 400, {
                 error: {
                     type: 'invalid_request_error',
                     message: 'Input text is required',
                     code: 400
                 }
-            }));
+            });
             return;
         }
 
@@ -83,14 +88,12 @@ export default defineEventHandler(async (event) => {
     } catch (error) {
         console.error('Error creating embeddings:', error);
 
-        event.node.res.setHeader('Content-Type', 'application/json');
-        event.node.res.statusCode = 500;
-        event.node.res.end(JSON.stringify({
+        sendJsonError(event, error.status || 500, {
             error: {
                 type: error.type || 'api_error',
                 message: error.message || 'Failed to generate embeddings',
                 code: error.status || 500
             }
-        }));
+        });
     }
 });

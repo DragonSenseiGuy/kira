@@ -3,11 +3,17 @@ import { useRouter } from 'vue-router';
 import localforage from 'localforage';
 import { createConversation as createNewConversation, storeMessages, deleteConversation as deleteConv, updateBranchPath, loadConversation } from './storeConversations';
 import { handleIncomingMessage } from './message';
-import { availableModels, findModelById, normalizeReasoningConfig, getDefaultReasoningEffort } from './availableModels';
+import { normalizeReasoningConfig, getDefaultReasoningEffort } from './availableModels';
 import DEFAULT_PARAMETERS from './defaultParameters';
 import { useSettings } from './useSettings';
 import { useGlobalIncognito } from './useGlobalIncognito';
 import { emitter } from './emitter';
+import { resolveChatTarget } from './providers';
+import {
+  setActiveConversation,
+  getActiveConversation,
+  deleteChatWorkspace,
+} from './workspaceSession';
 import { PartsBuilder, TimingTracker } from './partsBuilder';
 import { buildApiHistory } from './contextCompressor';
 import {
@@ -75,6 +81,7 @@ export function useMessagesManager(chatPanel) {
   // Handle conversation deletion
   const handleConversationDeleted = ({ conversationId }) => {
     clearCompressionState(conversationId);
+    deleteChatWorkspace(conversationId); // privacy-first: files die with the chat
     if (currConvo.value === conversationId && !isIncognito.value) {
       currConvo.value = '';
       messages.value = [];
@@ -178,13 +185,15 @@ export function useMessagesManager(chatPanel) {
   }
 
   /**
-   * Updates an assistant message with new content
+   * Updates an assistant message with new content.
+   * The splice gives the array a new identity so shallow watchers and
+   * computed props re-evaluate without deep-traversing every message.
    */
   function updateAssistantMessage(message, updates) {
     const index = messages.value.findIndex(m => m.id === message.id);
     if (index !== -1) {
       Object.assign(message, updates);
-      messages.value.splice(index, 1, { ...messages.value[index], ...updates });
+      messages.value.splice(index, 1, { ...message });
     }
   }
 
@@ -219,8 +228,11 @@ export function useMessagesManager(chatPanel) {
 
     if ((!message.trim() && attachments.length === 0) || isLoading.value) return;
 
-    // Check if API key is provided
-    if (!settingsManager.settings.custom_api_key) {
+    // Check credentials. Only relayed traffic needs an API key — loopback
+    // runtimes (Ollama/LM Studio) are called directly from the browser and
+    // work without one, so a local-only setup must not be blocked here.
+    const chatTarget = resolveChatTarget(settingsManager.settings);
+    if (!chatTarget.direct && !chatTarget.apiKey) {
       const tempAssistantMsg = createAssistantMessage();
       updateAssistantMessage(tempAssistantMsg, {
         content: `⚠️ **API Key Required**\n\nPlease add your own API key in Settings → General to use models.`,
@@ -233,6 +245,8 @@ export function useMessagesManager(chatPanel) {
 
     controller.value = new AbortController();
     isLoading.value = true;
+    // Scope the file workspace to this conversation (null while incognito).
+    setActiveConversation(isIncognito.value ? null : currConvo.value || null);
     isTyping.value = false;
 
     const messageToStore = originalMessage !== null ? originalMessage : message;
@@ -245,12 +259,26 @@ export function useMessagesManager(chatPanel) {
       assistantMsg.parentId = explicitParentId;
     }
 
-    // Create conversation if needed
+    // Create conversation if needed. Storage failures are surfaced to
+    // the user instead of silently continuing with a broken state.
     if (!currConvo.value && !isIncognito.value) {
-      currConvo.value = await createNewConversation(messages.value, new Date(), settingsManager.settings.custom_api_key || '');
+      try {
+        currConvo.value = await createNewConversation(messages.value, new Date());
+      } catch (error) {
+        console.error('[messagesManager] Failed to create conversation:', error);
+        updateAssistantMessage(assistantMsg, {
+          content: '⚠️ **Could not save this conversation**\n\nYour message could not be stored locally. Please check available storage space and try again.',
+          complete: true,
+          error: true,
+          errorDetails: { name: 'StorageError', message: 'Failed to create conversation' }
+        });
+        isLoading.value = false;
+        return;
+      }
       if (currConvo.value) {
         const convData = await loadConversation(currConvo.value);
         conversationTitle.value = convData?.title || "";
+        setActiveConversation(currConvo.value); // brand-new chat now has a workspace
       }
     }
 
@@ -263,13 +291,9 @@ export function useMessagesManager(chatPanel) {
       chatPanel?.value?.scrollToEnd("smooth");
     });
 
-    // Get current model details (check hardcoded first, then dynamic API models)
-    let selectedModelDetails = findModelById(availableModels, settingsManager.settings.selected_model_id);
-
-    if (!selectedModelDetails) {
-      const { getModelById } = useModels();
-      selectedModelDetails = getModelById(settingsManager.settings.selected_model_id);
-    }
+    // Get current model details (resolves both catalog and
+    // custom-provider models)
+    const selectedModelDetails = settingsManager.selectedModel;
 
     if (!selectedModelDetails) {
       console.error("No model selected or model details not found. Aborting message send.");
@@ -441,8 +465,19 @@ export function useMessagesManager(chatPanel) {
           assistantMsg.annotations = chunk.annotations;
         }
 
-        // Process errors
-        if (chunk.error && chunk.errorDetails) {
+        // Process cancellation. The generator reports user-initiated stops
+        // as a dedicated event; this is the single site where the marker
+        // text enters content (mirrors the error-suffix contract).
+        if (chunk.canceled) {
+          const stopSuffix = '\n\n_[generation stopped]_';
+          partsBuilder.appendContent(stopSuffix);
+          assistantMsg.content = (assistantMsg.content || '') + stopSuffix;
+        }
+
+        // Process errors. The generator guarantees at most ONE error
+        // event per turn; keep the first and ignore any stragglers so
+        // error details can never stack.
+        if (chunk.error && chunk.errorDetails && !assistantMsg.error) {
           assistantMsg.error = true;
           assistantMsg.errorDetails = chunk.errorDetails;
         }
@@ -481,7 +516,10 @@ export function useMessagesManager(chatPanel) {
       Object.assign(assistantMsg, finalUpdates);
       updateAssistantMessage(assistantMsg, finalUpdates);
 
-      // Handle error display
+      // Handle error display. This is the SINGLE place where error text
+      // is written into message content — the streaming generator never
+      // embeds error strings in content chunks, so the error block can
+      // only ever appear once per assistant message.
       if (assistantMsg.error && assistantMsg.errorDetails) {
         const errorSuffix = `\n\n---\n⚠️ **Error:** ${assistantMsg.errorDetails.message}` +
           (assistantMsg.errorDetails.status ? ` (HTTP ${assistantMsg.errorDetails.status})` : '');
@@ -489,8 +527,8 @@ export function useMessagesManager(chatPanel) {
         partsBuilder.appendContent(errorSuffix);
         
         const errorUpdates = {
-          content: assistantMsg.content + errorSuffix,
-          parts: partsBuilder.getParts(),
+          content: (assistantMsg.content || '') + errorSuffix,
+          parts: partsBuilder.getPartsSnapshot(),
           error: true,
           errorDetails: assistantMsg.errorDetails
         };
@@ -513,7 +551,12 @@ export function useMessagesManager(chatPanel) {
   }
 
   /**
-   * Sync assistant message with parts builder state
+   * Sync assistant message with parts builder state.
+   *
+   * Uses a shallow snapshot: PartsBuilder only ever REPLACES part objects
+   * (never mutates them), so a shallow copy is always consistent while
+   * avoiding a full deep-clone of the — potentially very long — parts
+   * tree on every animation frame during streaming.
    */
   function syncAssistantMessage(message, partsBuilder, finalize = false) {
     if (finalize) {
@@ -521,7 +564,7 @@ export function useMessagesManager(chatPanel) {
       partsBuilder.finalizeReasoning();
     }
     
-    const newParts = partsBuilder.getParts();
+    const newParts = partsBuilder.getPartsSnapshot();
     const newTools = partsBuilder.getAllTools();
     
     message.parts = newParts;
@@ -530,7 +573,7 @@ export function useMessagesManager(chatPanel) {
     // Update the message in the array
     const index = messages.value.findIndex(m => m.id === message.id);
     if (index !== -1) {
-      messages.value.splice(index, 1, { ...messages.value[index], parts: newParts, tool_calls: newTools });
+      messages.value.splice(index, 1, { ...message });
     }
   }
 
@@ -570,6 +613,7 @@ export function useMessagesManager(chatPanel) {
 
     conversationTitle.value = conv?.title || '';
     chatLoading.value = false;
+    setActiveConversation(id || null);
 
     // Load compression sidecar and derive threshold/summary state.
     if (id) {
@@ -691,10 +735,12 @@ export function useMessagesManager(chatPanel) {
     if (isIncognito.value) return;
 
     await deleteConv(id);
+    deleteChatWorkspace(id);
     if (currConvo.value === id) {
       currConvo.value = '';
       messages.value = [];
       conversationTitle.value = '';
+      setActiveConversation(null);
     }
   }
 
@@ -706,6 +752,7 @@ export function useMessagesManager(chatPanel) {
     messages.value = [];
     conversationTitle.value = '';
     isIncognito.value = false;
+    setActiveConversation(null);
   }
 
   /**

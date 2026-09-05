@@ -1,0 +1,368 @@
+/**
+ * Shared styles for the /settings page section components.
+ * Loaded globally (see main.css) so every section stays visually
+ * consistent without duplicating scoped rules.
+ */
+
+/* Section header */
+.stx-header {
+  margin-bottom: 20px;
+}
+
+.stx-header h2 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stx-header p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 62ch;
+}
+
+/* Card that groups related setting items.
+ * Separation comes from elevation (soft shadow + visible hairline), not
+ * from stacking nested surfaces. */
+.stx-card {
+  background: var(--bg-primary);
+  border: 1px solid color-mix(in srgb, var(--text-secondary) 22%, transparent);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 4px 24px 8px;
+  margin-bottom: 20px;
+}
+
+.stx-card-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  padding-top: 18px;
+}
+
+/* One setting row */
+.stx-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 14%, transparent);
+}
+
+.stx-card > .stx-item:last-child,
+.stx-card > .stx-block:last-child {
+  border-bottom: none;
+}
+
+.stx-item.stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.stx-info {
+  min-width: 0;
+}
+
+.stx-info h3 {
+  margin: 0 0 3px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stx-info p {
+  margin: 0;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* Inputs */
+.stx-input-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.stx-input-container.wide {
+  width: 100%;
+}
+
+.stx-input {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 10px);
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  min-width: 220px;
+  max-width: 340px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.stx-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.stx-input.small {
+  min-width: 120px;
+  max-width: 160px;
+}
+
+textarea.stx-input {
+  max-width: none;
+  resize: vertical;
+}
+
+select.stx-input {
+  appearance: auto;
+  cursor: pointer;
+}
+
+/* Buttons */
+.stx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.stx-btn:hover:not(:disabled) {
+  background: var(--btn-hover);
+}
+
+.stx-btn.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground, #fff);
+}
+
+.stx-btn.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  background: var(--primary);
+}
+
+.stx-btn.danger {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.35);
+}
+
+.stx-btn.danger:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.stx-btn.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.stx-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Switch — reka-ui SwitchRoot/SwitchThumb.
+ *
+ * reka-ui puts data-state="checked" on BOTH root and thumb. The proper
+ * setup: center the thumb inside the track, then translate it
+ * symmetrically on the THUMB'S OWN state. Track is 42px wide with a 20px
+ * thumb → ±9px travel, no magic offsets.
+ */
+.stx-switch-root {
+  all: unset;
+  box-sizing: border-box;
+  width: 42px;
+  height: 24px;
+  border-radius: 9999px;
+  background-color: var(--text-muted);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 100ms;
+  flex-shrink: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stx-switch-root:hover {
+  filter: brightness(1.05);
+}
+
+.stx-switch-root[data-state='checked'] {
+  background-color: var(--primary);
+}
+
+.stx-switch-thumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background-color: #ffffff;
+  box-shadow: 0 2px 2px var(--black-a7, rgba(0, 0, 0, 0.25));
+  will-change: transform;
+  transition: transform 100ms;
+  /* Centered by the track's justify-content; travel is symmetric ±9px. */
+  transform: translateX(-9px);
+}
+
+.dark .stx-switch-thumb {
+  background-color: var(--bg-primary);
+}
+
+.stx-switch-thumb[data-state='checked'] {
+  transform: translateX(9px);
+}
+
+.stx-switch-root:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Radio-style option cards */
+.stx-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.stx-option {
+  text-align: left;
+  padding: 14px;
+  border-radius: var(--radius-md, 12px);
+  border: 1.5px solid var(--border);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stx-option:hover {
+  border-color: var(--text-secondary);
+}
+
+.stx-option.active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 7%, var(--bg-secondary));
+}
+
+.stx-option .opt-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stx-option .opt-desc {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* Info note — deliberately NOT a box: quiet text with a hairline accent */
+.stx-note {
+  margin: 14px 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* Provider entries — flat rows divided by hairlines, never nested boxes */
+.stx-provider {
+  padding: 16px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 14%, transparent);
+}
+
+.stx-provider:last-of-type {
+  border-bottom: none;
+}
+
+.stx-provider-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.stx-provider-name {
+  font-weight: 650;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.stx-provider-url {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.stx-provider-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.stx-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+.stx-badge.muted {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--text-secondary) 35%, transparent);
+  color: var(--text-secondary);
+}
+
+/* Plain metadata text — deliberately NOT a pill */
+.stx-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.stx-error {
+  color: #dc2626;
+  font-size: 0.82rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

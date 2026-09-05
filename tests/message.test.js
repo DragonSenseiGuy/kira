@@ -214,3 +214,40 @@ describe("formatMessageForAPI - unknown roles", () => {
     expect(result).toEqual({ role: "weird", content: "hi" });
   });
 });
+
+describe("formatMessageForAPI - reasoning gating", () => {
+  const msgWithReasoning = {
+    role: "assistant",
+    content: "answer",
+    reasoning: "secret thoughts",
+  };
+
+  it("includes reasoning by default", () => {
+    const result = formatMessageForAPI({ ...msgWithReasoning });
+    expect(result[0].content).toContain("<thinking>");
+  });
+
+  it("omits reasoning when includeReasoning is false", () => {
+    const result = formatMessageForAPI(
+      { ...msgWithReasoning },
+      { includeReasoning: false },
+    );
+    expect(result[0].content).not.toContain("<thinking>");
+    expect(result[0].content).toContain("answer");
+  });
+
+  it("omits reasoning parts when includeReasoning is false (parts shape)", () => {
+    const result = formatMessageForAPI(
+      {
+        role: "assistant",
+        parts: [
+          { type: "reasoning", content: "hidden chain" },
+          { type: "content", content: "visible" },
+        ],
+      },
+      { includeReasoning: false },
+    );
+    expect(result).toHaveLength(1);
+    expect(JSON.stringify(result)).not.toContain("hidden chain");
+  });
+});

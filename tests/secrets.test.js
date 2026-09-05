@@ -33,13 +33,22 @@ describe("secret encryption", () => {
     const encrypted = encryptSecret("sk-test-0123456789", SECRET);
     const [version, iv, tag, ciphertext] = encrypted.split("$");
 
-    // Flip the last character of the ciphertext.
-    const flipped = ciphertext.slice(0, -1) + (ciphertext.at(-1) === "A" ? "B" : "A");
-    expect(decryptSecret([version, iv, tag, flipped].join("$"), SECRET)).toBeNull();
+    // Flip a bit in the DECODED bytes rather than in the base64url text. The
+    // final base64url character carries only the leftover bits of the last
+    // byte, so editing it can round-trip to the very same buffer — which used
+    // to make this test pass or fail depending on the random tag.
+    const tamper = (b64) => {
+      const bytes = Buffer.from(b64, "base64url");
+      bytes[0] ^= 0xff;
+      return bytes.toString("base64url");
+    };
 
-    // And of the auth tag.
-    const badTag = tag.slice(0, -1) + (tag.at(-1) === "A" ? "B" : "A");
-    expect(decryptSecret([version, iv, badTag, ciphertext].join("$"), SECRET)).toBeNull();
+    expect(
+      decryptSecret([version, iv, tag, tamper(ciphertext)].join("$"), SECRET),
+    ).toBeNull();
+    expect(
+      decryptSecret([version, iv, tamper(tag), ciphertext].join("$"), SECRET),
+    ).toBeNull();
   });
 
   it("returns null for malformed input rather than throwing", () => {

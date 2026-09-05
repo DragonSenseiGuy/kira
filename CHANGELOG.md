@@ -13,6 +13,134 @@ All notable changes to Kira are documented here.
 
 ---
 
+## [2.1.0] - 2026-09-05
+
+Kira is now synced with upstream Libre Assistant 2.1.0. Kira's version number
+tracks the upstream release it contains; the entries below 2.1.0 describe the
+upstream work this merge brought in.
+
+### Added
+- Sandboxed local projects & workspaces with code execution
+- Multi-provider support: any OpenAI-compatible endpoint, with per-provider model lists, favorites and last-used model
+- Settings moved to a dedicated `/settings` page with deep-linkable sections
+- `@file` mentions in the composer, with an inline picker and highlighting
+- User-configurable keybinds, including the command palette (`mod+k`)
+- Manual Hack Club AI model list update button
+
+### Changed
+- The model picker is now provider-aware; Kira's composer selector and mobile
+  bottom sheet both read from the shared picker state
+- Kira's parameter dock and the new workspace dock share the right-hand edge:
+  opening one closes the other
+- Background completions (titles, summaries, compression) reuse the currently
+  selected provider and model instead of a hidden dedicated model
+
+### Fixed
+- Model list properly updates every ~30 minutes
+- Chat box text rendering on mobile
+- 502 error after code execution
+
+### Removed
+- Kira's `useModels` catalog and bespoke shortcut registry, both superseded by
+  upstream's `providers` and `keybinds` modules
+
+---
+
+## [2.0.4] - 2026-08-27
+
+### Fixed
+- When HC AI is selected, only use GLM 5.3 Flash for title generation.
+
+### Removed
+- Removed deprecated testing code for the old model list.
+
+---
+
+## [2.0.3] - 2026-08-27
+
+### Security
+- Updated all dependencies to latest version.
+
+### Removed
+- Removed unused dependencies.
+
+---
+
+## [2.0.2] - 2026-08-26
+
+### Fixed
+- Re-attached customization options to settings.
+- Fixed chat box text rendering & submit button rendering on mobile.
+- Modified model selector on mobile to better suit touchscreens.
+
+---
+
+## [2.0.1] - 2026-08-24
+
+### Added
+- **Show Debug Options** - New toggle in Settings that reveals developer tools.
+
+### Fixed
+- Fixed 502 errors after code execution.
+
+---
+
+## [2.0.0] - 2026-08-23
+
+### Added
+- **Code sandbox** - The assistant can now run JavaScript to compute exact answers: math, dates, unit conversions, and processing data you share. When it uses the sandbox, numbers are calculated instead of estimated.
+- **Workspace** - Every chat now has its own private file space. The assistant can create, read, edit, organize, and clean up files in it — notes, reports, data files, small web pages — and they persist across the conversation. A `WORKSPACE.md` file helps it pick up where it left off.
+- **File previews** - Files created in a chat open in a preview pane: rendered markdown, formatted JSON, images and SVGs, and live interactive HTML pages. Previews include back, copy, and download buttons, plus a Preview/Code switch when a file has a visual form.
+- **Projects** - Shared file libraries you can attach to any chat, so files can move between conversations. Manage them in the new Projects page: create projects, upload files, rename, delete, and preview everything. Each project also gets its own dedicated page.
+- **Settings page** - Settings moved to a dedicated page with tabbed sections.
+- **Configurable keyboard shortcuts** - Remap your keyboard shortcuts in Settings -> Shortcuts.
+- **Model picker redesign** - Picking a model now happens in a searchable popover with provider tabs and favorites.
+- **Multiple provider suport** - You can now add any OpenAI-compatible API as a provider, even local ones.
+
+### Changed
+- The parameter panel has merged with the new workspace panel.
+- Now uses Hack Club AI's full model list rather than the curated list we used before.
+- Title generation is now done with GPT-5.6 Luna instead of GLM-4.7 Flash
+- Context summaries are now done with the currently in-use model instead of DeepSeek V4 Pro Preview and notepad summaries are now done with DeepSeek V4 Flash 0731 DeepSeek V4 Flash Preview.
+- Default max_tokens has been increased from 8k to 16k.
+
+### Fixed
+- Fixed how the system prompt is put together.
+- Several streaming and rendering glitches fixed.
+
+### Removed
+- All model parameters outside of max_tokens have been removed
+
+---
+
+## [1.7.0] - 2026-07-24
+
+### Added
+- Enable opening new chat in new tab by clicking scroll wheel on new chat button. (#10 by @First-Non-Interesting-Username)
+
+### Changed
+- Model list and provider logos are now fetched from [this repo](https://github.com/Mostlime12195/Libre-Assistant-Model-List) instead of hard-coded into the source code.
+
+### Fixed
+- When the current model ID is not available, it now reverts to the default model ID instead of keeping the stale model ID.
+- Improved robust-ness of a couple of the unit-tests.
+
+---
+
+## [1.6.1] - 2026-07-19
+
+### Changed
+- Default context compression model is now DeepSeek V4 Pro, for its quality.
+
+### Fixed
+- Manual context compression can now correctly create and store several compressed summaries at once.
+- Pressing the '/' key when focused on a text box other than the main chat form now correctly types '/' instead of shifting focus to the chat form.
+- The prompt editing form is redesigned better UX and more dynamic resizing, allowing it to fit nicely on most screens based on the content.
+- Long text now properly wraps in user message bubbles, preventing a horizontal scrollbar from appearing.
+
+---
+
+## [1.6.0] - 2026-07-18
 ## [1.3.0] - 2026-07-23
 
 ### Added

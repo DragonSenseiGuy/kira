@@ -383,3 +383,53 @@ describe("TimingTracker", () => {
     expect(duration).toBeGreaterThanOrEqual(100);
   });
 });
+
+describe("PartsBuilder.getPartsSnapshot", () => {
+  it("returns the same content as getParts", () => {
+    const pb = new PartsBuilder();
+    pb.appendContent("hello");
+    pb.appendReasoning("thinking");
+
+    expect(pb.getPartsSnapshot()).toEqual(pb.getParts());
+  });
+
+  it("reflects subsequent updates (fresh view, not stale)", () => {
+    const pb = new PartsBuilder();
+    pb.appendContent("a");
+    const snapshot1 = pb.getPartsSnapshot();
+
+    pb.appendContent("b");
+    const snapshot2 = pb.getPartsSnapshot();
+
+    expect(snapshot1).toHaveLength(1);
+    expect(snapshot1[0].content).toBe("a");
+    expect(snapshot2[0].content).toBe("ab");
+  });
+
+  it("is isolated: mutating the snapshot array does not affect the builder", () => {
+    const pb = new PartsBuilder();
+    pb.appendContent("safe");
+
+    const snapshot = pb.getPartsSnapshot();
+    snapshot.push({ type: "content", content: "injected" });
+    snapshot.pop();
+
+    expect(pb.getParts()).toHaveLength(1);
+    expect(pb.getParts()[0].content).toBe("safe");
+  });
+
+  it("part objects are replaced on update, so snapshots stay consistent", () => {
+    // This pins the invariant that makes shallow snapshots safe for the
+    // streaming hot path: updates never mutate existing part objects.
+    const pb = new PartsBuilder();
+    pb.appendContent("v1");
+    const before = pb.getPartsSnapshot()[0];
+
+    pb.appendContent("+v2");
+    const after = pb.getPartsSnapshot()[0];
+
+    expect(before.content).toBe("v1"); // old object untouched
+    expect(after.content).toBe("v1+v2");
+    expect(before).not.toBe(after);
+  });
+});

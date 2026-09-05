@@ -1,52 +1,75 @@
 <template>
   <PopoverRoot v-model:open="isOpen">
     <PopoverTrigger class="model-selector-trigger">
-      <Logo v-if="providerLogo" :src="providerLogo" :size="18" />
+      <Logo :src="null" :label="selectedModelName" :size="18" />
       <span class="trigger-model-name">{{ selectedModelName || 'Select model' }}</span>
       <Icon icon="material-symbols:keyboard-arrow-down-rounded" :width="18" class="trigger-chevron" />
     </PopoverTrigger>
     <PopoverPortal>
       <PopoverContent class="model-popover-content" side="top" :side-offset="8" align="start">
+        <!-- Provider chips: Hack Club plus any custom OpenAI-compatible
+             providers the user configured in Settings. -->
+        <div v-if="providers.length > 1" class="model-popover-providers">
+          <button
+            v-for="provider in providers"
+            :key="provider.id"
+            type="button"
+            class="model-popover-provider-chip"
+            :class="{ active: provider.id === activeProviderId }"
+            @click="switchProvider(provider.id)"
+          >
+            {{ provider.name }}
+          </button>
+        </div>
+
         <div class="model-popover-search-area">
           <input
-            v-model="searchQuery"
+            v-model="query"
             type="text"
             class="model-popover-search-input"
             placeholder="Search models..."
           />
         </div>
+
         <div class="model-popover-scroll">
-          <div
-            v-for="group in filteredGroups"
-            :key="group.provider"
-            class="model-popover-group"
-          >
-            <div class="model-popover-provider-header">
-              <Logo v-if="group.logo" :src="group.logo" :size="16" />
-              <span>{{ group.name }}</span>
-            </div>
-            <div
-              v-for="model in group.models"
-              :key="model.id"
-              class="model-popover-item"
-              :class="{ selected: model.id === selectedModelId }"
-              @click="selectModel(model.id, model.name)"
-            >
-              <div class="model-popover-item-info">
-                <span class="model-popover-model-name">{{ model.name }}</span>
-                <span v-if="model.description" class="model-popover-description">{{ model.description }}</span>
+          <div v-if="loadingCatalog && !allModels.length" class="model-popover-no-results">
+            Loading models…
+          </div>
+
+          <template v-else>
+            <div v-if="visibleFavorites.length" class="model-popover-group">
+              <div class="model-popover-provider-header">
+                <span>Favorites</span>
               </div>
-              <Icon
-                v-if="model.id === selectedModelId"
-                icon="material-symbols:check-rounded"
-                :width="18"
-                class="model-popover-check"
+              <ModelPickerRow
+                v-for="model in visibleFavorites"
+                :key="`fav-${model.id}`"
+                :model="model"
+                :selected="model.id === selectedModelId"
+                :favorite="true"
+                @select="choose(model)"
+                @toggle-favorite="toggleFavorite(model.id)"
               />
             </div>
-          </div>
-          <div v-if="filteredGroups.length === 0" class="model-popover-no-results">
-            No models found
-          </div>
+
+            <ModelPickerRow
+              v-for="model in visibleModels"
+              :key="model.id"
+              :model="model"
+              :selected="model.id === selectedModelId"
+              :favorite="isFavorite(model.id)"
+              @select="choose(model)"
+              @toggle-favorite="toggleFavorite(model.id)"
+            />
+
+            <button v-if="hiddenCount > 0" type="button" class="model-popover-more" @click="showMore">
+              Show {{ Math.min(hiddenCount, MODEL_PAGE_SIZE) }} more ({{ hiddenCount }} left)
+            </button>
+
+            <div v-if="!visibleModels.length && !visibleFavorites.length" class="model-popover-no-results">
+              No models found
+            </div>
+          </template>
         </div>
       </PopoverContent>
     </PopoverPortal>
@@ -54,10 +77,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, watch } from 'vue';
 import { PopoverRoot, PopoverTrigger, PopoverContent, PopoverPortal } from 'reka-ui';
 import { Icon } from '@iconify/vue';
-import { useModels } from '~/composables/useModels';
+import { useModelPicker, MODEL_PAGE_SIZE } from '~/composables/useModelPicker';
+import ModelPickerRow from './ModelPickerRow.vue';
 import Logo from './Logo.vue';
 
 const props = defineProps({
@@ -67,46 +91,41 @@ const props = defineProps({
 
 const emit = defineEmits(['model-selected']);
 
-const { groupedModels, isLoading, fetchModels, getProviderLogo } = useModels();
+// Shared picker state, so this popover and the mobile bottom sheet stay
+// in lockstep on providers, favorites and pagination.
+const {
+  query,
+  loadingCatalog,
+  providers,
+  activeProviderId,
+  allModels,
+  visibleModels,
+  visibleFavorites,
+  hiddenCount,
+  resetForOpen,
+  showMore,
+  ensureCatalogLoaded,
+  selectModel,
+  switchProvider,
+  toggleFavorite,
+  isFavorite,
+} = useModelPicker();
 
 const isOpen = ref(false);
-const searchQuery = ref('');
 
-onMounted(() => {
-  if (groupedModels.value.length === 0) {
-    fetchModels();
-  }
+// The catalog is ~840 models, so it is fetched on first open rather than
+// at import time — an unopened picker costs nothing.
+watch(isOpen, (open) => {
+  if (!open) return;
+  resetForOpen();
+  ensureCatalogLoaded();
 });
 
-const providerLogo = computed(() => {
-  if (!props.selectedModelId) return null;
-  return getProviderLogo(props.selectedModelId);
-});
-
-const filteredGroups = computed(() => {
-  const query = searchQuery.value.toLowerCase().trim();
-  if (!query) return groupedModels.value;
-
-  return groupedModels.value
-    .map(group => {
-      const nameMatch = group.name.toLowerCase().includes(query);
-      const matchingModels = group.models.filter(
-        model =>
-          nameMatch ||
-          model.name.toLowerCase().includes(query) ||
-          (model.description && model.description.toLowerCase().includes(query))
-      );
-      if (matchingModels.length === 0) return null;
-      return { ...group, models: matchingModels };
-    })
-    .filter(Boolean);
-});
-
-const selectModel = (modelId, modelName) => {
-  emit('model-selected', modelId, modelName);
+function choose(model) {
+  selectModel(model.id);
+  emit('model-selected', model.id, model.name);
   isOpen.value = false;
-  searchQuery.value = '';
-};
+}
 </script>
 
 <style scoped>
@@ -172,6 +191,57 @@ const selectModel = (modelId, modelName) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.model-popover-providers {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.model-popover-providers::-webkit-scrollbar {
+  display: none;
+}
+
+.model-popover-provider-chip {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.model-popover-provider-chip:hover {
+  background: var(--btn-hover);
+}
+
+.model-popover-provider-chip.active {
+  background: var(--popover-list-item-selected-bg);
+  color: var(--popover-list-item-selected-text);
+}
+
+.model-popover-more {
+  display: block;
+  width: calc(100% - 8px);
+  margin: 4px;
+  padding: 8px;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.model-popover-more:hover {
+  background: var(--btn-hover);
 }
 
 .model-popover-search-area {

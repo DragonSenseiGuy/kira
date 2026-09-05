@@ -31,6 +31,11 @@ vi.mock("~/composables/emitter", () => ({
 }));
 
 import {
+  DEFAULT_THRESHOLD_TOKENS,
+  DEFAULT_KEEP_RECENT_TOKENS,
+} from "../app/composables/contextCompressor.js";
+
+import {
   stripSecrets,
   isDefaultNotepad,
   buildManifest,
@@ -318,18 +323,37 @@ describe("exportAllToZip", () => {
   });
 
   it("omits default settings from the zip", async () => {
+    // NOTE: key order matters — the exporter compares JSON strings.
     store.set("settings", {
       version: 5,
       notepad_enabled: false,
       context_compression_enabled: true,
-      context_compression_model: "deepseek/deepseek-v4-pro",
-      context_compression_threshold_tokens: 40000,
-      context_compression_keep_recent_tokens: 8000,
+      context_compression_threshold_tokens: DEFAULT_THRESHOLD_TOKENS,
+      context_compression_keep_recent_tokens: DEFAULT_KEEP_RECENT_TOKENS,
       selected_model_id: "moonshotai/kimi-k2.6",
       search_enabled: false,
+      tool_search_source: "hackclub",
+      exa_api_key: "",
+      project_attachments: {},
+      net_mode: "ask",
+      net_grants: {},
+      net_activity: [],
+      active_provider_id: "",
+      custom_providers: [],
+      provider_last_model: {},
+      favorite_models: {},
+      keybinds: {
+        open_palette: "mod+k",
+        focus_input: "/",
+        new_chat: "mod+alt+n",
+        toggle_sidebar: "mod+b",
+        toggle_parameters: "mod+alt+b",
+        toggle_incognito: "mod+alt+i",
+      },
       model_settings: {},
-      parameter_config: { temperature: 1.0, top_p: 0.95, seed: null, max_tokens: 8192, grounding: false },
+      parameter_config: { temperature: 1.0, top_p: 0.95, seed: null, max_tokens: 16384, grounding: false },
       gpt_oss_limit_tables: false,
+      show_debug_options: false,
       custom_api_key: "",
     });
     const chat = createSampleChat("c1");

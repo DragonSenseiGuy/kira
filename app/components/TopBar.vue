@@ -14,6 +14,7 @@
           icon="material-symbols:add-box-outline"
           label="New chat"
           @click="handleNewChat"
+          @auxclick="handleMiddleClickNewChat"
         />
       </UiTooltip>
 
@@ -65,6 +66,14 @@
             @click="$emit('toggle-parameter-config')"
           />
         </UiTooltip>
+
+        <UiTooltip v-if="!workspaceOpen" content="Workspace files" side="bottom">
+          <UiIconButton
+            icon="material-symbols:folder-open-outline-rounded"
+            label="Workspace files"
+            @click="$emit('toggle-workspace')"
+          />
+        </UiTooltip>
       </div>
     </div>
   </div>
@@ -99,6 +108,10 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  workspaceOpen: {
+    type: Boolean,
+    default: false
+  },
   parameterConfigOpen: {
     type: Boolean,
     default: false
@@ -113,7 +126,7 @@ const props = defineProps({
   }
 });
 
-defineEmits(['toggle-incognito', 'toggle-parameter-config', 'export-chat', 'open-palette']);
+defineEmits(['toggle-incognito', 'toggle-parameter-config', 'toggle-workspace', 'export-chat', 'open-palette']);
 
 const route = useRoute();
 const router = useRouter();
@@ -121,6 +134,13 @@ const topBarRef = ref(null);
 
 const handleNewChat = () => {
   router.push('/');
+};
+
+const handleMiddleClickNewChat = (e) => {
+  if (e.button === 1) {
+    e.preventDefault();
+    window.open('/', '_blank');
+  }
 };
 
 const isIncognitoRoute = computed(() => route.path === '/incognito');
