@@ -13,7 +13,10 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { formatMessageForAPI } from "../app/composables/messageFormat.js";
+import {
+  formatMessageForAPI,
+  formatMessageForAPICached,
+} from "../app/composables/messageFormat.js";
 
 describe("formatMessageForAPI - user messages", () => {
   it("formats a plain user message with string content", () => {
@@ -249,5 +252,42 @@ describe("formatMessageForAPI - reasoning gating", () => {
     );
     expect(result).toHaveLength(1);
     expect(JSON.stringify(result)).not.toContain("hidden chain");
+  });
+});
+
+describe("formatMessageForAPICached", () => {
+  // Guards the reason the cache exists: a loaded conversation is re-formatted
+  // on EVERY send, and formatting stringifies whole tool results. Without a
+  // test the memoization is invisible and gets refactored away.
+  it("formats a given message once per reasoning variant", () => {
+    const msg = {
+      role: "assistant",
+      content: "hi",
+      reasoning: "thinking",
+    };
+
+    const plain = formatMessageForAPICached(msg, false);
+    const lastAssistant = formatMessageForAPICached(msg, true);
+
+    expect(formatMessageForAPICached(msg, false)).toBe(plain);
+    expect(formatMessageForAPICached(msg, true)).toBe(lastAssistant);
+    // The two variants are genuinely different messages, not one shared slot.
+    expect(plain).not.toBe(lastAssistant);
+    expect(JSON.stringify(lastAssistant)).toContain("<thinking>");
+    expect(JSON.stringify(plain)).not.toContain("<thinking>");
+  });
+
+  it("matches formatMessageForAPI", () => {
+    const msg = { role: "user", content: "hello" };
+    expect(formatMessageForAPICached(msg, false)).toEqual(
+      formatMessageForAPI(msg, { includeReasoning: false }),
+    );
+  });
+
+  it("does not reuse one message's formatting for another", () => {
+    const a = formatMessageForAPICached({ role: "user", content: "a" }, false);
+    const b = formatMessageForAPICached({ role: "user", content: "b" }, false);
+    expect(a.content).toBe("a");
+    expect(b.content).toBe("b");
   });
 });

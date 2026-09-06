@@ -6,6 +6,9 @@
  *
  * Split out of message.js, which had grown past a thousand lines. This half
  * is pure: no fetch, no streaming, no app state.
+ *
+ * History replay goes through `formatMessageForAPICached` rather than
+ * `formatMessageForAPI` — see the note on it at the bottom of the file.
  */
 
 /**
@@ -215,4 +218,35 @@ function formatAssistantMessageForAPI(msg, includeReasoning = true) {
   }
   
   return messages;
+}
+
+/** Per-message cache; weak so it never outlives the messages themselves. */
+const formattedMessageCache = new WeakMap();
+
+/**
+ * Memoized formatting for conversation history.
+ *
+ * Loaded messages are stable objects that persist across sends, so their
+ * formatted API shape is cached per object — both reasoning variants, since
+ * a message is the "last assistant" for exactly one send and plain for every
+ * one after — instead of being rebuilt, including `JSON.stringify` over
+ * large tool results, on every keystroke-to-send. Streaming messages are
+ * replaced with fresh objects on each update, so they never hit a stale
+ * entry; a WeakMap keeps the cache from outliving the messages.
+ *
+ * @param {Object} msg
+ * @param {boolean} includeReasoning
+ * @returns {Object|Array} The same shape `formatMessageForAPI` returns.
+ */
+export function formatMessageForAPICached(msg, includeReasoning) {
+  let entry = formattedMessageCache.get(msg);
+  if (!entry) {
+    entry = { plain: null, lastAssistant: null };
+    formattedMessageCache.set(msg, entry);
+  }
+  const slot = includeReasoning ? "lastAssistant" : "plain";
+  if (!entry[slot]) {
+    entry[slot] = formatMessageForAPI(msg, { includeReasoning });
+  }
+  return entry[slot];
 }

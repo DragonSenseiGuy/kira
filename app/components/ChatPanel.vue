@@ -1752,7 +1752,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   padding: 8px;
   font-size: 0.85rem;
   color: var(--text-secondary);
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border);
   background: var(--bg-tertiary);
   overflow: hidden;
   text-overflow: ellipsis;

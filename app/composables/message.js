@@ -13,7 +13,7 @@ import {
   DEFAULT_MODEL_ID,
   buildReasoningParams,
 } from "~/composables/availableModels";
-import { formatMessageForAPI } from "~/composables/messageFormat";
+import { formatMessageForAPICached } from "~/composables/messageFormat";
 import { findFullModelById } from "~/composables/providers";
 import { generateSystemPrompt } from "~/composables/systemPrompt";
 import { toolManager } from "~/composables/toolsManager";
@@ -280,7 +280,7 @@ export async function* handleIncomingMessage(
     }
 
     const formattedHistory = plainMessages
-      .map((m, i) => formatMessageForAPI(m, { includeReasoning: i === lastAssistantIndex }))
+      .map((m, i) => formatMessageForAPICached(m, i === lastAssistantIndex))
       .flat()
       .filter((m) => m !== null);
     
