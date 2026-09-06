@@ -4,7 +4,9 @@
  *
  * The contract that matters: every store is emptied, the account copies go
  * too (otherwise the next sign-in re-hydrates "deleted" chats), the sign-in
- * session survives, and one unavailable store does not abort the rest.
+ * session survives, one unavailable local store does not abort the rest —
+ * and a failed account delete stops the whole thing before the local copy
+ * (the only way to retry) is destroyed.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -35,6 +37,9 @@ const SESSION_KEY = "__kira_session_v1";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The real composable resolves true when the account no longer holds the
+  // conversation — including when there is no account at all.
+  cloudDeleteConversation.mockResolvedValue(true);
   vi.mocked(localforage.getItem).mockResolvedValue([
     { id: "chat-a" },
     { id: "chat-b" },
@@ -72,6 +77,43 @@ describe("deleteAllData", () => {
     expect(window.localStorage.getItem("libre-hc-full-models")).toBeNull();
     expect(window.localStorage.getItem("vueuse-color-scheme")).toBeNull();
     expect(window.localStorage.getItem(SESSION_KEY)).toBe("token");
+  });
+
+  it("deletes the account's conversations concurrently", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    cloudDeleteConversation.mockImplementation(async () => {
+      peak = Math.max(peak, ++inFlight);
+      await Promise.resolve();
+      inFlight--;
+      return true;
+    });
+
+    await deleteAllData();
+
+    expect(peak).toBe(2);
+  });
+
+  it("keeps the local copy when an account delete fails, so it can be retried", async () => {
+    cloudDeleteConversation.mockImplementation(async (id) => id !== "chat-b");
+
+    const { errors } = await deleteAllData();
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("chat-b");
+    // The metadata holding the ids is the only way to retry — it must survive.
+    expect(localforage.clear).not.toHaveBeenCalled();
+    expect(removeChildEntry).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("libre-hc-full-models")).toBe("[]");
+  });
+
+  it("stops before the local wipe when the account step throws", async () => {
+    cloudDeleteConversation.mockRejectedValue(new Error("network down"));
+
+    const { errors } = await deleteAllData();
+
+    expect(errors).toHaveLength(1);
+    expect(localforage.clear).not.toHaveBeenCalled();
   });
 
   it("reports a failing store without abandoning the others", async () => {

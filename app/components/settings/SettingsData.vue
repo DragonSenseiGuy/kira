@@ -94,6 +94,6 @@ async function handleDelete() {
 
 <style scoped>
 .delete-errors {
-  color: #dc2626;
+  color: var(--error-text);
 }
 </style>

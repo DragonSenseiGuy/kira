@@ -220,7 +220,9 @@ export async function deleteConversation(conversationId) {
   const updatedMetadata = metadata.filter((m) => m.id !== conversationId);
   await localforage.setItem("conversations_metadata", updatedMetadata);
 
-  useCloudSync().cloudDeleteConversation(conversationId);
+  // Best effort: the local delete above is authoritative here, so the
+  // boolean result is deliberately ignored (the call never rejects).
+  void useCloudSync().cloudDeleteConversation(conversationId);
 
   // Emit an event so that the sidebar updates its list.
   emitter.emit("updateConversations");
