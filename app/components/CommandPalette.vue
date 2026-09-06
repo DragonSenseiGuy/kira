@@ -331,11 +331,18 @@ function relativeTime(value) {
   z-index: 3000;
 }
 
+/*
+  Centred with auto margins rather than `left: 50%; translateX(-50%)`:
+  the uEnter keyframes animate `transform` and settle on `transform: none`,
+  which used to wipe the centring translate and leave the palette hanging
+  off to the right of centre.
+*/
 .palette-content {
   position: fixed;
   top: 12vh;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin-inline: auto;
   width: calc(100% - 2rem);
   max-width: 40rem;
   max-height: 70vh;
