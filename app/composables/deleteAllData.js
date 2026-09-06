@@ -3,8 +3,8 @@
  * @description Erases everything Kira has stored for this user, across all
  * four places it keeps things:
  *
- *   1. the account, when signed in (otherwise the next sign-in would just
- *      re-hydrate the chats that were "deleted"),
+ *   1. the account, when signed in — every conversation AND the stored API
+ *      key (otherwise the next sign-in just re-hydrates what was "deleted"),
  *   2. localforage / IndexedDB — conversations, notepad, settings,
  *   3. OPFS — per-chat and shared project workspaces,
  *   4. localStorage — every key except the sign-in session.
@@ -15,8 +15,8 @@
  * ## Ordering rule: destroy the unrecoverable copy first
  *
  * The account step runs first and is a hard gate. `conversations_metadata`
- * in localforage holds the only list of conversation ids, so it is also the
- * only way to retry the account deletions. If we cleared localforage first
+ * in localforage holds this device's list of conversation ids, so it is also
+ * how the account deletions would be retried. If we cleared localforage first
  * and the server turned out to be unreachable, the account would silently
  * keep every "deleted" chat, the id list needed to retry would be gone, and
  * the next sign-in would re-hydrate the lot — while the user had been told
@@ -31,12 +31,40 @@
 import localforage from "localforage";
 import { getDefaultRoot, removeChildEntry } from "~/utils/workspace";
 import { useCloudSync } from "~/composables/useCloudSync";
+import { deleteApiKeyFromAccount } from "~/composables/useApiKeySync";
 
 /** Kept so the user stays signed in after their data is erased. */
 const SESSION_STORAGE_KEY = "__kira_session_v1";
 
 /** OPFS directories owned by the app (see workspaceSession.js). */
 const WORKSPACE_DIRS = ["chats", "projects"];
+
+/**
+ * Every conversation id the account might be holding.
+ *
+ * The local metadata is NOT the delete set on its own: a chat started on
+ * another device and never opened here exists only on the account, so
+ * walking the local list would leave it behind — and the next sign-in would
+ * hand it straight back. The account's own listing is the authority, unioned
+ * with the local ids because a chat created offline may not have reached
+ * that listing yet.
+ *
+ * Both reads are independent, so they go out together.
+ *
+ * @returns {Promise<string[]>}
+ */
+async function conversationIdsToDelete(cloudLoadConversations) {
+  const [remote, local] = await Promise.all([
+    cloudLoadConversations(),
+    localforage.getItem("conversations_metadata"),
+  ]);
+
+  const ids = new Set();
+  for (const entry of [...remote, ...(local || [])]) {
+    if (entry?.id) ids.add(entry.id);
+  }
+  return [...ids];
+}
 
 /**
  * Deletes the signed-in account's copy of every conversation. No-op when
@@ -50,9 +78,8 @@ const WORKSPACE_DIRS = ["chats", "projects"];
  * @returns {Promise<string[]>} Ids whose account copy could not be deleted.
  */
 async function deleteCloudConversations() {
-  const { cloudDeleteConversation } = useCloudSync();
-  const metadata = (await localforage.getItem("conversations_metadata")) || [];
-  const ids = metadata.map((entry) => entry?.id).filter(Boolean);
+  const { cloudDeleteConversation, cloudLoadConversations } = useCloudSync();
+  const ids = await conversationIdsToDelete(cloudLoadConversations);
 
   const results = await Promise.allSettled(
     ids.map((id) => cloudDeleteConversation(id)),
@@ -116,15 +143,25 @@ function clearLocalStorage() {
 export async function deleteAllData() {
   const errors = [];
 
-  try {
-    const failedIds = await deleteCloudConversations();
-    if (failedIds.length) {
-      errors.push(
-        `account chats: ${failedIds.length} could not be deleted from your account (${failedIds.join(", ")}) — nothing was deleted from this device, so you can try again`,
-      );
-    }
-  } catch (e) {
-    errors.push(`account chats: ${e?.message || String(e)}`);
+  // The account's two stores are independent round-trips, so they go out
+  // together; either one surviving means the account still holds data.
+  const [chats, apiKey] = await Promise.allSettled([
+    deleteCloudConversations(),
+    deleteApiKeyFromAccount(),
+  ]);
+
+  if (chats.status === "rejected") {
+    errors.push(`account chats: ${chats.reason?.message || String(chats.reason)}`);
+  } else if (chats.value.length) {
+    errors.push(
+      `account chats: ${chats.value.length} could not be deleted from your account (${chats.value.join(", ")}) — nothing was deleted from this device, so you can try again`,
+    );
+  }
+
+  if (apiKey.status !== "fulfilled" || apiKey.value === false) {
+    errors.push(
+      "account API key: could not be deleted from your account — nothing was deleted from this device, so you can try again",
+    );
   }
 
   // Hard gate: the local copy is the only way to retry the account deletes,

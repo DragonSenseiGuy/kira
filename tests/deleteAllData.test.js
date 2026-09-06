@@ -3,15 +3,18 @@
  * "Delete data" action.
  *
  * The contract that matters: every store is emptied, the account copies go
- * too (otherwise the next sign-in re-hydrates "deleted" chats), the sign-in
- * session survives, one unavailable local store does not abort the rest —
- * and a failed account delete stops the whole thing before the local copy
- * (the only way to retry) is destroyed.
+ * too — chats AND the stored API key, and chats the account holds that this
+ * device has never seen (otherwise the next sign-in re-hydrates "deleted"
+ * data) — the sign-in session survives, one unavailable local store does not
+ * abort the rest, and a failed account delete stops the whole thing before
+ * the local copy (the way to retry) is destroyed.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const cloudDeleteConversation = vi.fn();
+const cloudLoadConversations = vi.fn();
+const deleteApiKeyFromAccount = vi.fn();
 
 vi.mock("localforage", () => ({
   default: {
@@ -26,7 +29,14 @@ vi.mock("../app/utils/workspace", () => ({
 }));
 
 vi.mock("../app/composables/useCloudSync", () => ({
-  useCloudSync: () => ({ cloudDeleteConversation }),
+  useCloudSync: () => ({ cloudDeleteConversation, cloudLoadConversations }),
+}));
+
+vi.mock("../app/composables/useApiKeySync", () => ({
+  // Wrapped: the factory is hoisted above the spy's declaration, so it can
+  // only reach it lazily (the useCloudSync mock above gets this for free
+  // from its own arrow function).
+  deleteApiKeyFromAccount: (...args) => deleteApiKeyFromAccount(...args),
 }));
 
 import localforage from "localforage";
@@ -40,6 +50,8 @@ beforeEach(() => {
   // The real composable resolves true when the account no longer holds the
   // conversation — including when there is no account at all.
   cloudDeleteConversation.mockResolvedValue(true);
+  deleteApiKeyFromAccount.mockResolvedValue(true);
+  cloudLoadConversations.mockResolvedValue([]);
   vi.mocked(localforage.getItem).mockResolvedValue([
     { id: "chat-a" },
     { id: "chat-b" },
@@ -64,6 +76,32 @@ describe("deleteAllData", () => {
     await deleteAllData();
     expect(cloudDeleteConversation).toHaveBeenCalledWith("chat-a");
     expect(cloudDeleteConversation).toHaveBeenCalledWith("chat-b");
+  });
+
+  it("deletes chats the account holds that this device has never seen", async () => {
+    // Started on another phone and never opened here: it exists only on the
+    // account, and would otherwise come straight back at the next sign-in.
+    cloudLoadConversations.mockResolvedValue([{ id: "chat-a" }, { id: "chat-elsewhere" }]);
+
+    await deleteAllData();
+
+    const ids = cloudDeleteConversation.mock.calls.map((c) => c[0]).sort();
+    expect(ids).toEqual(["chat-a", "chat-b", "chat-elsewhere"]);
+  });
+
+  it("deletes the API key stored on the account", async () => {
+    await deleteAllData();
+    expect(deleteApiKeyFromAccount).toHaveBeenCalled();
+  });
+
+  it("keeps the local copy when the account API key delete fails", async () => {
+    deleteApiKeyFromAccount.mockResolvedValue(false);
+
+    const { errors } = await deleteAllData();
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("account API key");
+    expect(localforage.clear).not.toHaveBeenCalled();
   });
 
   it("removes both workspace trees", async () => {

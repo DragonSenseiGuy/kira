@@ -74,3 +74,30 @@ export async function syncApiKeyWithAccount() {
     console.warn("[apiKey] Could not sync the key with your account:", error.message);
   }
 }
+
+/**
+ * Removes the key stored against the signed-in account.
+ *
+ * Reports success as a boolean rather than throwing, matching
+ * `cloudDeleteConversation`: "delete all my data" has to know whether the
+ * account really let go of the key before it wipes this device.
+ *
+ * @returns {Promise<boolean>} True when the account no longer holds a key —
+ *   including when there is no account to hold one. False on failure.
+ */
+export async function deleteApiKeyFromAccount() {
+  // Nothing to delete when accounts are off or nobody is signed in.
+  if (!canSync()) return true;
+
+  try {
+    const res = await fetch("/api/account/api-key", { method: "DELETE" });
+    if (!res.ok) {
+      console.warn("[apiKey] Could not delete the key from your account:", `HTTP ${res.status}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.warn("[apiKey] Could not delete the key from your account:", error.message);
+    return false;
+  }
+}
