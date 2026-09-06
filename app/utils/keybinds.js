@@ -10,6 +10,9 @@
  */
 
 export const KEYBIND_ACTIONS = [
+  // `id` is the persisted key for user overrides (settings.keybinds is an
+  // action-id -> combo map), so it stays `open_palette` even though the
+  // action now toggles. Renaming it would orphan everyone's stored bind.
   { id: 'open_palette', label: 'Toggle command palette', default: 'mod+k' },
   { id: 'focus_input', label: 'Focus text input', default: '/' },
   { id: 'new_chat', label: 'New chat', default: 'mod+alt+n' },
