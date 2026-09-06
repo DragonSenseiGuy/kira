@@ -66,7 +66,6 @@ const {
   changeConversation,
   deleteConversation,
   newConversation,
-  toggleIncognito,
   setChatPanel,
   chatPanel // This is the chat panel ref from the composable
 } = useConversation();
@@ -91,11 +90,6 @@ onMounted(async () => {
 
   // Since this is incognito mode, we don't need to load specific conversation data
   // The conversation happens in memory only
-
-  // Make sure incognito mode is enabled
-  if (!isIncognito.value) {
-    toggleIncognito();
-  }
 
   // Check if there's an initial message in the route query
   if (route.query.initialMessage) {

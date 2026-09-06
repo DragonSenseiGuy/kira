@@ -5,7 +5,7 @@
  * Covers:
  *   - Workspace scope follows the route (conversation id ↔ null)
  *   - New-chat staging is discarded on any non-new-chat navigation
- *   - Incognito is cleared when leaving the chat-start surfaces
+ *   - Incognito is derived from the route (never a stale global flag)
  *   - Mobile (≤950px): full-page destinations close BOTH sidebars
  *   - Desktop: panels are never touched by the watcher
  *   - isFullPageDestination classification
@@ -22,13 +22,20 @@ vi.mock("../app/composables/pendingChatSetup", () => ({
   clearPendingSetup: vi.fn(),
 }));
 
+// useGlobalIncognito derives its state from useRoute(), which normally needs a
+// setup context. Point it at the same fake route object the watcher gets.
+let currentRoute = null;
+vi.mock("vue-router", () => ({
+  useRoute: () => currentRoute,
+}));
+
 import { setActiveConversation } from "../app/composables/workspaceSession";
 import { clearPendingSetup } from "../app/composables/pendingChatSetup";
 import { useGlobalIncognito } from "../app/composables/useGlobalIncognito";
 import {
   useLayoutRouteWatch,
   isFullPageDestination,
-  keepsIncognito,
+  isChatStart,
 } from "../app/composables/useLayoutRouteWatch";
 
 function setViewportWidth(px) {
@@ -40,17 +47,25 @@ function setViewportWidth(px) {
 }
 
 function fakeRoute(path, id = null) {
-  return reactive({
+  currentRoute = reactive({
     fullPath: id ? `/${id}` : path,
     path,
     params: id ? { id } : {},
   });
+  return currentRoute;
+}
+
+function navigate(route, path, id = null) {
+  route.fullPath = path;
+  route.path = path;
+  route.params = id ? { id } : {};
 }
 
 beforeEach(() => {
   vi.mocked(setActiveConversation).mockClear();
   vi.mocked(clearPendingSetup).mockClear();
   setViewportWidth(1200); // desktop by default
+  fakeRoute("/");
   useGlobalIncognito().setIncognito(false);
 });
 
@@ -74,41 +89,81 @@ describe("isFullPageDestination", () => {
   });
 });
 
-describe("keepsIncognito", () => {
-  it("keeps the flag on the chat-start surfaces", () => {
-    expect(keepsIncognito("/incognito")).toBe(true);
-    expect(keepsIncognito("/")).toBe(true);
-    expect(keepsIncognito("/new")).toBe(true);
+describe("isChatStart", () => {
+  it("classifies the screens where a chat is composed but not yet created", () => {
+    expect(isChatStart("/")).toBe(true);
+    expect(isChatStart("/new")).toBe(true);
   });
 
-  it("drops it everywhere else", () => {
-    expect(keepsIncognito("/abc123")).toBe(false);
-    expect(keepsIncognito("/settings")).toBe(false);
-    expect(keepsIncognito("/projects")).toBe(false);
+  it("excludes every other route", () => {
+    expect(isChatStart("/incognito")).toBe(false);
+    expect(isChatStart("/abc123")).toBe(false);
+    expect(isChatStart("/settings")).toBe(false);
+  });
+});
+
+describe("useGlobalIncognito (route-derived)", () => {
+  it("is on for the incognito screen regardless of the toggle", () => {
+    fakeRoute("/incognito");
+    const { isIncognito, setIncognito } = useGlobalIncognito();
+
+    setIncognito(false);
+    expect(isIncognito.value).toBe(true);
+  });
+
+  it("is off on a stored conversation even when the toggle is armed", () => {
+    fakeRoute("/convo-9", "convo-9");
+    const { isIncognito, setIncognito } = useGlobalIncognito();
+
+    setIncognito(true);
+    expect(isIncognito.value).toBe(false);
+  });
+
+  it("follows the toggle on the chat-start surfaces", () => {
+    const route = fakeRoute("/");
+    const { isIncognito, toggleIncognito } = useGlobalIncognito();
+
+    expect(isIncognito.value).toBe(false);
+    toggleIncognito();
+    expect(isIncognito.value).toBe(true);
+
+    navigate(route, "/new");
+    expect(isIncognito.value).toBe(true);
+  });
+
+  it("is off on non-chat routes such as settings", () => {
+    fakeRoute("/settings");
+    const { isIncognito, setIncognito } = useGlobalIncognito();
+
+    setIncognito(true);
+    expect(isIncognito.value).toBe(false);
   });
 });
 
 describe("useLayoutRouteWatch", () => {
-  it("clears incognito when a stored conversation is opened", async () => {
-    const { isIncognito, setIncognito } = useGlobalIncognito();
+  // Regression for #17: opening a stored conversation from the sidebar while
+  // incognito rendered the incognito welcome, because changeConversation()
+  // bailed out on a global flag nothing had cleared.
+  it("leaves incognito off and scopes the conversation when one is opened from /incognito", async () => {
     const route = fakeRoute("/incognito");
+    const { isIncognito, setIncognito } = useGlobalIncognito();
     useLayoutRouteWatch(route, { sidebarOpen: ref(true), dockOpen: ref(false) });
 
     setIncognito(true);
-    route.fullPath = "/convo-9";
-    route.path = "/convo-9";
-    route.params = { id: "convo-9" };
+    expect(isIncognito.value).toBe(true);
+
+    navigate(route, "/convo-9", "convo-9");
     await nextTick();
 
     expect(isIncognito.value).toBe(false);
+    expect(setActiveConversation).toHaveBeenCalledWith("convo-9");
   });
 
-  it("leaves incognito armed while on the incognito screen", async () => {
-    const { isIncognito, setIncognito } = useGlobalIncognito();
+  it("stays incognito while on the incognito screen", async () => {
     const route = fakeRoute("/incognito");
+    const { isIncognito } = useGlobalIncognito();
     useLayoutRouteWatch(route, { sidebarOpen: ref(true), dockOpen: ref(false) });
 
-    setIncognito(true);
     route.fullPath = "/incognito?initialMessage=hi";
     await nextTick();
 
@@ -148,9 +203,7 @@ describe("useLayoutRouteWatch", () => {
     useLayoutRouteWatch(route, { sidebarOpen: ref(true), dockOpen: ref(false) });
 
     vi.mocked(setActiveConversation).mockClear();
-    route.fullPath = "/convo-9";
-    route.path = "/convo-9";
-    route.params = { id: "convo-9" };
+    navigate(route, "/convo-9", "convo-9");
     await nextTick();
 
     expect(setActiveConversation).toHaveBeenCalledWith("convo-9");

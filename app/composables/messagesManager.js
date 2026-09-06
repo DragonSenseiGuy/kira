@@ -43,7 +43,7 @@ export function useMessagesManager(chatPanel) {
   const settingsManager = useSettings();
 
   // Use global incognito state
-  const { isIncognito, toggleIncognito: globalToggleIncognito } = useGlobalIncognito();
+  const { isIncognito, setIncognito, toggleIncognito: globalToggleIncognito } = useGlobalIncognito();
 
   // Initialize router for navigation
   const router = useRouter();
@@ -581,8 +581,6 @@ export function useMessagesManager(chatPanel) {
    * Changes the current conversation
    */
   async function changeConversation(id) {
-    if (isIncognito.value) return;
-
     chatLoading.value = true;
     messages.value = [];
     branchPath.value = [];
@@ -751,7 +749,10 @@ export function useMessagesManager(chatPanel) {
     currConvo.value = '';
     messages.value = [];
     conversationTitle.value = '';
-    isIncognito.value = false;
+    // Starting a fresh chat disarms the toggle. Route derivation alone
+    // can't do this: arriving at `/` from `/incognito` is a chat-start
+    // route, so an armed flag would otherwise carry straight over.
+    setIncognito(false);
     setActiveConversation(null);
   }
 

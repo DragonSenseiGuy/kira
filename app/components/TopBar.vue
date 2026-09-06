@@ -19,12 +19,12 @@
       </UiTooltip>
 
       <UiBadge
-        v-if="(isIncognito && messages && messages.length > 0) || isIncognitoRoute"
+        v-if="(isIncognito && messages && messages.length > 0) || isIncognitoSession"
         tone="neutral"
         icon="mdi:incognito"
         class="incognito-indicator"
       >
-        {{ isIncognitoRoute ? 'Incognito Mode' : 'Incognito mode' }}
+        Incognito mode
       </UiBadge>
 
       <div class="action-toggles">
@@ -45,7 +45,7 @@
         </UiTooltip>
 
         <UiTooltip
-          v-if="showIncognitoButton && !isIncognitoRoute"
+          v-if="showIncognitoButton && !isIncognitoSession"
           :content="isIncognito ? 'Disable incognito mode' : 'Enable incognito mode'"
           side="bottom"
           shortcut="mod+alt+i"
@@ -81,7 +81,8 @@
 
 <script setup>
 import { computed, ref } from 'vue';
-import { useRoute, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
+import { useGlobalIncognito } from "~/composables/useGlobalIncognito";
 
 const props = defineProps({
   isScrolledTop: {
@@ -128,7 +129,6 @@ const props = defineProps({
 
 defineEmits(['toggle-incognito', 'toggle-parameter-config', 'toggle-workspace', 'export-chat', 'open-palette']);
 
-const route = useRoute();
 const router = useRouter();
 const topBarRef = ref(null);
 
@@ -143,7 +143,9 @@ const handleMiddleClickNewChat = (e) => {
   }
 };
 
-const isIncognitoRoute = computed(() => route.path === '/incognito');
+// The incognito screen itself, as opposed to incognito merely armed from
+// the new-chat toggle — the badge and the toggle button read differently there.
+const { isIncognitoSession } = useGlobalIncognito();
 
 const isScrolledTopValue = computed(() => {
   return typeof props.isScrolledTop === 'boolean'

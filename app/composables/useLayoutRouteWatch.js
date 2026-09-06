@@ -1,7 +1,6 @@
 import { watch } from "vue";
 import { setActiveConversation } from "./workspaceSession";
 import { clearPendingSetup } from "./pendingChatSetup";
-import { useGlobalIncognito } from "./useGlobalIncognito";
 
 /**
  * Routes whose pages fill the whole screen and should not compete with
@@ -12,12 +11,12 @@ export function isFullPageDestination(path) {
 }
 
 /**
- * Routes where incognito is a meaningful state: the incognito screen itself,
- * and the new-chat screen (where the top bar toggle arms it before the first
- * message navigates to /incognito).
+ * The chat-start surfaces: the screens where a chat is composed but does not
+ * exist yet. Shared with useGlobalIncognito, which treats them as the only
+ * routes where the top-bar toggle can arm incognito.
  */
-export function keepsIncognito(path) {
-  return path === "/incognito" || path === "/" || path === "/new";
+export function isChatStart(path) {
+  return path === "/" || path === "/new";
 }
 
 /**
@@ -29,8 +28,6 @@ export function keepsIncognito(path) {
  * @param {object} panels - { sidebarOpen: Ref, dockOpen: Ref }
  */
 export function useLayoutRouteWatch(route, panels) {
-  const { setIncognito } = useGlobalIncognito();
-
   watch(
     () => route.fullPath,
     () => {
@@ -42,17 +39,9 @@ export function useLayoutRouteWatch(route, panels) {
         setActiveConversation(null);
       }
 
-      // Incognito only means something on the chat-start surfaces. Anywhere
-      // else — most importantly a stored conversation opened from the
-      // sidebar — it must be cleared, because conversation loading is
-      // short-circuited while the flag is set and the page would render the
-      // incognito welcome instead of the chat.
-      if (!keepsIncognito(route.path)) setIncognito(false);
-
       // Leaving the new-chat screen without starting a chat discards
       // anything staged there (attached projects / uploaded files).
-      const isNewChat = route.path === "/" || route.path === "/new";
-      if (!isNewChat) clearPendingSetup();
+      if (!isChatStart(route.path)) clearPendingSetup();
 
       // Full-page destinations take the whole screen on mobile — both the
       // nav and the Workspace dock would only crowd them out, and the dock
