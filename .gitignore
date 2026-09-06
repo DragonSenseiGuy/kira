@@ -28,3 +28,6 @@ coverage
 
 # Vitest JSON reporter output
 vitest-report.json
+
+# Agent worktrees and local salvage
+.claude/

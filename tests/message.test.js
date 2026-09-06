@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { formatMessageForAPI } from "../app/composables/message.js";
+import { formatMessageForAPI } from "../app/composables/messageFormat.js";
 
 describe("formatMessageForAPI - user messages", () => {
   it("formats a plain user message with string content", () => {
