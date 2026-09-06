@@ -879,7 +879,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
           @paste="handlePaste"
           @focus="isFocused = true"
           @blur="isFocused = false"
-          placeholder="Type your message..."
+          placeholder="Ask anything"
           class="chat-textarea"
           rows="1"
         ></textarea>
@@ -1084,15 +1084,22 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   box-shadow: 0 -12px 18px 10px var(--bg);
 }
 
+/* The composer is the one deliberately soft object in the layout: a deeply
+   rounded slab that floats over the page. In light it is white on white and
+   carries a hairline; in dark it lifts off the page with its own fill and no
+   ring at all. Focus does not add a coloured ring — the caret is enough. */
 .input-area-wrapper {
   display: flex;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   flex-direction: column;
-  background-color: var(--card);
+  background-color: var(--composer-bg, var(--card));
   border: none;
-  border-radius: var(--radius-xl);
-  padding: 4px 8px 8px;
-  box-shadow: var(--shadow-raised);
+  border-radius: var(--radius-composer, 28px);
+  padding: 6px 12px 10px;
+  box-shadow:
+    0 0 0 1px var(--composer-ring, transparent),
+    0 2px 6px #0000000a,
+    0 12px 32px #00000008;
   position: relative;
   z-index: 10;
   transition: box-shadow var(--duration) var(--ease-out),
@@ -1101,20 +1108,20 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 
 .input-area-wrapper:focus-within {
   box-shadow:
-    0 0 0 1px var(--accent),
-    0 0 0 4px var(--focus-ring),
-    0 2px 10px #0000000b;
+    0 0 0 1px var(--composer-ring, transparent),
+    0 2px 8px #0000000f,
+    0 14px 38px #0000000d;
 }
 
 .input-area-wrapper.drag-over {
-  box-shadow: 0 0 0 2px var(--accent), 0 0 0 6px var(--focus-ring);
-  background-color: var(--accent-tint);
+  box-shadow: 0 0 0 2px var(--ink-3);
+  background-color: var(--hover);
 }
 
 .chat-textarea {
   display: block;
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 8px 8px;
   background: transparent;
   border: none;
   resize: none;
@@ -1124,8 +1131,8 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   font-family: inherit;
   font-size: 1rem;
   line-height: 1.5;
-  min-height: 24px;
-  max-height: 250px;
+  min-height: 28px;
+  max-height: 216px;
   overflow-y: auto;
   position: relative;
   caret-color: var(--text-primary);
@@ -1144,7 +1151,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 .chat-mirror {
   position: absolute;
   inset: 0;
-  padding: 10px 12px;
+  padding: 12px 8px 8px;
   font-size: 1rem;
   line-height: 1.5;
   color: var(--text-primary);
@@ -1173,8 +1180,22 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
    pins the send button's disabled treatment, which is specific to it. */
 .send-btn:disabled {
   background-color: var(--btn-send-disabled-bg);
-  color: var(--text-muted);
+  color: var(--btn-send-text);
   box-shadow: none;
+  opacity: 1;
+}
+
+/* The composer's own fill is already --field in dark, so the subtle variant
+   would vanish against it. Every control on the tray is drawn as an outlined
+   circle/pill instead — ChatGPT's arrangement. */
+.attachment-btn {
+  background: transparent;
+  box-shadow: 0 0 0 1px var(--line-strong);
+  color: var(--text-primary);
+}
+
+.attachment-btn:hover:not(:disabled) {
+  background: var(--btn-hover);
 }
 
 .feature-button {
@@ -1185,7 +1206,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  padding: 8px 0 0;
+  padding: 2px 0 0;
   gap: 6px;
   width: 100%;
 }
@@ -1235,9 +1256,11 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 
 /* Mobile-specific styles */
 @media (max-width: 768px) {
+  /* No horizontal padding here — the chat column already sets the gutter, and
+     adding 10px more left the composer inset from the messages above it. */
   .input-section {
     max-width: 100%;
-    padding: 8px 10px 0;
+    padding: 8px 0 0;
   }
   
   .chat-textarea {
@@ -1423,7 +1446,8 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 }
 
 .popover-toggle-item.toggle-enabled {
-  color: var(--primary);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .popover-toggle-item.toggle-enabled:hover {
@@ -1437,7 +1461,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 
 .toggle-status {
   flex-shrink: 0;
-  color: var(--primary);
+  color: var(--text-primary);
 }
 
 .popover-divider {
@@ -1522,8 +1546,8 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 
 .attachment-popover .reasoning-effort-dropdown .reasoning-effort-item.selected {
   background: transparent;
-  color: var(--primary);
-  font-weight: 500;
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .attachment-popover .reasoning-effort-dropdown .reasoning-effort-item.selected:hover {

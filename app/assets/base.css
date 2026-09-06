@@ -3,9 +3,12 @@
 
    Two layers:
    1. PRIMITIVES — the raw palette (--page, --ink, --line, --accent, ...).
-      Modelled on the "Beautiful UI" system: near-neutral greys, hairline
-      ring-shadows instead of heavy borders, a single blue accent, and a
-      tight radius scale (chip 6 / control 8 / card 10).
+         Modelled on ChatGPT's surface language: a white page with a slightly
+      warmer grey rail, near-black text, almost no chrome, and a generous
+      radius scale (chip 8 / control 10 / card 16 / xl 24 / composer 28).
+      Primary actions are a neutral black-in-light / white-in-dark pill
+      (--action), not the accent — the accent is reserved for links and
+      genuinely informational highlights.
    2. SEMANTIC ALIASES — the names components already use, mapped onto the
       primitives. Restyle by editing layer 1; layer 2 keeps everything wired.
 
@@ -21,41 +24,56 @@
   interpolate-size: allow-keywords;
 
   /* ---------- 1. PRIMITIVES (light) ---------- */
-  --page: #fafafb;
+  --page: #ffffff;
   /* app background */
-  --canvas: #f1f2f3;
+  --canvas: #f9f9f9;
   /* recessed rails — sidebar, gutters */
   --card: #ffffff;
   /* elevated surfaces — popovers, panels, cards */
-  --inset: #f7f8f9;
+  --inset: #f7f7f8;
   /* subtly recessed blocks inside a card */
-  --field: #f2f2f3;
+  --field: #f4f4f4;
   /* input / control fill */
-  --hover: #f4f5f6;
+  --hover: #f0f0f0;
   /* opaque hover fill */
-  --hover-2: #e7e9eb;
+  --hover-2: #e8e8e8;
   /* opaque active/pressed fill */
 
-  --ink: #1f2124;
+  --ink: #0d0d0d;
   /* primary text */
-  --ink-2: #62656b;
+  --ink-2: #5d5d5d;
   /* secondary text */
-  --ink-3: #9a9da3;
+  --ink-3: #9b9b9b;
   /* muted text, placeholders */
 
-  --line: #ecedef;
+  --line: #ececec;
   /* hairline divider */
-  --line-strong: #e0e2e5;
+  --line-strong: #dcdcdc;
   /* emphasised border, control outline */
 
-  --accent: #0285ff;
-  --accent-ink: #0170dd;
+  /* Neutral primary action — the black pill. Buttons that commit an action
+     use this; --accent stays out of button fills entirely. */
+  --action: #0d0d0d;
+  --action-hover: #383838;
+  --action-on: #ffffff;
+  --action-disabled: #d7d7d7;
+
+  --accent: #0b6bcb;
+  --accent-ink: #095aac;
   /* hover / pressed accent */
-  --accent-strong: #0160bd;
-  --accent-tint: #e9f3ff;
+  --accent-strong: #074a8e;
+  --accent-tint: #eef2f7;
   /* accent-washed background */
   --accent-on: #ffffff;
   /* text/icon sitting on --accent */
+
+  /* Composer surface — flat white with a hairline in light, a raised slab
+     in dark. Named separately so the composer can diverge from --card. */
+  --composer-bg: #ffffff;
+  --composer-ring: var(--line-strong);
+
+  /* Chat rhythm */
+  --chat-width: 768px;
 
   --green: #189a4d;
   --green-tint: #e8f5ed;
@@ -67,35 +85,35 @@
   --stripe: #49494913;
   --stripe-bg: #f5f5f5;
 
-  --tooltip-bg: #25272b;
-  --tooltip-fg: #f6f7f8;
-  --tooltip-muted: #a5a8ad;
-  --tooltip-border: #3a3c40;
+  --tooltip-bg: #0d0d0d;
+  --tooltip-fg: #f7f7f8;
+  --tooltip-muted: #b4b4b4;
+  --tooltip-border: #2f2f2f;
 
   /* Translucent overlays — work on top of any surface */
-  --overlay-hover: #1f21240a;
-  --overlay-active: #1f212412;
-  --overlay-accent: #0285ff14;
-  --scrim: rgba(23, 24, 26, 0.32);
+  --overlay-hover: #0d0d0d0a;
+  --overlay-active: #0d0d0d14;
+  --overlay-accent: #0d0d0d0f;
+  --scrim: rgba(13, 13, 13, 0.4);
 
   /* ---------- Shadows (ring + soft drop, per elevation) ---------- */
   --shadow-hairline: 0 0 0 1px var(--line);
-  --shadow-btn: 0 0 0 1px var(--line-strong), 0 1px 2px #1018280d;
-  --shadow-card: 0 0 0 1px var(--line), 0 1px 2px #1018280a,
-    0 2px 6px #10182808;
-  --shadow-raised: 0 0 0 1px var(--line), 0 2px 10px #0000000b;
-  --shadow-overlay: 0 0 0 1px var(--line), 0 8px 28px #0001;
-  --shadow-inset-field: inset 0 1px 2px #0000001f;
+  --shadow-btn: 0 0 0 1px var(--line-strong);
+  --shadow-card: 0 0 0 1px var(--line);
+  --shadow-raised: 0 0 0 1px var(--line), 0 2px 8px #0000000a;
+  --shadow-overlay: 0 0 0 1px var(--line), 0 10px 34px #00000014;
 
   /* ---------- Radii ---------- */
-  --radius-chip: 6px;
-  --radius-control: 8px;
-  --radius-card: 10px;
+  --radius-chip: 8px;
+  --radius-control: 10px;
+  --radius-card: 16px;
   --radius-sm: var(--radius-chip);
   --radius-md: var(--radius-control);
   --radius-lg: var(--radius-card);
-  --radius-xl: 14px;
+  --radius-xl: 24px;
   --radius-full: 999px;
+  --radius-composer: 28px;
+  --radius-bubble: 22px;
   --border-radius: var(--radius-card);
 
   /* ---------- Motion ----------
@@ -124,8 +142,9 @@
   --section-gap: 160px;
 
   /* ---------- Type ---------- */
-  --font: Inter, "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  --font: "Söhne", Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular,
     Menlo, monospace;
 
@@ -166,13 +185,14 @@
 
   /* Brand */
   --primary: var(--accent);
+  --action-foreground: var(--action-on);
   --primary-foreground: var(--accent-on);
   --primary-600: var(--accent-ink);
   --primary-800: var(--accent-strong);
   --primary-300: #66b4ff;
   --primary-50: var(--accent-tint);
-  --primary-a2: #0285ff14;
-  --primary-a4: #0285ff29;
+  --primary-a2: #0d0d0d0a;
+  --primary-a4: #0d0d0d14;
   --secondary: var(--accent-ink);
   --secondary-600: var(--accent-strong);
   --accent-warm: var(--orange);
@@ -195,7 +215,7 @@
   --btn-hover: var(--overlay-hover);
   --btn-hover-2: var(--overlay-accent);
   --btn-active: var(--overlay-active);
-  --focus-ring: color-mix(in srgb, var(--accent) 22%, transparent);
+  --focus-ring: color-mix(in srgb, var(--ink) 12%, transparent);
   --black-a7: var(--scrim);
 
   /* Shadow aliases */
@@ -210,10 +230,10 @@
   --btn-model-selector-bg: transparent;
   --btn-model-selector-text: var(--ink-2);
   --btn-model-selector-hover-bg: var(--overlay-hover);
-  --btn-send-bg: var(--accent);
-  --btn-send-hover-bg: var(--accent-ink);
-  --btn-send-disabled-bg: var(--line-strong);
-  --btn-send-text: var(--accent-on);
+  --btn-send-bg: var(--action);
+  --btn-send-hover-bg: var(--action-hover);
+  --btn-send-disabled-bg: var(--action-disabled);
+  --btn-send-text: var(--action-on);
 
   /* Popovers */
   --popover-bg: var(--card);
@@ -222,21 +242,21 @@
   --popover-header-text: var(--ink);
   --popover-list-item-bg-hover: var(--overlay-hover);
   --popover-list-item-text: var(--ink);
-  --popover-list-item-selected-bg: var(--accent-tint);
-  --popover-list-item-selected-text: var(--accent-ink);
+  --popover-list-item-selected-bg: var(--hover-2);
+  --popover-list-item-selected-text: var(--ink);
 
   /* Tooltip */
   --tooltip-text: var(--tooltip-fg);
 
-  /* Chat bubbles */
-  --color-bubble-user-bg: var(--accent-tint);
+  /* Chat bubbles — the user turn is a neutral grey capsule, never accented */
+  --color-bubble-user-bg: #f4f4f4;
   --color-bubble-user-text: var(--ink);
   --bubble-user-text: var(--ink);
 
   /* Code */
   --code-header-bg: var(--inset);
 
-  scrollbar-color: #d7d9dc transparent;
+  scrollbar-color: #cdcdcd transparent;
   scrollbar-width: thin;
 }
 
@@ -244,26 +264,34 @@
   color-scheme: dark;
 
   /* ---------- 1. PRIMITIVES (dark) ---------- */
-  --page: #17181a;
-  --canvas: #1c1d1f;
-  --card: #232427;
-  --inset: #1f2022;
-  --field: #2b2c2f;
-  --hover: #2a2b2e;
-  --hover-2: #313236;
+  --page: #212121;
+  --canvas: #181818;
+  --card: #2f2f2f;
+  --inset: #262626;
+  --field: #303030;
+  --hover: #2f2f2f;
+  --hover-2: #3c3c3c;
 
-  --ink: #f2f3f4;
-  --ink-2: #a5a8ad;
-  --ink-3: #6c6f75;
+  --ink: #ececec;
+  --ink-2: #b4b4b4;
+  --ink-3: #8f8f8f;
 
-  --line: #2e3033;
-  --line-strong: #3a3c40;
+  --line: #ffffff1a;
+  --line-strong: #ffffff26;
 
-  --accent: #3d9aff;
-  --accent-ink: #7ec0ff;
-  --accent-strong: #9ecdff;
-  --accent-tint: #3d9aff29;
-  --accent-on: #0b1220;
+  --action: #ffffff;
+  --action-hover: #d7d7d7;
+  --action-on: #0d0d0d;
+  --action-disabled: #4a4a4a;
+
+  --accent: #7ab7ff;
+  --accent-ink: #a3cdff;
+  --accent-strong: #c6e0ff;
+  --accent-tint: #ffffff14;
+  --accent-on: #0d0d0d;
+
+  --composer-bg: #303030;
+  --composer-ring: transparent;
 
   --green: #3dbb72;
   --green-tint: #3dbb7224;
@@ -273,38 +301,37 @@
   --red-tint: #ee5c6124;
 
   --stripe: #ffffff0e;
-  --stripe-bg: #1b1c1e;
+  --stripe-bg: #1e1e1e;
 
-  --tooltip-bg: #111214;
-  --tooltip-fg: #f2f3f4;
-  --tooltip-muted: #a5a8ad;
-  --tooltip-border: #2e3033;
+  --tooltip-bg: #f7f7f8;
+  --tooltip-fg: #0d0d0d;
+  --tooltip-muted: #5d5d5d;
+  --tooltip-border: transparent;
 
   --overlay-hover: #ffffff0f;
-  --overlay-active: #ffffff1a;
-  --overlay-accent: #3d9aff24;
+  --overlay-active: #ffffff1f;
+  --overlay-accent: #ffffff14;
   --scrim: rgba(0, 0, 0, 0.6);
 
   /* ---------- Shadows (dark) ---------- */
   --shadow-hairline: 0 0 0 1px var(--line);
-  --shadow-btn: 0 0 0 1px var(--line-strong), 0 1px 2px #0000004d;
-  --shadow-card: 0 0 0 1px var(--line), 0 1px 2px #0003, 0 2px 6px #0003;
+  --shadow-btn: 0 0 0 1px var(--line-strong);
+  --shadow-card: 0 0 0 1px var(--line);
   --shadow-raised: 0 0 0 1px var(--line), 0 2px 10px #00000038;
-  --shadow-overlay: 0 0 0 1px var(--line-strong), 0 8px 28px #00000057;
-  --shadow-inset-field: inset 0 1px 2px #0006;
+  --shadow-overlay: 0 0 0 1px var(--line-strong), 0 10px 34px #00000066;
 
   /* ---------- 2. Dark-only alias overrides ---------- */
-  --primary-300: #6bb2ff;
-  --primary-a2: #3d9aff1f;
-  --primary-a4: #3d9aff3d;
+  --primary-300: #a3cdff;
+  --primary-a2: #ffffff0f;
+  --primary-a4: #ffffff1f;
   --destructive-600: #f27a7e;
   --destructive-foreground: #1a0f10;
   --shadow-elev: rgba(0, 0, 0, 0.5);
 
   /* User bubble reads as an elevated neutral in dark, not a blue wash */
-  --color-bubble-user-bg: var(--field);
+  --color-bubble-user-bg: #303030;
 
-  scrollbar-color: #3a3c40 transparent;
+  scrollbar-color: #4a4a4a transparent;
 }
 
 *,
@@ -329,7 +356,7 @@ body {
   line-height: 1.55;
   font-family: var(--font);
   font-size: 14px;
-  letter-spacing: -0.006em;
+  letter-spacing: 0;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -355,7 +382,7 @@ summary:focus-visible,
 [role="menuitem"]:focus-visible,
 [role="switch"]:focus-visible,
 [role="tab"]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ink-2);
   outline-offset: 2px;
 }
 
@@ -392,7 +419,7 @@ summary:focus-visible,
 .dialog-content-panel input:focus,
 .dialog-content-panel select:focus {
   outline: none;
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--ink-3);
 }
 
 input::placeholder,
@@ -401,13 +428,13 @@ textarea::placeholder {
 }
 
 ::selection {
-  background: var(--accent-tint);
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
   color: var(--ink);
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
@@ -415,9 +442,14 @@ textarea::placeholder {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
+  background: #cdcdcd;
   border-radius: var(--radius-full);
-  border: 3px solid transparent;
+  border: 4px solid transparent;
+  background-clip: content-box;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
   background-clip: content-box;
 }
 
@@ -612,10 +644,10 @@ textarea::placeholder {
 
 /* Top bar styling — sits flush on the page, gains a hairline once scrolled */
 .top-bar {
-  height: 48px;
-  background-color: color-mix(in srgb, var(--bg) 82%, transparent);
-  backdrop-filter: saturate(180%) blur(12px);
-  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  height: 52px;
+  background-color: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
   width: 100%;
   z-index: 1000;
   flex-shrink: 0;
@@ -623,8 +655,10 @@ textarea::placeholder {
   transition: border-color var(--duration) var(--ease-out);
 }
 
+/* ChatGPT never rules a line under the header — the blur alone marks the
+   boundary once content slides beneath it. */
 .top-bar.with-border {
-  border-bottom-color: var(--border);
+  border-bottom-color: transparent;
 }
 
 /* Group header date labels to match t3.chat style */
@@ -641,8 +675,8 @@ textarea::placeholder {
   justify-content: flex-start;
   align-items: center;
   height: 100%;
-  padding: 0 16px;
-  gap: 12px;
+  padding: 0 12px;
+  gap: 6px;
 }
 
 /* --- SIDEBAR TOGGLE --- */
@@ -770,11 +804,11 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary);
+  color: var(--text-secondary);
   width: 22px;
   height: 22px;
   flex-shrink: 0;
-  background: var(--overlay-accent);
+  background: var(--overlay-hover);
   border-radius: var(--radius-chip);
 }
 

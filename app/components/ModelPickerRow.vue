@@ -1,5 +1,17 @@
 <template>
-  <button type="button" class="mpr-row" :class="{ selected }" @click="$emit('select')">
+  <!-- A div, not a button: the favourite star is a real button and nesting one
+       button inside another is invalid HTML that Vue warns about and that can
+       break hydration. Keyboard behaviour is restored explicitly. -->
+  <div
+    class="mpr-row"
+    :class="{ selected }"
+    role="button"
+    tabindex="0"
+    :aria-pressed="String(selected)"
+    @click="$emit('select')"
+    @keydown.enter.prevent="$emit('select')"
+    @keydown.space.prevent="$emit('select')"
+  >
     <div class="mpr-main">
       <div class="mpr-name-line">
         <span class="mpr-name">{{ model.name }}</span>
@@ -42,7 +54,7 @@
     <span v-if="selected" class="mpr-check">
       <Icon icon="material-symbols:check-rounded" width="20" height="20" />
     </span>
-  </button>
+  </div>
 </template>
 
 <script setup>
@@ -82,7 +94,7 @@ defineEmits(['select', 'toggle-favorite']);
 }
 
 .mpr-row.selected {
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  background: var(--hover-2);
 }
 
 .mpr-main {
@@ -114,8 +126,8 @@ defineEmits(['select', 'toggle-favorite']);
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
-  color: color-mix(in srgb, var(--primary) 60%, var(--text-secondary));
+  background: var(--overlay-hover);
+  color: var(--text-secondary);
 }
 
 .mpr-description {
@@ -174,7 +186,7 @@ defineEmits(['select', 'toggle-favorite']);
   }
 
   .mpr-row.selected {
-    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    background: var(--hover-2);
   }
 }
 
@@ -195,6 +207,6 @@ defineEmits(['select', 'toggle-favorite']);
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  color: var(--primary);
+  color: var(--text-primary);
 }
 </style>

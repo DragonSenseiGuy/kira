@@ -277,10 +277,11 @@ const onAnimationComplete = () => {
   color: var(--text-primary);
 }
 
+/* Selected provider reads as a neutral fill, matching the chat rail. */
 .provider-tab.active {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border-color: transparent;
+  color: var(--text-primary);
+  background: var(--hover-2);
   font-weight: 600;
 }
 
@@ -312,7 +313,7 @@ const onAnimationComplete = () => {
 }
 
 .model-search-box:focus-within {
-  border-color: var(--primary);
+  border-color: var(--line-strong);
 }
 
 .model-search-box .search-icon {
@@ -365,7 +366,7 @@ const onAnimationComplete = () => {
 }
 
 .show-more-btn:hover {
-  color: var(--primary);
-  border-color: var(--primary);
+  color: var(--text-primary);
+  border-color: var(--line-strong);
 }
 </style>

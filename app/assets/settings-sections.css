@@ -112,7 +112,7 @@
 
 .stx-input:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: var(--ink-3);
 }
 
 .stx-input.small {
@@ -152,15 +152,16 @@ select.stx-input {
   background: var(--btn-hover);
 }
 
+/* The neutral action pill, same as UiButton's primary. */
 .stx-btn.primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--primary-foreground, #fff);
+  background: var(--action);
+  border-color: var(--action);
+  color: var(--action-foreground);
 }
 
 .stx-btn.primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-  background: var(--primary);
+  background: var(--action-hover);
+  border-color: var(--action-hover);
 }
 
 .stx-btn.danger {
@@ -212,7 +213,7 @@ select.stx-input {
 }
 
 .stx-switch-root[data-state='checked'] {
-  background-color: var(--primary);
+  background-color: var(--action);
 }
 
 .stx-switch-thumb {
@@ -237,7 +238,7 @@ select.stx-input {
 }
 
 .stx-switch-root:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--ink-2);
   outline-offset: 2px;
 }
 
@@ -264,8 +265,8 @@ select.stx-input {
 }
 
 .stx-option.active {
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 7%, var(--bg-secondary));
+  border-color: var(--ink-3);
+  background: var(--hover);
 }
 
 .stx-option .opt-title {

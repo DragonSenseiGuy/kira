@@ -328,7 +328,7 @@ function choose(model) {
 }
 
 .model-popover-check {
-  color: var(--primary);
+  color: var(--text-primary);
   flex-shrink: 0;
   margin-left: 8px;
 }

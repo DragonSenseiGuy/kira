@@ -143,8 +143,8 @@ onBeforeUnmount(() => {
 }
 .dlg-input:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--focus-ring);
+  border-color: var(--ink-3);
+  box-shadow: none;
 }
 
 .dlg-footer {
@@ -178,13 +178,14 @@ onBeforeUnmount(() => {
   background: var(--btn-hover);
   color: var(--text-primary);
 }
+/* The confirm button is the neutral action pill, like every other primary. */
 .dlg-btn.solid {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--action);
+  color: var(--action-foreground);
   border: none;
 }
 .dlg-btn.solid:hover:not(:disabled) {
-  filter: brightness(1.08);
+  background: var(--action-hover);
 }
 /* Destructive confirmations read as outlined-danger instead of filled —
    keeps contrast correct in both themes via the --danger token. */

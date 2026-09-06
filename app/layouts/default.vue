@@ -392,10 +392,10 @@ function hintFor(id) {
   z-index: 10;
 }
 
-/* Sidebar open shifts main content right by sidebar width (280px) */
+/* Sidebar open shifts main content right by sidebar width (260px) */
 @media (min-width: 950px) {
   .main-container.sidebar-open {
-    margin-left: 280px;
+    margin-left: 260px;
   }
 
   .main-container.dock-open {
@@ -403,7 +403,7 @@ function hintFor(id) {
   }
 
   .main-container.sidebar-open.dock-open {
-    margin-left: 280px;
+    margin-left: 260px;
     margin-right: var(--dock-w, 380px);
   }
 }

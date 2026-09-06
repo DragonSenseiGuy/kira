@@ -345,11 +345,11 @@ const emit = defineEmits(["close", "save", "resize", "sidebar-close"]);
 // ---------- dock sizing / sidebar coordination ----------
 //
 // The dock shares horizontal space with the chat AND, potentially, the main
-// sidebar (280px). Rather than fixed widths, every dock width is clamped to
+// sidebar (260px). Rather than fixed widths, every dock width is clamped to
 // a budget: viewport − sidebar − a minimum comfortable chat column. The
 // chat minimum scales with screen size so both panels always fit.
 const DOCK_W = 380;
-const SIDEBAR_W = 280;
+const SIDEBAR_W = 260;
 const DOCK_MIN_W = 300;
 
 function chatMinWidth() {
@@ -1270,8 +1270,8 @@ const prettyJson = computed(() => {
 }
 .value-input:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--focus-ring);
+  border-color: var(--ink-3);
+  box-shadow: none;
 }
 
 /* ---------- preview overlay ---------- */

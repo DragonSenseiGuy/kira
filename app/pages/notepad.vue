@@ -476,7 +476,7 @@ onBeforeUnmount(() => {
 }
 
 .notepad-markdown :deep(blockquote) {
-  border-left: 3px solid var(--primary);
+  border-left: 3px solid var(--border);
   padding-left: var(--spacing-12);
   margin: 0 0 var(--spacing-12) 0 !important;
   color: var(--text-secondary);

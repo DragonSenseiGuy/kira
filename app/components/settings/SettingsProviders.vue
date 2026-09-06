@@ -431,8 +431,8 @@ function removeProvider(provider) {
 }
 
 .preset-chip:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--line-strong);
+  color: var(--text-primary);
 }
 
 .stx-error {

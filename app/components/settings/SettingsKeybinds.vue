@@ -215,9 +215,9 @@ onBeforeUnmount(() => {
 }
 
 .kb-capture.listening {
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 7%, var(--bg-secondary));
-  color: var(--primary);
+  border-color: var(--ink-3);
+  background: var(--hover);
+  color: var(--text-primary);
   font-size: 0.82rem;
   font-weight: 600;
   animation: kb-pulse 1.1s ease-in-out infinite;

@@ -89,7 +89,7 @@ defineEmits(["update:modelValue"]);
 
 .ui-input__control:focus {
   outline: none;
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--ink-3);
 }
 
 .ui-input__control:disabled {

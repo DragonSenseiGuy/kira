@@ -194,9 +194,10 @@ definePageMeta({
 }
 
 .mobile-nav-pill.active {
-  border-color: var(--primary);
-  color: var(--primary);
-  font-weight: 600;
+  border-color: transparent;
+  background: var(--hover-2);
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 /* --- Shell (scroll container) --- */
@@ -250,10 +251,12 @@ definePageMeta({
   color: var(--text-primary);
 }
 
+/* Selection in the settings rail is a neutral fill, matching the chat rail —
+   nothing in the shell competes with the content for colour. */
 .nav-item.active {
-  background: var(--btn-hover);
-  color: var(--primary);
-  font-weight: 600;
+  background: var(--hover-2);
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 /* --- Content --- */

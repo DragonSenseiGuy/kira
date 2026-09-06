@@ -700,7 +700,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   <div class="chat-wrapper" ref="chatWrapper">
     <div class="chat-container">
       <div v-if="messages.length < 1 && showWelcome" class="welcome-container">
-        <h1 v-if="!isIncognito" class="welcome-message">How can I help you?</h1>
+        <h1 v-if="!isIncognito" class="welcome-message">What can I help with?</h1>
         <div v-if="!isIncognito" class="suggestion-chips">
           <button class="suggestion-chip" @click="emit('set-message', 'Help me create something new and interesting')">
             <Icon icon="material-symbols:auto-fix-high-outline" width="16" height="16" />
@@ -970,9 +970,9 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 .chat-container {
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width, 768px);
   margin: 0 auto;
-  padding: 12px;
+  padding: 12px 0;
   box-sizing: border-box;
   position: relative;
   transition:
@@ -981,12 +981,15 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
     box-shadow var(--duration-slow) var(--ease-out-strong),
     transform var(--duration-slow) var(--ease-out-strong),
     opacity var(--duration-slow) var(--ease-out-strong);
-  padding-bottom: 100px;
+  padding-bottom: 120px;
 }
 
+/* Cold-start screen. ChatGPT centres a single short question and puts the
+   composer directly under it — the suggestions are secondary, so they read
+   quieter than the heading rather than competing with it. */
 .welcome-container {
   text-align: center;
-  margin: calc(1rem + 15vh) 0 2rem;
+  margin: calc(1rem + 12vh) 0 1.5rem;
   width: 100%;
   max-width: 640px;
   margin-left: auto;
@@ -994,11 +997,11 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 }
 
 .welcome-message {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 1.75rem;
+  font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 1.5rem 0;
-  letter-spacing: -0.03em;
+  margin: 0 0 1.75rem 0;
+  letter-spacing: -0.015em;
 }
 
 .suggestion-chips {
@@ -1014,15 +1017,15 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 8px 16px;
+  padding: 9px 14px;
   border-radius: var(--radius-full);
   border: none;
-  background: var(--card);
-  box-shadow: var(--shadow-btn);
+  background: transparent;
+  box-shadow: 0 0 0 1px var(--line-strong);
   color: var(--text-secondary);
   font-family: inherit;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 400;
   cursor: pointer;
   white-space: nowrap;
   transition:
@@ -1032,8 +1035,8 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 }
 
 .suggestion-chip:hover {
-  background: var(--overlay-accent);
-  color: var(--primary);
+  background: var(--btn-hover);
+  color: var(--text-primary);
 }
 
 .suggestion-chip:active {
@@ -1086,11 +1089,14 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   line-height: 1.6;
 }
 
+/* One turn. The vertical rhythm between turns does the grouping work; there
+   are no rules or panels between them. */
 .message {
   display: block;
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width, 768px);
   margin: 0 auto;
+  padding: 10px 0;
   position: relative;
   transition:
     background-color var(--duration-slow) var(--ease-out-strong),
@@ -1153,7 +1159,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 .message.user .message-content {
   align-items: flex-end;
-  max-width: 85%;
+  max-width: 80%;
   width: 100%;
   min-width: 0;
   display: flex;
@@ -1162,10 +1168,10 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 .bubble {
   display: block;
-  padding: 10px 14px;
-  border-radius: var(--radius-xl);
-  line-height: 1.55;
-  font-size: 0.95rem;
+  padding: 10px 20px;
+  border-radius: var(--radius-bubble, 22px);
+  line-height: 1.7;
+  font-size: 1rem;
   width: 100%;
   transition:
     background-color var(--duration-slow) var(--ease-out-strong),
@@ -1175,14 +1181,15 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
     opacity var(--duration-slow) var(--ease-out-strong);
 }
 
+/* The user turn is a grey capsule, evenly rounded — no tail, no ring, no
+   accent fill. Only the assistant's text runs the full column. */
 .message.user .bubble {
   background: var(--bubble-user-bg);
   color: var(--bubble-user-text);
-  box-shadow: var(--shadow-hairline);
+  box-shadow: none;
   white-space: pre-wrap;
-  border-bottom-right-radius: var(--radius-chip);
   margin-left: auto;
-  max-width: calc(800px * 0.85);
+  max-width: calc(var(--chat-width, 768px) * 0.8);
   width: fit-content;
   transition:
     background-color var(--duration-slow) var(--ease-out-strong),
@@ -1201,8 +1208,9 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   padding: 0;
   color: var(--text-primary-light);
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width, 768px);
   margin: 0 auto;
+  line-height: 1.75;
   transition:
     background-color var(--duration-slow) var(--ease-out-strong),
     color var(--duration-slow) var(--ease-out-strong),
@@ -1218,6 +1226,15 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 
 /* Note: .markdown-content base styles are now in code-blocks.css */
+
+/* Both turns read at the same size. The user capsule sets 1rem on .bubble,
+   but the assistant's prose is a nested .markdown-content that would
+   otherwise fall back to the 14px body size — scoped here rather than in
+   code-blocks.css, which the reasoning card and file previews also use. */
+.message.assistant .markdown-content {
+  font-size: 1rem;
+  line-height: 1.75;
+}
 
 .copy-button-container {
   margin-top: 8px;
@@ -1428,7 +1445,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 }
 
 .edit-textarea:focus {
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--ink-3);
 }
 
 .edit-actions {
@@ -1617,14 +1634,14 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   gap: 8px;
   margin-bottom: 12px;
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width, 768px);
 }
 
 /* Reasoning Card Styles */
 .reasoning-card {
   margin-bottom: 12px;
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width, 768px);
 }
 
 
