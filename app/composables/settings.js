@@ -84,8 +84,9 @@ class Settings {
       // --- GPT-OSS Specific Settings ---
       gpt_oss_limit_tables: false, // Whether to limit table usage for GPT-OSS models
 
-      // --- Debug Settings ---
-      show_debug_options: false, // Show developer-facing tools (e.g. the message debug copy button)
+      // --- Developer Mode ---
+      // Stored under the historical key so existing installs keep their choice.
+      show_debug_options: false, // Developer Mode: model parameters + message debug tools
 
       // --- API Key Settings ---
       custom_api_key: '', // User's own API key (required for all API calls)
@@ -117,7 +118,7 @@ class Settings {
       model_settings: {}, // Default value for model settings
       parameter_config: { ...DEFAULT_PARAMETERS },
       gpt_oss_limit_tables: false, // Default value for GPT-OSS table limiting
-      show_debug_options: false, // Default: developer debug tools hidden
+      show_debug_options: false, // Default: Developer Mode off
       custom_api_key: '', // Default empty API key (user must provide their own)
     };
 

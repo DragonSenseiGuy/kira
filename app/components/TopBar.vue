@@ -59,7 +59,12 @@
           />
         </UiTooltip>
 
-        <UiTooltip v-if="!parameterConfigOpen" content="Model parameters" side="bottom" shortcut="mod+alt+b">
+        <UiTooltip
+          v-if="showParametersButton && !parameterConfigOpen"
+          content="Model parameters"
+          side="bottom"
+          shortcut="mod+alt+b"
+        >
           <UiIconButton
             icon="material-symbols:tune"
             label="Model parameters"
@@ -98,6 +103,11 @@ const props = defineProps({
     default: false
   },
   isIncognito: {
+    type: Boolean,
+    default: false
+  },
+  // Model parameters are a Developer Mode feature; the layout owns the flag.
+  showParametersButton: {
     type: Boolean,
     default: false
   },

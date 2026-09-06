@@ -8,7 +8,8 @@
         @reload-settings="settingsManager.loadSettings" @open-settings="openSettingsPanel('general')" />
       <!-- Opens to General tab -->
     </Suspense>
-    <ParameterConfigPanel :is-open="activeDock === 'parameters'" :settings-manager="settingsManager"
+    <ParameterConfigPanel v-if="developerMode" :is-open="activeDock === 'parameters'"
+      :settings-manager="settingsManager"
       @close="activeDock = null" @save="handleParameterConfigSave" />
     <WorkspacePanel :is-open="activeDock === 'workspace'" :settings-manager="settingsManager"
       :sidebar-open="sidebarOpen === true"
@@ -27,6 +28,7 @@
       <TopBar :is-scrolled-top="isScrolledTop" :toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen"
         :is-incognito="isIncognito" :show-incognito-button="!route.params.id && messages.length === 0" :messages="messages"
         :parameter-config-open="activeDock === 'parameters'" :workspace-open="activeDock === 'workspace'"
+        :show-parameters-button="developerMode"
         :conversation-id="route.params.id"
         :can-export="canExport"
         @toggle-incognito="toggleIncognito"
@@ -92,6 +94,17 @@ const sidebarOpen = ref(null); // null = indeterminate, will be set in onMounted
 // occupies it: null | 'parameters' | 'workspace'. Assignment *is* mutual
 // exclusion — there is no state where both are open to guard against.
 const activeDock = ref(null);
+
+// Developer Mode (Settings -> General) gates the model parameter controls.
+// Stored under the historical `show_debug_options` key so existing installs
+// keep whatever they had selected.
+const developerMode = computed(() => !!settingsManager.settings.show_debug_options);
+
+// Turning Developer Mode off while the parameter dock is open would otherwise
+// leave an orphaned dock on screen with no way to close it.
+watch(developerMode, (on) => {
+  if (!on && activeDock.value === 'parameters') activeDock.value = null;
+});
 
 const workspaceWidth = ref(0); // px; reported by the Files dock (normal vs expanded)
 const PARAMETER_DOCK_WIDTH = 300; // px; matches .parameter-config-panel
@@ -179,6 +192,7 @@ function toggleDock(dock) {
 }
 
 function toggleParameterPanel() {
+  if (!developerMode.value) return;
   toggleDock('parameters');
 }
 
@@ -258,14 +272,6 @@ const paletteCommands = computed(() => {
       run: toggleSidebar,
     },
     {
-      id: 'toggle-parameters',
-      label: activeDock.value === 'parameters' ? 'Hide parameters' : 'Show parameters',
-      icon: 'material-symbols:tune',
-      keywords: ['temperature', 'top_p', 'seed', 'sampling', 'config'],
-      hint: hintFor('toggle_parameters'),
-      run: toggleParameterPanel,
-    },
-    {
       id: 'toggle-theme',
       label: isDark.value ? 'Switch to light theme' : 'Switch to dark theme',
       icon: isDark.value ? 'material-symbols:light-mode-outline' : 'material-symbols:dark-mode-outline',
@@ -308,6 +314,17 @@ const paletteCommands = computed(() => {
       run: openShortcutHelp,
     },
   ];
+
+  if (developerMode.value) {
+    commands.push({
+      id: 'toggle-parameters',
+      label: activeDock.value === 'parameters' ? 'Hide parameters' : 'Show parameters',
+      icon: 'material-symbols:tune',
+      keywords: ['temperature', 'top_p', 'seed', 'sampling', 'config'],
+      hint: hintFor('toggle_parameters'),
+      run: toggleParameterPanel,
+    });
+  }
 
   if (canExport.value) {
     commands.push({

@@ -36,8 +36,11 @@
 
       <div class="stx-item" style="border-bottom: none">
         <div class="stx-info">
-          <h3>Show Debug Options</h3>
-          <p>Show developer-facing tools, like the copy-debug-info button on assistant messages</p>
+          <h3>Developer Mode</h3>
+          <p>
+            Reveals the model parameter controls (temperature, top_p, seed…) and
+            developer tools like the copy-debug-info button on assistant messages
+          </p>
         </div>
         <SwitchRoot
           class="switch-root stx-switch-root"
