@@ -522,7 +522,9 @@ function copyMessage(message, event) {
   });
 }
 
-// Copy the FULL message (reasoning + tool calls + usage) for debugging.
+// Copy a diagnostic report (timings, usage, part structure, tool calls).
+// Long bodies are previewed rather than dumped — "Copy message" above is
+// the button for the actual text.
 function copyDebugDump(message, event) {
   const button = event.currentTarget;
   navigator.clipboard
@@ -873,7 +875,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
                   <UiTooltip
                     v-if="message.role === 'assistant' && showDebugOptions"
-                    content="Copy debug info (full message: reasoning + tool calls)"
+                    content="Copy debug info (timings, usage, tool calls)"
                   >
                     <UiIconButton
                       class="footer-action-btn debug-copy-button"
