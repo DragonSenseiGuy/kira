@@ -732,8 +732,8 @@ function truncateContent(content, maxLength) {
 }
 
 .cw-code-error {
-  color: #dc2626;
-  border-color: color-mix(in srgb, #dc2626 35%, transparent);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 .cw-logs {
@@ -756,18 +756,18 @@ function truncateContent(content, maxLength) {
 }
 
 .cw-ok {
-  background: color-mix(in srgb, #16a34a 14%, transparent);
-  color: #16a34a;
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
 }
 
 .cw-error {
-  background: color-mix(in srgb, #dc2626 13%, transparent);
-  color: #dc2626;
+  background: color-mix(in srgb, var(--danger) 13%, transparent);
+  color: var(--danger);
 }
 
 .cw-timeout {
-  background: color-mix(in srgb, #d97706 15%, transparent);
-  color: #d97706;
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  color: var(--warning);
 }
 
 .cw-meta {
@@ -831,11 +831,11 @@ function truncateContent(content, maxLength) {
 }
 
 .cw-code-old {
-  border-color: color-mix(in srgb, #dc2626 35%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 .cw-code-new {
-  border-color: color-mix(in srgb, #16a34a 40%, transparent);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
 }
 
 .chat-widget-status.is-live {

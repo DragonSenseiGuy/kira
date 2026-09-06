@@ -1562,7 +1562,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   left: 0;
   min-width: 260px;
   max-width: 380px;
-  background: var(--bg-elevated, var(--bg-primary, #fff));
+  background: var(--bg-primary);
   border: 1px solid var(--border, rgba(128,128,128,.3));
   border-radius: 10px;
   box-shadow: 0 8px 28px rgba(0,0,0,.18);

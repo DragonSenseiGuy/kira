@@ -203,10 +203,10 @@ useHead({
 .conversation-error {
   margin: 12px auto 0;
   padding: 10px 14px;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--border);
   border-radius: 10px;
   background: rgba(239, 68, 68, 0.08);
-  color: #b91c1c;
+  color: var(--danger);
   font-size: 0.9rem;
   max-width: var(--chat-width, 768px);
   width: 100%;

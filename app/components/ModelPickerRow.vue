@@ -194,13 +194,9 @@ defineEmits(['select', 'toggle-favorite']);
   color: var(--text-primary);
 }
 
-/* Amber-600 in light mode for contrast; brighter gold on dark surfaces */
+/* --warning already carries the light/dark pair this used to hand-write. */
 .mpr-star.active {
-  color: #d97706;
-}
-
-.dark .mpr-star.active {
-  color: #fbbf24;
+  color: var(--warning);
 }
 
 .mpr-check {

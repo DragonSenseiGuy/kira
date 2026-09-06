@@ -1407,13 +1407,13 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #fff;
+  color: var(--destructive-foreground);
   padding: 0;
 }
 
 .remove-attachment-btn:hover {
   background: var(--red);
-  color: #fff;
+  color: var(--destructive-foreground);
 }
 
 .edit-textarea {

@@ -437,7 +437,7 @@ function removeProvider(provider) {
 
 .stx-error {
   margin: 0;
-  color: #dc2626;
+  color: var(--danger);
   font-size: 0.82rem;
 }
 
@@ -466,7 +466,7 @@ function removeProvider(provider) {
 }
 
 .danger-text:hover {
-  color: #dc2626 !important;
+  color: var(--danger) !important;
 }
 
 .spin {

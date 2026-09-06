@@ -64,7 +64,7 @@ onBeforeUnmount(() => emitter.off("net-consent-request", onRequest));
 }
 .nc-card {
   width: 320px;
-  background: var(--bg, #fff);
+  background: var(--bg);
   color: var(--text-primary, inherit);
   border: 1px solid var(--border, rgba(128,128,128,.35));
   border-radius: 12px;
@@ -114,8 +114,8 @@ onBeforeUnmount(() => emitter.off("net-consent-request", onRequest));
   font-size: .8rem;
 }
 .nc-btn.primary {
-  background: var(--primary, #7c5cff);
+  background: var(--primary);
   border-color: transparent;
-  color: #fff;
+  color: var(--primary-foreground);
 }
 </style>

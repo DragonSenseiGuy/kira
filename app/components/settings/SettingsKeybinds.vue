@@ -224,7 +224,7 @@ onBeforeUnmount(() => {
 }
 
 .kb-capture.conflict {
-  border-color: #dc2626;
+  border-color: var(--danger);
 }
 
 @keyframes kb-pulse {

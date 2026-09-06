@@ -181,8 +181,8 @@ function timeAgo(iso) {
   white-space: nowrap;
 }
 
-.stx-act-row.is-denied .stx-act-meta { color: #dc2626; }
-.stx-act-row.is-error .stx-act-meta { color: #d97706; }
+.stx-act-row.is-denied .stx-act-meta { color: var(--danger); }
+.stx-act-row.is-error .stx-act-meta { color: var(--warning); }
 
 .stx-act-meta {
   font-size: 0.7rem;

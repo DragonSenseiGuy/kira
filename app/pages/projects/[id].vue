@@ -428,7 +428,7 @@ async function copyContent() {
 .pg-btn.danger { color: var(--danger); border-color: var(--danger); }
 .pg-btn.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
 
-.pg-error { color: #dc2626; font-size: 0.8rem; margin: 0 0 12px; }
+.pg-error { color: var(--danger); font-size: 0.8rem; margin: 0 0 12px; }
 .pg-hint { color: var(--text-secondary); font-size: 0.84rem; margin: 6px 0; }
 .pg-empty-note {
   color: var(--text-secondary);
@@ -529,7 +529,7 @@ async function copyContent() {
   display: inline-flex;
 }
 .fp-mini:hover { background: var(--btn-hover); }
-.fp-mini.danger:hover { color: #dc2626; }
+.fp-mini.danger:hover { color: var(--danger); }
 
 /* Segmented control (same geometry as the dock) */
 .fp-seg {
@@ -610,6 +610,8 @@ async function copyContent() {
   width: 100%;
   height: 100%;
   border: none;
+  /* The previewed document assumes a white page; this is the paper, not
+     themed app chrome, so it stays white in both themes. */
   background: #fff;
 }
 .pv-svg { max-width: 92%; max-height: 92%; }

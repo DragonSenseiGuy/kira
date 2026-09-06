@@ -1031,7 +1031,7 @@ const prettyJson = computed(() => {
   color: var(--text-secondary);
 }
 
-.fp-error { padding: 4px 0; color: #dc2626; font-size: 0.72rem; }
+.fp-error { padding: 4px 0; color: var(--danger); font-size: 0.72rem; }
 .fp-hint { color: var(--text-secondary); font-size: 0.74rem; padding: 2px 0 6px; }
 .fp-empty { color: var(--text-secondary); font-size: 0.8rem; padding: 12px 2px; }
 
@@ -1089,7 +1089,7 @@ const prettyJson = computed(() => {
   display: inline-flex;
 }
 .fp-mini:hover { background: var(--btn-hover); }
-.fp-mini.danger:hover { color: #dc2626; }
+.fp-mini.danger:hover { color: var(--danger); }
 .fp-mini:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ---------- gallery / tree toggle ---------- */
@@ -1316,7 +1316,7 @@ const prettyJson = computed(() => {
   animation: pc-fade 1.1s ease-in-out infinite;
 }
 .pc-chip.warned {
-  color: #d97706;
+  color: var(--warning);
   background: rgba(217, 119, 6, 0.12);
   cursor: help;
 }
@@ -1342,6 +1342,8 @@ const prettyJson = computed(() => {
   width: 100%;
   height: 100%;
   border: none;
+  /* The previewed document assumes a white page; this is the paper, not
+     themed app chrome, so it stays white in both themes. */
   background: #fff;
 }
 
