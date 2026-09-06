@@ -208,7 +208,7 @@ useHead({
   background: rgba(239, 68, 68, 0.08);
   color: var(--danger);
   font-size: 0.9rem;
-  max-width: var(--chat-width, 768px);
+  max-width: var(--chat-width);
   width: 100%;
 }
 
@@ -228,7 +228,7 @@ useHead({
   display: flex;
   flex-direction: column;
   flex: 1;
-  max-width: var(--chat-width, 768px);
+  max-width: var(--chat-width);
   width: 100%;
   margin: 0 auto;
   overflow: visible;    /* or just omit overflow entirely */

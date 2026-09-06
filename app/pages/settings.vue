@@ -237,7 +237,7 @@ definePageMeta({
   gap: 10px;
   padding: 10px 12px;
   border: none;
-  border-radius: var(--radius-md, 10px);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-secondary);
   font-size: 0.92rem;
@@ -301,8 +301,8 @@ definePageMeta({
   background: var(--bg-primary);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg, 12px);
-  box-shadow: var(--shadow-lg, 0 8px 30px rgba(0, 0, 0, 0.15));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   padding: 10px 18px;
   font-size: 0.9rem;
   z-index: 3000;

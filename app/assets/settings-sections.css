@@ -30,7 +30,7 @@
 .stx-card {
   background: var(--bg-primary);
   border: 1px solid color-mix(in srgb, var(--text-secondary) 22%, transparent);
-  border-radius: var(--radius-xl, 16px);
+  border-radius: var(--radius-xl);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   padding: 4px 24px 8px;
   margin-bottom: 20px;
@@ -99,7 +99,7 @@
 .stx-input {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md, 10px);
+  border-radius: var(--radius-md);
   padding: 10px 12px;
   color: var(--text-primary);
   font-size: 0.9rem;
@@ -139,7 +139,7 @@ select.stx-input {
   justify-content: center;
   gap: 7px;
   padding: 9px 16px;
-  border-radius: var(--radius-md, 10px);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -164,7 +164,7 @@ a.stx-btn {
 .stx-btn.primary {
   background: var(--action);
   border-color: var(--action);
-  color: var(--action-foreground);
+  color: var(--action-on);
 }
 
 .stx-btn.primary:hover:not(:disabled) {
@@ -230,7 +230,7 @@ a.stx-btn {
   height: 20px;
   border-radius: 9999px;
   background-color: #ffffff;
-  box-shadow: 0 2px 2px var(--black-a7, rgba(0, 0, 0, 0.25));
+  box-shadow: 0 2px 2px var(--black-a7);
   will-change: transform;
   transition: transform 100ms;
   /* Centered by the track's justify-content; travel is symmetric ±9px. */
@@ -261,7 +261,7 @@ a.stx-btn {
 .stx-option {
   text-align: left;
   padding: 14px;
-  border-radius: var(--radius-md, 12px);
+  border-radius: var(--radius-md);
   border: 1.5px solid var(--border);
   background: var(--bg-secondary);
   cursor: pointer;

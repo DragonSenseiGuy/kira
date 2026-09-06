@@ -172,35 +172,35 @@ describe("useLayoutRouteWatch", () => {
 
   it("runs immediately: conversation routes set the active scope", () => {
     const route = fakeRoute("/abc123", "abc123");
-    useLayoutRouteWatch(route, { sidebarOpen: ref(true), dockOpen: ref(false) });
+    useLayoutRouteWatch(route, { sidebarOpen: ref(true), closeDock: vi.fn() });
 
     expect(setActiveConversation).toHaveBeenCalledWith("abc123");
   });
 
   it("clears the active scope on non-conversation routes", () => {
     const route = fakeRoute("/settings");
-    useLayoutRouteWatch(route, { sidebarOpen: ref(true), dockOpen: ref(false) });
+    useLayoutRouteWatch(route, { sidebarOpen: ref(true), closeDock: vi.fn() });
 
     expect(setActiveConversation).toHaveBeenCalledWith(null);
   });
 
   it("discards staging when leaving the new-chat screen", () => {
     const route = fakeRoute("/settings");
-    useLayoutRouteWatch(route, { sidebarOpen: ref(true), dockOpen: ref(false) });
+    useLayoutRouteWatch(route, { sidebarOpen: ref(true), closeDock: vi.fn() });
 
     expect(clearPendingSetup).toHaveBeenCalled();
   });
 
   it("keeps staging while navigating between new-chat surfaces", () => {
     const route = fakeRoute("/");
-    useLayoutRouteWatch(route, { sidebarOpen: ref(true), dockOpen: ref(false) });
+    useLayoutRouteWatch(route, { sidebarOpen: ref(true), closeDock: vi.fn() });
 
     expect(clearPendingSetup).not.toHaveBeenCalled();
   });
 
   it("reacts to subsequent navigations", async () => {
     const route = fakeRoute("/");
-    useLayoutRouteWatch(route, { sidebarOpen: ref(true), dockOpen: ref(false) });
+    useLayoutRouteWatch(route, { sidebarOpen: ref(true), closeDock: vi.fn() });
 
     vi.mocked(setActiveConversation).mockClear();
     navigate(route, "/convo-9", "convo-9");
@@ -212,48 +212,48 @@ describe("useLayoutRouteWatch", () => {
   it("mobile: settings closes both sidebars", () => {
     setViewportWidth(500);
     const sidebarOpen = ref(true);
-    const dockOpen = ref(true);
+    const closeDock = vi.fn();
     const route = fakeRoute("/settings");
 
-    useLayoutRouteWatch(route, { sidebarOpen, dockOpen });
+    useLayoutRouteWatch(route, { sidebarOpen, closeDock });
 
     expect(sidebarOpen.value).toBe(false);
-    expect(dockOpen.value).toBe(false);
+    expect(closeDock).toHaveBeenCalled();
   });
 
   it("mobile: any projects route closes both sidebars", () => {
     setViewportWidth(500);
     const sidebarOpen = ref(true);
-    const dockOpen = ref(true);
+    const closeDock = vi.fn();
     const route = fakeRoute("/projects/my-proj");
 
-    useLayoutRouteWatch(route, { sidebarOpen, dockOpen });
+    useLayoutRouteWatch(route, { sidebarOpen, closeDock });
 
     expect(sidebarOpen.value).toBe(false);
-    expect(dockOpen.value).toBe(false);
+    expect(closeDock).toHaveBeenCalled();
   });
 
   it("mobile: chat routes leave the panels alone", () => {
     setViewportWidth(500);
     const sidebarOpen = ref(true);
-    const dockOpen = ref(true);
+    const closeDock = vi.fn();
     const route = fakeRoute("/abc", "abc");
 
-    useLayoutRouteWatch(route, { sidebarOpen, dockOpen });
+    useLayoutRouteWatch(route, { sidebarOpen, closeDock });
 
     expect(sidebarOpen.value).toBe(true);
-    expect(dockOpen.value).toBe(true);
+    expect(closeDock).not.toHaveBeenCalled();
   });
 
   it("desktop: full-page destinations never touch the panels", () => {
     setViewportWidth(1400);
     const sidebarOpen = ref(true);
-    const dockOpen = ref(true);
+    const closeDock = vi.fn();
     const route = fakeRoute("/settings");
 
-    useLayoutRouteWatch(route, { sidebarOpen, dockOpen });
+    useLayoutRouteWatch(route, { sidebarOpen, closeDock });
 
     expect(sidebarOpen.value).toBe(true);
-    expect(dockOpen.value).toBe(true);
+    expect(closeDock).not.toHaveBeenCalled();
   });
 });

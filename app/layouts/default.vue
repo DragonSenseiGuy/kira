@@ -118,10 +118,7 @@ const dockWidth = computed(() => {
 // closes) live in a composable so they can be unit-tested.
 useLayoutRouteWatch(route, {
   sidebarOpen,
-  dockOpen: computed({
-    get: () => openDock.value !== null,
-    set: (open) => { if (!open) closeDock(); },
-  }),
+  closeDock,
 });
 
 // Set up dynamic page title
@@ -410,14 +407,7 @@ function hintFor(id) {
   .main-container.dock-open {
     margin-right: var(--dock-w, 380px);
   }
-
-  .main-container.sidebar-open.dock-open {
-    margin-left: 260px;
-    margin-right: var(--dock-w, 380px);
-  }
 }
-
-/* Top bar styling */
 
 /* Update fade transition timing */
 .fade-enter-active,
@@ -430,80 +420,16 @@ function hintFor(id) {
   opacity: 0;
 }
 
-/* Other display size styles */
-
-@media (max-width: 1024px) {
-  .flag {
-    display: none;
-  }
-}
-
+/*
+  Below 950px both panels overlay the page instead of reflowing it, so the
+  margin rules above never apply — only the transition needs suppressing.
+*/
 @media (max-width: 768px) {
-  #disclaimer {
-    margin-top: -16px;
-    font-size: smaller;
-  }
-
-  .app-container {
-    padding: 0;
-    /* Remove padding that was causing scrollbar */
-  }
-
-  header {
-    padding-top: 0px;
-  }
-
-  /* Ensure proper sidebar behavior on mobile - use overlay instead of transform */
   .main-container {
     transition: none;
-    /* Remove transitions that interfere with positioning */
-    transform: none;
-  }
-
-  .main-container.sidebar-open,
-  .main-container.dock-open,
-  .main-container.sidebar-open.dock-open {
-    transform: none;
-    margin: 0;
   }
 }
 
-/* Mobile-specific styles - use overlay instead of transform for better positioning */
-@media (max-width: 949px) {
-  .main-container {
-    transform: none;
-    /* Remove transforms that interfere with fixed positioning */
-    margin: 0;
-    /* Reset any margin changes */
-  }
-
-  /* Use overlay positioning for mobile panels */
-  .sidebar-open .main-container,
-  .dock-open .main-container {
-    transform: none;
-    margin: 0;
-  }
-}
-
-.app-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  z-index: 1001;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 16px;
-  background: transparent;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 </style>
 
 

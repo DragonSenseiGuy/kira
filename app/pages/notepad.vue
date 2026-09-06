@@ -341,7 +341,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   align-self: center;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
   background: var(--bg-tertiary);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: 0.9em;
 }
 

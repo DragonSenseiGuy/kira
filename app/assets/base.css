@@ -3,7 +3,7 @@
 
    Two layers:
    1. PRIMITIVES — the raw palette (--page, --ink, --line, --accent, ...).
-         Modelled on ChatGPT's surface language: a white page with a slightly
+      Modelled on ChatGPT's surface language: a white page with a slightly
       warmer grey rail, near-black text, almost no chrome, and a generous
       radius scale (chip 8 / control 10 / card 16 / xl 24 / composer 28).
       Primary actions are a neutral black-in-light / white-in-dark pill
@@ -61,7 +61,6 @@
   --accent: #0b6bcb;
   --accent-ink: #095aac;
   /* hover / pressed accent */
-  --accent-strong: #074a8e;
   --accent-tint: #eef2f7;
   /* accent-washed background */
   --accent-on: #ffffff;
@@ -114,7 +113,6 @@
   --radius-full: 999px;
   --radius-composer: 28px;
   --radius-bubble: 22px;
-  --border-radius: var(--radius-card);
 
   /* ---------- Motion ----------
      Timing follows the interior.dev convention: feedback lands inside
@@ -139,10 +137,9 @@
   --spacing-12: 12px;
   --spacing-16: 16px;
   --spacing-24: 24px;
-  --section-gap: 160px;
 
   /* ---------- Type ---------- */
-  --font: "Söhne", Inter, ui-sans-serif, system-ui, -apple-system,
+  --font: Inter, ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular,
@@ -168,10 +165,7 @@
   --text-primary: var(--ink);
   --text-secondary: var(--ink-2);
   --text-muted: var(--ink-3);
-  --text-tertiary: var(--ink-3);
   --text-placeholder: var(--ink-3);
-  --text-light: var(--ink);
-  --text-dark: var(--ink);
   --text-primary-light: var(--ink);
   --text-secondary-light: var(--ink-2);
   --text-primary-dark: var(--ink);
@@ -180,23 +174,12 @@
   /* Borders */
   --border: var(--line);
   --muted-border: var(--line);
-  --strong-border: var(--line-strong);
-  --reasoning-border-dark: var(--line);
 
   /* Brand */
   --primary: var(--accent);
-  --action-foreground: var(--action-on);
   --primary-foreground: var(--accent-on);
   --primary-600: var(--accent-ink);
-  --primary-800: var(--accent-strong);
-  --primary-300: #66b4ff;
-  --primary-50: var(--accent-tint);
-  --primary-a2: #0d0d0d0a;
   --primary-a4: #0d0d0d14;
-  --secondary: var(--accent-ink);
-  --secondary-600: var(--accent-strong);
-  --accent-warm: var(--orange);
-  --accent-soft: var(--red);
 
   /* Feedback */
   --success: var(--green);
@@ -207,7 +190,6 @@
   --error-text: var(--red);
   --error-bg: var(--red-tint);
   --error-border: color-mix(in srgb, var(--red) 30%, transparent);
-  --destructive: var(--red);
   --destructive-600: #cf3a3f;
   --destructive-foreground: #ffffff;
 
@@ -219,34 +201,21 @@
   --black-a7: var(--scrim);
 
   /* Shadow aliases */
-  --shadow-elev: rgba(16, 24, 40, 0.08);
-  --shadow-default: var(--shadow-raised);
-  --shadow-sm: var(--shadow-hairline);
-  --shadow-md: var(--shadow-card);
   --shadow-lg: var(--shadow-raised);
   --shadow-xl: var(--shadow-overlay);
 
   /* Controls */
-  --btn-model-selector-bg: transparent;
   --btn-model-selector-text: var(--ink-2);
-  --btn-model-selector-hover-bg: var(--overlay-hover);
-  --btn-send-bg: var(--action);
-  --btn-send-hover-bg: var(--action-hover);
   --btn-send-disabled-bg: var(--action-disabled);
   --btn-send-text: var(--action-on);
 
   /* Popovers */
   --popover-bg: var(--card);
-  --popover-border: var(--line);
   --popover-shadow: var(--shadow-overlay);
-  --popover-header-text: var(--ink);
   --popover-list-item-bg-hover: var(--overlay-hover);
   --popover-list-item-text: var(--ink);
   --popover-list-item-selected-bg: var(--hover-2);
   --popover-list-item-selected-text: var(--ink);
-
-  /* Tooltip */
-  --tooltip-text: var(--tooltip-fg);
 
   /* Chat bubbles — the user turn is a neutral grey capsule, never accented */
   --color-bubble-user-bg: #f4f4f4;
@@ -286,7 +255,6 @@
 
   --accent: #7ab7ff;
   --accent-ink: #a3cdff;
-  --accent-strong: #c6e0ff;
   --accent-tint: #ffffff14;
   --accent-on: #0d0d0d;
 
@@ -321,12 +289,9 @@
   --shadow-overlay: 0 0 0 1px var(--line-strong), 0 10px 34px #00000066;
 
   /* ---------- 2. Dark-only alias overrides ---------- */
-  --primary-300: #a3cdff;
-  --primary-a2: #ffffff0f;
   --primary-a4: #ffffff1f;
   --destructive-600: #f27a7e;
   --destructive-foreground: #1a0f10;
-  --shadow-elev: rgba(0, 0, 0, 0.5);
 
   /* User bubble reads as an elevated neutral in dark, not a blue wash */
   --color-bubble-user-bg: #303030;

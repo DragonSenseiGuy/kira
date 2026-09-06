@@ -65,8 +65,8 @@ onBeforeUnmount(() => emitter.off("net-consent-request", onRequest));
 .nc-card {
   width: 320px;
   background: var(--bg);
-  color: var(--text-primary, inherit);
-  border: 1px solid var(--border, rgba(128,128,128,.35));
+  color: var(--text-primary);
+  border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0,0,0,.22);
   padding: 14px;
@@ -79,7 +79,7 @@ onBeforeUnmount(() => emitter.off("net-consent-request", onRequest));
 }
 .nc-domain { margin: 10px 0 4px; }
 .nc-domain code {
-  background: var(--bg-secondary, rgba(128,128,128,.12));
+  background: var(--bg-secondary);
   padding: 2px 8px;
   border-radius: 6px;
   font-size: .82rem;
@@ -87,7 +87,7 @@ onBeforeUnmount(() => emitter.off("net-consent-request", onRequest));
 .nc-url {
   margin: 4px 0 10px;
   font-size: .72rem;
-  color: var(--text-secondary, gray);
+  color: var(--text-secondary);
   word-break: break-all;
   max-height: 54px;
   overflow: hidden;
@@ -107,7 +107,7 @@ onBeforeUnmount(() => emitter.off("net-consent-request", onRequest));
 .nc-btn {
   padding: 6px 14px;
   border-radius: 8px;
-  border: 1px solid var(--border, rgba(128,128,128,.35));
+  border: 1px solid var(--border);
   background: transparent;
   color: inherit;
   cursor: pointer;

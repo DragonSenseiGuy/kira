@@ -1092,12 +1092,12 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   display: flex;
   margin-bottom: 12px;
   flex-direction: column;
-  background-color: var(--composer-bg, var(--card));
+  background-color: var(--composer-bg);
   border: none;
-  border-radius: var(--radius-composer, 28px);
+  border-radius: var(--radius-composer);
   padding: 6px 12px 10px;
   box-shadow:
-    0 0 0 1px var(--composer-ring, transparent),
+    0 0 0 1px var(--composer-ring),
     0 2px 6px #0000000a,
     0 12px 32px #00000008;
   position: relative;
@@ -1108,7 +1108,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 
 .input-area-wrapper:focus-within {
   box-shadow:
-    0 0 0 1px var(--composer-ring, transparent),
+    0 0 0 1px var(--composer-ring),
     0 2px 8px #0000000f,
     0 14px 38px #0000000d;
 }
@@ -1563,7 +1563,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   min-width: 260px;
   max-width: 380px;
   background: var(--bg-primary);
-  border: 1px solid var(--border, rgba(128,128,128,.3));
+  border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 8px 28px rgba(0,0,0,.18);
   padding: 4px;
@@ -1585,6 +1585,6 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 }
 .mention-item.active,
 .mention-item:hover {
-  background: var(--bg-secondary, rgba(128,128,128,.12));
+  background: var(--bg-secondary);
 }
 </style>

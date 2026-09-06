@@ -308,8 +308,8 @@ const onAnimationComplete = () => {
   margin: 4px 16px 10px;
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md, 10px);
-  background: var(--bg-input, var(--bg-secondary));
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
 }
 
 .model-search-box:focus-within {
@@ -333,7 +333,7 @@ const onAnimationComplete = () => {
 }
 
 .model-search-input::placeholder {
-  color: var(--text-placeholder, var(--text-muted));
+  color: var(--text-placeholder);
 }
 
 .mp-section-label {
@@ -357,7 +357,7 @@ const onAnimationComplete = () => {
   width: calc(100% - 32px);
   margin: 10px auto;
   padding: 12px;
-  border-radius: var(--radius-md, 10px);
+  border-radius: var(--radius-md);
   border: 1px dashed var(--border);
   background: transparent;
   color: var(--text-secondary);

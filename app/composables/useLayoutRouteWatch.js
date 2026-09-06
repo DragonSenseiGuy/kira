@@ -25,7 +25,7 @@ export function isChatStart(path) {
  * reference — exactly the class of bug this extraction prevents).
  *
  * @param {object} route - vue-router route object (reactive)
- * @param {object} panels - { sidebarOpen: Ref, dockOpen: Ref }
+ * @param {object} panels - { sidebarOpen: Ref, closeDock: () => void }
  */
 export function useLayoutRouteWatch(route, panels) {
   watch(
@@ -52,7 +52,7 @@ export function useLayoutRouteWatch(route, panels) {
         isFullPageDestination(route.path)
       ) {
         panels.sidebarOpen.value = false;
-        panels.dockOpen.value = false;
+        panels.closeDock();
       }
     },
     { immediate: true },

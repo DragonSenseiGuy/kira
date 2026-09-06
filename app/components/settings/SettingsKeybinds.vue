@@ -203,7 +203,7 @@ onBeforeUnmount(() => {
   min-width: 120px;
   min-height: 32px;
   padding: 4px 10px;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--bg-secondary);
   cursor: pointer;

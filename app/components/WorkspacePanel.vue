@@ -992,7 +992,7 @@ const prettyJson = computed(() => {
   padding: 5px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg, 12px);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
   z-index: 30;
 }
@@ -1004,7 +1004,7 @@ const prettyJson = computed(() => {
   width: 100%;
   padding: 7px 9px;
   border: none;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
   background: transparent;
   color: inherit;
   font-size: 0.78rem;
@@ -1212,7 +1212,7 @@ const prettyJson = computed(() => {
 }
 .proj-toggle:hover { color: var(--text-primary); background: var(--btn-hover); }
 .proj-count {
-  background: var(--bg-secondary, rgba(128,128,128,.15));
+  background: var(--bg-secondary);
   border-radius: 999px;
   padding: 1px 7px;
   font-size: 0.64rem;

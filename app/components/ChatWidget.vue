@@ -720,8 +720,8 @@ function truncateContent(content, maxLength) {
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid var(--border, rgba(128,128,128,0.25));
-  background: var(--bg-secondary, rgba(128,128,128,0.08));
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.78rem;
   line-height: 1.5;
@@ -799,7 +799,7 @@ function truncateContent(content, maxLength) {
 .cw-files {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border, rgba(128,128,128,0.25));
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -810,7 +810,7 @@ function truncateContent(content, maxLength) {
   align-items: center;
   gap: 12px;
   padding: 6px 12px;
-  border-bottom: 1px solid var(--border, rgba(128,128,128,0.18));
+  border-bottom: 1px solid var(--border);
   font-size: 0.76rem;
 }
 

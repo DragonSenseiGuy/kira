@@ -5,8 +5,7 @@
  * interleaved assistant/tool sequence the model replays as its own history.
  *
  * Split out of message.js, which had grown past a thousand lines. This half
- * is pure: no fetch, no streaming, no app state — which is also why it is
- * the half worth memoizing.
+ * is pure: no fetch, no streaming, no app state.
  */
 
 /**
@@ -216,26 +215,4 @@ function formatAssistantMessageForAPI(msg, includeReasoning = true) {
   }
   
   return messages;
-}
-
-/**
- * Memoized formatting for conversation history. Loaded messages are stable
- * objects that persist across sends, so their formatted API shape is cached
- * per object (both reasoning variants) instead of being rebuilt — including
- * large tool results — on every send. Streaming messages are replaced with
- * fresh objects on each update, so they naturally recompute.
- */
-const formattedMessageCache = new WeakMap();
-
-export function formatMessageForAPICached(msg, includeReasoning) {
-  let entry = formattedMessageCache.get(msg);
-  if (!entry) {
-    entry = { plain: null, lastAssistant: null };
-    formattedMessageCache.set(msg, entry);
-  }
-  const slot = includeReasoning ? "lastAssistant" : "plain";
-  if (!entry[slot]) {
-    entry[slot] = formatMessageForAPI(msg, { includeReasoning });
-  }
-  return entry[slot];
 }

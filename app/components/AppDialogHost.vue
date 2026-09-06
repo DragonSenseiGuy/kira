@@ -181,7 +181,7 @@ onBeforeUnmount(() => {
 /* The confirm button is the neutral action pill, like every other primary. */
 .dlg-btn.solid {
   background: var(--action);
-  color: var(--action-foreground);
+  color: var(--action-on);
   border: none;
 }
 .dlg-btn.solid:hover:not(:disabled) {

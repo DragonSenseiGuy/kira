@@ -414,7 +414,7 @@ async function copyContent() {
   gap: 6px;
   height: 34px;
   padding: 0 14px;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-secondary);
@@ -434,7 +434,7 @@ async function copyContent() {
   color: var(--text-secondary);
   font-size: 0.9rem;
   border: 1px dashed var(--border);
-  border-radius: var(--radius-lg, 12px);
+  border-radius: var(--radius-lg);
   padding: 40px 24px;
   text-align: center;
 }
@@ -457,13 +457,13 @@ async function copyContent() {
   gap: 8px;
   padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg, 12px);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 .ws-card:hover {
   background: var(--btn-hover);
-  border-color: var(--primary-a4, var(--border));
+  border-color: var(--primary-a4);
 }
 .ws-head {
   display: flex;
@@ -513,7 +513,7 @@ async function copyContent() {
   right: 6px;
   display: none;
   gap: 1px;
-  background: var(--panel-bg, var(--bg-primary));
+  background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 1px;
@@ -581,7 +581,7 @@ async function copyContent() {
   height: 34px;
   border: none;
   background: transparent;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;

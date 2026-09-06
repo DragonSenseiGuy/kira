@@ -955,14 +955,12 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 <style>
 .chat-wrapper {
-  --bubble-user-bg: var(--color-bubble-user-bg, var(--primary));
-  --bubble-user-text: var(--color-bubble-user-text, var(--primary-foreground));
+  --bubble-user-bg: var(--color-bubble-user-bg);
+  --bubble-user-text: var(--color-bubble-user-text);
   --text-primary-light: var(--text-primary);
   --text-secondary-light: var(--text-secondary);
   --text-primary-dark: var(--text-primary);
   --text-secondary-dark: var(--text-secondary);
-  --reasoning-border-light: var(--border);
-  --reasoning-border-dark: var(--border);
   flex: 1;
   position: relative;
   width: 100%;
@@ -971,7 +969,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 .chat-container {
   width: 100%;
-  max-width: var(--chat-width, 768px);
+  max-width: var(--chat-width);
   margin: 0 auto;
   padding: 12px 0;
   box-sizing: border-box;
@@ -1095,7 +1093,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 .message {
   display: block;
   width: 100%;
-  max-width: var(--chat-width, 768px);
+  max-width: var(--chat-width);
   margin: 0 auto;
   padding: 10px 0;
   position: relative;
@@ -1170,7 +1168,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 .bubble {
   display: block;
   padding: 10px 20px;
-  border-radius: var(--radius-bubble, 22px);
+  border-radius: var(--radius-bubble);
   line-height: 1.7;
   font-size: 1rem;
   width: 100%;
@@ -1190,7 +1188,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   box-shadow: none;
   white-space: pre-wrap;
   margin-left: auto;
-  max-width: calc(var(--chat-width, 768px) * 0.8);
+  max-width: calc(var(--chat-width) * 0.8);
   width: fit-content;
   transition:
     background-color var(--duration-slow) var(--ease-out-strong),
@@ -1209,7 +1207,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   padding: 0;
   color: var(--text-primary-light);
   width: 100%;
-  max-width: var(--chat-width, 768px);
+  max-width: var(--chat-width);
   margin: 0 auto;
   line-height: 1.75;
   transition:
@@ -1635,14 +1633,14 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   gap: 8px;
   margin-bottom: 12px;
   width: 100%;
-  max-width: var(--chat-width, 768px);
+  max-width: var(--chat-width);
 }
 
 /* Reasoning Card Styles */
 .reasoning-card {
   margin-bottom: 12px;
   width: 100%;
-  max-width: var(--chat-width, 768px);
+  max-width: var(--chat-width);
 }
 
 

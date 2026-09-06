@@ -121,7 +121,7 @@ onUnmounted(() => {
   font-weight: 700;
   line-height: 1;
   border-radius: 22%;
-  background: var(--btn-hover, var(--border));
+  background: var(--btn-hover);
   color: var(--text-secondary);
   user-select: none;
 }
