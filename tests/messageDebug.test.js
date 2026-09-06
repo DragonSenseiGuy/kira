@@ -39,7 +39,7 @@ describe("buildMessageDebugDump", () => {
 
     expect(dump.length).toBeLessThan(LONG.length);
     expect(dump).toContain("chars omitted");
-    expect(dump).toContain("content size: 5,000 chars");
+    expect(dump).toContain("content · 5,000 chars");
   });
 
   it("copies a short body in full", () => {
@@ -50,7 +50,7 @@ describe("buildMessageDebugDump", () => {
   it("truncates long reasoning too", () => {
     const dump = buildMessageDebugDump({ role: "assistant", reasoning: LONG });
     expect(dump.length).toBeLessThan(LONG.length);
-    expect(dump).toContain("reasoning size: 5,000 chars");
+    expect(dump).toContain("reasoning · 5,000 chars");
   });
 
   it("summarizes parts by type and size rather than reprinting them", () => {
@@ -112,6 +112,25 @@ describe("buildMessageDebugDump", () => {
     });
 
     expect(dump).toContain("HTTPError: rate limited (HTTP 429)");
+  });
+
+  it("reports a body once, not alongside its mirror in parts", () => {
+    // `parts` is canonical; message.content is the flat mirror written
+    // beside it during streaming. Reporting both would double-count.
+    const dump = buildMessageDebugDump({
+      role: "assistant",
+      content: "hello world",
+      parts: [{ type: "content", content: "hello world" }],
+    });
+
+    expect(dump.match(/hello world/g)).toHaveLength(1);
+    expect(dump).not.toContain("==== CONTENT ====");
+  });
+
+  it("falls back to the flat body when a legacy message has no parts", () => {
+    const dump = buildMessageDebugDump({ role: "assistant", content: "hello" });
+    expect(dump).toContain("==== CONTENT ====");
+    expect(dump).toContain("hello");
   });
 
   it("does not embed a raw JSON copy of the message", () => {

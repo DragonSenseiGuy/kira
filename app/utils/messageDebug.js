@@ -7,18 +7,24 @@
  * Deliberately NOT a transcript. The plain "Copy message" button already
  * copies the text; a debug dump that repeats the full body once as CONTENT,
  * again inside PARTS and a third time inside a raw JSON blob just fills the
- * clipboard with prose nobody is going to read. Long bodies are therefore
- * truncated to a short head-and-tail preview, and the byte count is reported
- * so nothing about the message's real size is hidden.
+ * clipboard with prose nobody is going to read. Every body is therefore
+ * reported exactly once, as a size plus a head-and-tail preview, so the
+ * message's real length is visible without pasting all of it.
+ *
+ * `parts` is the canonical structure for an assistant message: streaming
+ * builds it through PartsBuilder, and ChatPanel renders it. The flat
+ * `content`/`reasoning` fields are a mirror written alongside it, and are
+ * only used for legacy messages stored before parts existed — so they are
+ * reported here ONLY when there are no parts, rather than duplicating them.
+ *
+ * Note that a truncated preview of tool arguments is no longer valid JSON;
+ * this report is for reading, not for feeding back into a parser.
  *
  * Pure formatter: no Vue, no storage access.
  */
 
-/** Longest preview kept for a text body (content, reasoning). */
-const TEXT_PREVIEW_LIMIT = 400;
-
-/** Longest preview kept for tool arguments and tool results. */
-const TOOL_PREVIEW_LIMIT = 500;
+/** Longest preview kept for any text — body, reasoning, tool args, results. */
+const PREVIEW_LIMIT = 500;
 
 function section(title, body) {
   if (body === undefined || body === null || body === "") return "";
@@ -26,25 +32,39 @@ function section(title, body) {
 }
 
 /**
- * Shortens a long string to a head + tail preview, annotated with the
- * number of characters that were dropped.
+ * Measures a string and, when it is too long to include whole, shortens it
+ * to a head + tail preview. Size is always reported, so truncation never
+ * hides how big the real value was.
  *
  * @param {string} text
- * @param {number} limit - Characters to keep in total.
- * @returns {string}
+ * @returns {{size: string, body: string}} e.g. `{ size: "1,204 chars", ... }`
  */
-function preview(text, limit) {
+function describe(text) {
   const str = String(text ?? "");
-  if (str.length <= limit) return str;
-  const head = str.slice(0, Math.ceil(limit * 0.75));
-  const tail = str.slice(-Math.floor(limit * 0.25));
+  const size = `${str.length.toLocaleString("en-US")} chars`;
+  if (str.length <= PREVIEW_LIMIT) return { size, body: str };
+
+  // Head-heavy: the start of a body identifies it, the tail only has to
+  // show how it ended (a cut-off sentence, a stack trace, a stop token).
+  const head = str.slice(0, Math.ceil(PREVIEW_LIMIT * 0.75));
+  const tail = str.slice(-Math.floor(PREVIEW_LIMIT * 0.25));
   const dropped = str.length - head.length - tail.length;
-  return `${head}\n… [${dropped} chars omitted, ${str.length} total] …\n${tail}`;
+  return { size, body: `${head}\n… [${dropped} chars omitted] …\n${tail}` };
 }
 
-/** "1,204 chars" — the size line that replaces a dumped body. */
-function sizeOf(text) {
-  return `${String(text ?? "").length.toLocaleString("en-US")} chars`;
+/** Indents a block so it reads as detail belonging to the line above it. */
+function indent(text, pad = "    ") {
+  return text
+    .split("\n")
+    .map((line) => pad + line)
+    .join("\n");
+}
+
+/** `label · 1,204 chars` followed by the indented preview. */
+function describedBlock(label, text, pad) {
+  const { size, body } = describe(text);
+  const head = `${label} · ${size}`;
+  return body ? `${head}\n${indent(body, pad)}` : head;
 }
 
 function formatTool(t) {
@@ -65,18 +85,18 @@ function formatTool(t) {
   }
   let out = `— ${name} (id: ${t?.id || "?"})`;
   if (args && args.trim() && args.trim() !== "{}") {
-    out += `\n  args: ${preview(args, TOOL_PREVIEW_LIMIT)}`;
+    out += `\n  ${describedBlock("args", args, "    ")}`;
   }
   if (result !== undefined && result !== null && result !== "") {
-    out += `\n  result: ${preview(String(result), TOOL_PREVIEW_LIMIT)}`;
+    out += `\n  ${describedBlock("result", result, "    ")}`;
   }
   return out;
 }
 
 /**
- * Describes the shape of the message rather than reprinting it: one line
- * per part with its type and size, plus full detail for tool groups (which
- * is the part people actually open this dump to inspect).
+ * One line per part with its type and size, each text part followed by a
+ * single preview, plus full detail for tool groups (which is the part
+ * people actually open this dump to inspect).
  */
 function partsSummary(msg) {
   if (!Array.isArray(msg.parts) || msg.parts.length === 0) return "";
@@ -84,9 +104,8 @@ function partsSummary(msg) {
     .map((part, i) => {
       switch (part.type) {
         case "reasoning":
-          return `[${i}] reasoning · ${sizeOf(part.content)}`;
         case "content":
-          return `[${i}] content · ${sizeOf(part.content)}`;
+          return describedBlock(`[${i}] ${part.type}`, part.content);
         case "tool_group": {
           const tools = part.tools || [];
           const detail = tools.map(formatTool).join("\n");
@@ -134,8 +153,6 @@ export function buildMessageDebugDump(message) {
     message.reasoningDuration != null
       ? `reasoning duration: ${Math.round(message.reasoningDuration / 100) / 10}s`
       : null,
-    message.content ? `content size: ${sizeOf(message.content)}` : null,
-    message.reasoning ? `reasoning size: ${sizeOf(message.reasoning)}` : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -144,6 +161,10 @@ export function buildMessageDebugDump(message) {
   if (message.promptTokens != null) usage.push(`prompt: ${message.promptTokens}`);
   if (message.tokenCount != null) usage.push(`completion: ${message.tokenCount}`);
   if (message.totalTokens != null) usage.push(`total: ${message.totalTokens}`);
+
+  // Flat bodies are a mirror of the content/reasoning parts; only report
+  // them when there is no parts array to report instead.
+  const hasParts = Array.isArray(message.parts) && message.parts.length > 0;
 
   const sections = [
     section("MESSAGE", meta),
@@ -157,11 +178,11 @@ export function buildMessageDebugDump(message) {
             (message.errorDetails.status ? ` (HTTP ${message.errorDetails.status})` : ""),
         )
       : "",
-    message.reasoning
-      ? section("REASONING (preview)", preview(message.reasoning, TEXT_PREVIEW_LIMIT))
+    !hasParts && message.reasoning
+      ? section("REASONING", describedBlock("reasoning", message.reasoning, ""))
       : "",
-    message.content
-      ? section("CONTENT (preview)", preview(message.content, TEXT_PREVIEW_LIMIT))
+    !hasParts && message.content
+      ? section("CONTENT", describedBlock("content", message.content, ""))
       : "",
   ];
 
