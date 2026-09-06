@@ -1,55 +1,85 @@
 <template>
   <div class="projects-page">
     <header class="pg-header">
-      <div>
-        <h1 class="pg-title">Projects</h1>
-        <p class="pg-subtitle">
-          Shared file libraries any chat can attach to.
-          {{ projects.length ? `${projects.length} project${projects.length === 1 ? "" : "s"}` : "" }}
-        </p>
+      <h1 class="pg-title">Projects</h1>
+
+      <div class="pg-tools">
+        <div class="pg-search">
+          <Icon icon="material-symbols:search" width="18" height="18" class="pg-search-icon" />
+          <input
+            v-model="query"
+            type="search"
+            class="pg-search-input"
+            placeholder="Search projects"
+            aria-label="Search projects"
+          />
+        </div>
+        <button type="button" class="pg-new" @click="createProject">New</button>
       </div>
     </header>
 
     <p v-if="error" class="pg-error">{{ error }}</p>
     <p v-if="loading && !projects.length" class="pg-hint">Loading projects…</p>
 
-    <div v-else-if="!projects.length" class="pg-empty-wrap">
-      <p class="pg-empty-note">No projects yet.</p>
-      <p class="pg-hint">
-        Projects hold files you can reuse across conversations — data sets,
-        documents, anything. Attach one from the Workspace panel in any chat.
-      </p>
-    </div>
+    <template v-else-if="!projects.length">
+      <div class="pg-empty-wrap">
+        <p class="pg-empty-note">No projects yet.</p>
+        <p class="pg-hint">
+          Projects hold files you can reuse across conversations — data sets,
+          documents, anything. Attach one from the Workspace panel in any chat.
+        </p>
+      </div>
+    </template>
 
-    <!-- Gallery of project cards -->
-    <section v-else class="proj-grid">
-      <article v-for="proj in projects" :key="proj.name" class="proj-card"
-        :title="'Open ' + proj.name" @click="open(proj.name)">
-        <div class="proj-head">
-          <span class="proj-icon">
-            <Icon icon="material-symbols:folder-outline-rounded" width="18" height="18" />
-          </span>
-          <span class="proj-name">{{ proj.name }}</span>
-        </div>
-        <span class="proj-meta">{{ proj.files.length }} file{{ proj.files.length === 1 ? "" : "s" }} ·
-          {{ fmt(proj.bytes) }}</span>
-        <span class="ws-actions" @click.stop>
-          <button class="fp-mini danger" title="Delete project" @click.stop="deleteProject(proj.name)">
-            <Icon icon="material-symbols:delete-outline-rounded" width="13" height="13" />
-          </button>
-        </span>
-      </article>
+    <p v-else-if="!visibleProjects.length" class="pg-hint">
+      No projects match “{{ query }}”.
+    </p>
 
-      <button type="button" class="proj-card new" @click="createProject">
-        <Icon icon="material-symbols:add-rounded" width="20" height="20" />
-        <span>New project</span>
-      </button>
-    </section>
+    <!-- File-browser style listing: one row per project, newest first. -->
+    <table v-else class="pg-table">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col" class="col-files">Files</th>
+          <th scope="col" class="col-modified">Modified</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          v-for="proj in visibleProjects"
+          :key="proj.name"
+          class="pg-row"
+          tabindex="0"
+          :title="'Open ' + proj.name"
+          @click="open(proj.name)"
+          @keydown.enter="open(proj.name)"
+        >
+          <td>
+            <div class="cell-name">
+              <span class="proj-icon">
+                <Icon icon="material-symbols:folder-outline-rounded" width="18" height="18" />
+              </span>
+              <span class="proj-name">{{ proj.name }}</span>
+            </div>
+          </td>
+          <td class="col-files proj-meta">
+            {{ proj.files.length }} · {{ fmt(proj.bytes) }}
+          </td>
+          <td class="col-modified proj-meta">{{ relativeTime(proj.modified) }}</td>
+          <td class="cell-actions" @click.stop>
+            <button class="fp-mini danger" title="Delete project" @click.stop="deleteProject(proj.name)">
+              <Icon icon="material-symbols:delete-outline-rounded" width="15" height="15" />
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { Icon } from "@iconify/vue";
 import { useRouter } from "vue-router";
 import {
@@ -66,6 +96,16 @@ const router = useRouter();
 const projects = ref([]);
 const loading = ref(true);
 const error = ref("");
+const query = ref("");
+
+const visibleProjects = computed(() => {
+  const term = query.value.trim().toLowerCase();
+  const list = term
+    ? projects.value.filter((p) => p.name.toLowerCase().includes(term))
+    : projects.value;
+  // Most recently touched first; never-written projects fall to the bottom.
+  return [...list].sort((a, b) => b.modified - a.modified);
+});
 
 async function refresh() {
   error.value = "";
@@ -80,9 +120,10 @@ async function refresh() {
           name,
           files: listing.files,
           bytes: listing.files.reduce((n, f) => n + (f.size || 0), 0),
+          modified: listing.files.reduce((t, f) => Math.max(t, f.modified || 0), 0),
         });
       } catch {
-        out.push({ name, files: [], bytes: 0 });
+        out.push({ name, files: [], bytes: 0, modified: 0 });
       }
     }
     projects.value = out;
@@ -105,6 +146,19 @@ function fmt(bytes) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Compact "2h ago"-style stamp, matching the command palette's. */
+function relativeTime(value) {
+  if (!value) return "—";
+  const minutes = Math.round((Date.now() - value) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(value).toLocaleDateString();
 }
 
 function cleanName(raw) {
@@ -160,30 +214,85 @@ async function deleteProject(name) {
   margin: 0 auto;
   padding: 28px 32px 64px;
   box-sizing: border-box;
-  /* Column counts key off the space this page ACTUALLY gets (viewport
-     queries can't see the sidebars eating into it). */
-  container-type: inline-size;
 }
+
+/* Title on the left, search + New on the right. */
 .pg-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 22px;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
 }
+
 .pg-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
-.pg-subtitle {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+
+.pg-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
+
+.pg-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full, 9999px);
+  background: var(--bg-primary);
+}
+
+.pg-search-icon {
+  flex-shrink: 0;
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.pg-search-input {
+  width: 15ch;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.88rem;
+}
+
+.pg-search-input::placeholder {
+  color: var(--text-placeholder, var(--text-secondary));
+}
+
+.pg-new {
+  height: 38px;
+  padding: 0 20px;
+  border: 1px solid var(--action, var(--border));
+  border-radius: var(--radius-full, 9999px);
+  background: var(--action);
+  color: var(--action-foreground);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out-strong);
+}
+
+.pg-new:hover {
+  background: var(--action-hover);
+  border-color: var(--action-hover);
+}
+
 .pg-error { color: #dc2626; font-size: 0.8rem; margin: 0 0 12px; }
 .pg-hint { color: var(--text-secondary); font-size: 0.84rem; margin: 6px 0; }
+
 .pg-empty-wrap {
   border: 1px dashed var(--border);
   border-radius: var(--radius-xl, 16px);
@@ -192,57 +301,66 @@ async function deleteProject(name) {
 }
 .pg-empty-note { margin: 0; font-size: 0.98rem; color: var(--text-primary); }
 
-/* Dense card grid with HARD column counts — measured against the page
-   container, not the viewport, so open sidebars reduce column count
-   gracefully instead of cramming four giant-stretch columns into scraps. */
-.proj-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-@container (max-width: 999px) { .proj-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@container (max-width: 759px) { .proj-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@container (max-width: 509px) { .proj-grid { grid-template-columns: 1fr; } }
-.proj-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg, 12px);
-  background: var(--bg-primary);
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-  text-align: left;
-}
-.proj-card:hover {
-  background: var(--btn-hover);
-  border-color: var(--primary-a4, var(--border));
+.pg-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
 }
 
-.proj-head {
+.pg-table th {
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.pg-row {
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out-strong);
+}
+
+.pg-row:hover,
+.pg-row:focus-visible {
+  background: var(--btn-hover);
+  outline: none;
+}
+
+.pg-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--muted-border, var(--border));
+}
+
+.cell-name {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
-button.proj-card {
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-style: dashed;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.84rem;
-  font-weight: 500;
-  min-height: 86px;
+
+.cell-actions {
+  width: 1%;
+  text-align: right;
 }
-button.proj-card:hover {
+
+/* Row actions stay out of the way until the row is hovered or focused. */
+.fp-mini {
+  border: none;
   background: transparent;
-  color: var(--text-primary);
-  border-color: var(--text-secondary);
+  color: inherit;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  display: inline-flex;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out-strong);
 }
+.pg-row:hover .fp-mini,
+.pg-row:focus-within .fp-mini { opacity: 1; }
+.fp-mini:focus-visible { opacity: 1; }
+.fp-mini:hover { background: var(--btn-hover); }
+.fp-mini.danger:hover { color: #dc2626; }
 
 .proj-icon {
   display: inline-flex;
@@ -255,52 +373,38 @@ button.proj-card:hover {
   color: var(--text-secondary);
   flex-shrink: 0;
 }
+
 .proj-name {
   font-size: 0.92rem;
   font-weight: 600;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.proj-meta {
-  font-size: 0.74rem;
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-.proj-name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.proj-meta {
-  font-size: 0.74rem;
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
 }
 
-.ws-actions {
+.proj-meta {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.col-files { width: 16%; }
+.col-modified { width: 20%; }
+
+/* Narrow panes drop the file-count column before the timestamp. */
+@media (max-width: 700px) {
+  .projects-page { padding: 20px 16px 48px; }
+  .col-files { display: none; }
+}
+
+.sr-only {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  display: none;
-  gap: 1px;
-  background: var(--panel-bg, var(--bg-primary));
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 1px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
-.proj-card:hover .ws-actions { display: inline-flex; }
-.fp-mini {
-  border: none;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  padding: 3px;
-  border-radius: 5px;
-  display: inline-flex;
-}
-.fp-mini:hover { background: var(--btn-hover); }
-.fp-mini.danger:hover { color: #dc2626; }
 </style>

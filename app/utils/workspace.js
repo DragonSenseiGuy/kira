@@ -192,7 +192,7 @@ export async function workspaceWrite(rawPath, content, root) {
   }
 
   if (isMemoryNode(parentDir)) {
-    parentDir.children.set(name, { kind: "file", content });
+    parentDir.children.set(name, { kind: "file", content, modified: Date.now() });
     return { path: sanitized.path, bytes };
   }
 
@@ -283,7 +283,11 @@ export async function workspaceList(rawPath = "", root) {
         }
         const childPath = prefix ? `${prefix}/${name}` : name;
         if (node.kind === "file") {
-          files.push({ path: childPath, size: node.content.length });
+          files.push({
+            path: childPath,
+            size: node.content.length,
+            modified: node.modified ?? 0,
+          });
         } else {
           await walk(node, childPath);
         }
@@ -298,12 +302,15 @@ export async function workspaceList(rawPath = "", root) {
       const childPath = prefix ? `${prefix}/${name}` : name;
       if (handle.kind === "file") {
         let size = 0;
+        let modified = 0;
         try {
-          size = (await handle.getFile()).size;
+          const file = await handle.getFile();
+          size = file.size;
+          modified = file.lastModified || 0;
         } catch {
           size = 0;
         }
-        files.push({ path: childPath, size });
+        files.push({ path: childPath, size, modified });
       } else if (handle.kind === "directory") {
         await walk(handle, childPath);
       }
@@ -312,6 +319,8 @@ export async function workspaceList(rawPath = "", root) {
 
   await walk(startDir, "");
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  // Entries are { path, size, modified } — `modified` is an epoch-ms stamp,
+  // or 0 when the platform doesn't report one.
   return { path: sanitized.path, files, truncated };
 }
 
@@ -427,7 +436,11 @@ async function copyTree(srcDir, dstDir) {
 async function memCopyTree(srcNode, dstNode) {
   for (const [name, node] of srcNode.children) {
     if (node.kind === "file") {
-      dstNode.children.set(name, { kind: "file", content: node.content });
+      dstNode.children.set(name, {
+        kind: "file",
+        content: node.content,
+        modified: node.modified ?? Date.now(),
+      });
     } else {
       const next = { kind: "directory", children: new Map() };
       dstNode.children.set(name, next);

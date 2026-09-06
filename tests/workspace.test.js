@@ -167,7 +167,7 @@ describe("workspace ops against OPFS-shaped handles", () => {
 
     const listing = await workspaceList("projects", root);
     expect(listing.files).toEqual([
-      { path: "web/index.html", size: 11 },
+      { path: "web/index.html", size: 11, modified: expect.any(Number) },
     ]);
   });
 

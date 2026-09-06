@@ -81,6 +81,21 @@ function closeSidebar() {
   emit("closeSidebar");
 }
 
+// Sections that aren't conversations, listed above the chat history.
+const navItems = [
+  { label: "Projects", icon: "material-symbols:folder-outline-rounded", to: "/projects" },
+  { label: "Notepad", icon: "material-symbols:note-outline", to: "/notepad" },
+];
+
+function isNavActive(to) {
+  return route.path === to || route.path.startsWith(`${to}/`);
+}
+
+function goTo(to) {
+  router.push(to);
+  if (windowWidth.value < 950) closeSidebar();
+}
+
 function handleNewConversation() {
   router.push("/");
 }
@@ -125,6 +140,22 @@ function handleMiddleClickNewChat(e) {
       >
         New chat
       </UiButton>
+
+      <!-- Destination nav: the surfaces that aren't conversations. -->
+      <nav class="sidebar-nav" aria-label="Sections">
+        <button
+          v-for="item in navItems"
+          :key="item.to"
+          type="button"
+          class="nav-link"
+          :class="{ active: isNavActive(item.to) }"
+          :aria-current="isNavActive(item.to) ? 'page' : undefined"
+          @click="goTo(item.to)"
+        >
+          <Icon :icon="item.icon" width="18" height="18" />
+          <span>{{ item.label }}</span>
+        </button>
+      </nav>
 
       <!-- Search Input -->
       <div class="search-container">
@@ -352,6 +383,43 @@ function handleMiddleClickNewChat(e) {
 
 #new-chat-button :deep(.ui-btn__body) {
   gap: 10px;
+}
+
+/* Destination nav — same visual weight as #new-chat-button so the block
+   above the chat history reads as one list. */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 8px 8px;
+  flex-shrink: 0;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out-strong);
+}
+
+.nav-link:hover {
+  background: var(--btn-hover);
+}
+
+.nav-link.active {
+  background: var(--btn-hover);
+  font-weight: 600;
 }
 
 /* Search Container */
