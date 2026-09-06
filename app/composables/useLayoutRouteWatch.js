@@ -1,6 +1,7 @@
 import { watch } from "vue";
 import { setActiveConversation } from "./workspaceSession";
 import { clearPendingSetup } from "./pendingChatSetup";
+import { useGlobalIncognito } from "./useGlobalIncognito";
 
 /**
  * Routes whose pages fill the whole screen and should not compete with
@@ -8,6 +9,15 @@ import { clearPendingSetup } from "./pendingChatSetup";
  */
 export function isFullPageDestination(path) {
   return path === "/settings" || path === "/projects" || path.startsWith("/projects/");
+}
+
+/**
+ * Routes where incognito is a meaningful state: the incognito screen itself,
+ * and the new-chat screen (where the top bar toggle arms it before the first
+ * message navigates to /incognito).
+ */
+export function keepsIncognito(path) {
+  return path === "/incognito" || path === "/" || path === "/new";
 }
 
 /**
@@ -19,6 +29,8 @@ export function isFullPageDestination(path) {
  * @param {object} panels - { sidebarOpen: Ref, dockOpen: Ref }
  */
 export function useLayoutRouteWatch(route, panels) {
+  const { setIncognito } = useGlobalIncognito();
+
   watch(
     () => route.fullPath,
     () => {
@@ -29,6 +41,13 @@ export function useLayoutRouteWatch(route, panels) {
       } else {
         setActiveConversation(null);
       }
+
+      // Incognito only means something on the chat-start surfaces. Anywhere
+      // else — most importantly a stored conversation opened from the
+      // sidebar — it must be cleared, because conversation loading is
+      // short-circuited while the flag is set and the page would render the
+      // incognito welcome instead of the chat.
+      if (!keepsIncognito(route.path)) setIncognito(false);
 
       // Leaving the new-chat screen without starting a chat discards
       // anything staged there (attached projects / uploaded files).
