@@ -130,8 +130,10 @@ select.stx-input {
   cursor: pointer;
 }
 
-/* Buttons */
+/* Buttons — also used on <a> (Settings > About project links), so the
+   anchor defaults are neutralised here rather than re-patched per caller. */
 .stx-btn {
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -146,6 +148,12 @@ select.stx-input {
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+}
+
+/* Anchors inherit the document line-height instead of the UA button
+   default, which makes the pill taller than its button siblings. */
+a.stx-btn {
+  line-height: 1.2;
 }
 
 .stx-btn:hover:not(:disabled) {

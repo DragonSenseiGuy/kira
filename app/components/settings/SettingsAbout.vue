@@ -23,7 +23,7 @@
           <a
             v-for="link in projectLinks"
             :key="link.href"
-            class="stx-btn link-pill"
+            class="stx-btn"
             :href="link.href"
             target="_blank"
             rel="noopener noreferrer"
@@ -82,15 +82,6 @@ const appVersion = config.public.appVersion || 'dev';
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
-}
-
-/* .stx-btn is built for <button>; an anchor needs the underline removed
-   and the inherited line-height pinned so the pill matches button height.
-   (The old inline `padding: 4px 0` killed the horizontal padding entirely
-   and left the label touching the border.) */
-.link-pill {
-  text-decoration: none;
-  line-height: 1.2;
 }
 
 .about-paragraph {
