@@ -8,12 +8,12 @@
         @reload-settings="settingsManager.loadSettings" @open-settings="openSettingsPanel('general')" />
       <!-- Opens to General tab -->
     </Suspense>
-    <ParameterConfigPanel v-if="developerMode" :is-open="activeDock === 'parameters'"
+    <ParameterConfigPanel :is-open="openDock === 'parameters'"
       :settings-manager="settingsManager"
-      @close="activeDock = null" @save="handleParameterConfigSave" />
-    <WorkspacePanel :is-open="activeDock === 'workspace'" :settings-manager="settingsManager"
+      @close="closeDock" @save="handleParameterConfigSave" />
+    <WorkspacePanel :is-open="openDock === 'workspace'" :settings-manager="settingsManager"
       :sidebar-open="sidebarOpen === true"
-      @close="activeDock = null" @save="handleWorkspacePanelSave"
+      @close="closeDock" @save="handleWorkspacePanelSave"
       @resize="(w) => (workspaceWidth = w)" @sidebar-close="sidebarOpen = false" />
     <NetConsentHost />
     <AppDialogHost />
@@ -24,11 +24,10 @@
       - NuxtPage: Takes full width with internal max-width constraint (contains page-specific content)
     -->
     <div class="main-container"
-      :class="{ 'sidebar-open': sidebarOpen, 'dock-open': activeDock }">
+      :class="{ 'sidebar-open': sidebarOpen, 'dock-open': openDock }">
       <TopBar :is-scrolled-top="isScrolledTop" :toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen"
         :is-incognito="isIncognito" :show-incognito-button="!route.params.id && messages.length === 0" :messages="messages"
-        :parameter-config-open="activeDock === 'parameters'" :workspace-open="activeDock === 'workspace'"
-        :show-parameters-button="developerMode"
+        :parameter-config-open="openDock === 'parameters'" :workspace-open="openDock === 'workspace'"
         :conversation-id="route.params.id"
         :can-export="canExport"
         @toggle-incognito="toggleIncognito"
@@ -45,7 +44,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, nextTick, onMounted, computed } from 'vue';
 import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
 import { inject } from "@vercel/analytics"
@@ -59,6 +58,8 @@ import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
 import { useGlobalIncognito } from '~/composables/useGlobalIncognito';
 import { useKeybinds } from '~/composables/useKeybinds';
 import { useLayoutRouteWatch } from '~/composables/useLayoutRouteWatch';
+import { useDeveloperMode } from '~/composables/useDeveloperMode';
+import { useDock } from '~/composables/useDock';
 
 import AppSidebar from '~/components/AppSidebar.vue'
 import WorkspacePanel from '~/components/WorkspacePanel.vue'
@@ -90,20 +91,16 @@ const router = useRouter();
 
 const sidebarOpen = ref(null); // null = indeterminate, will be set in onMounted based on screen width
 
-// Both docks live on the same right-hand edge, so one value names whichever
-// occupies it: null | 'parameters' | 'workspace'. Assignment *is* mutual
-// exclusion — there is no state where both are open to guard against.
-const activeDock = ref(null);
-
 // Developer Mode (Settings -> General) gates the model parameter controls.
-// Stored under the historical `show_debug_options` key so existing installs
-// keep whatever they had selected.
-const developerMode = computed(() => !!settingsManager.settings.show_debug_options);
+const developerMode = useDeveloperMode();
 
-// Turning Developer Mode off while the parameter dock is open would otherwise
-// leave an orphaned dock on screen with no way to close it.
-watch(developerMode, (on) => {
-  if (!on && activeDock.value === 'parameters') activeDock.value = null;
+// One value names whichever dock occupies the right-hand edge, and an
+// unavailable dock reads as closed — so turning Developer Mode off while the
+// parameter dock is open closes it by construction, with no watcher to keep
+// in sync. Read `openDock`, never `activeDock`.
+const { openDock, toggleDock, closeDock } = useDock({
+  parameters: () => developerMode.value,
+  workspace: () => true,
 });
 
 const workspaceWidth = ref(0); // px; reported by the Files dock (normal vs expanded)
@@ -112,8 +109,8 @@ const PARAMETER_DOCK_WIDTH = 300; // px; matches .parameter-config-panel
 // Width of whichever dock is currently occupying the edge, so --dock-w can
 // never hold a stale workspace width while the parameter dock is open.
 const dockWidth = computed(() => {
-  if (activeDock.value === 'parameters') return PARAMETER_DOCK_WIDTH;
-  if (activeDock.value === 'workspace') return workspaceWidth.value;
+  if (openDock.value === 'parameters') return PARAMETER_DOCK_WIDTH;
+  if (openDock.value === 'workspace') return workspaceWidth.value;
   return 0;
 });
 
@@ -122,8 +119,8 @@ const dockWidth = computed(() => {
 useLayoutRouteWatch(route, {
   sidebarOpen,
   dockOpen: computed({
-    get: () => activeDock.value !== null,
-    set: (open) => { if (!open) activeDock.value = null; },
+    get: () => openDock.value !== null,
+    set: (open) => { if (!open) closeDock(); },
   }),
 });
 
@@ -187,12 +184,7 @@ function openSettingsPanel(tabKey = 'general') {
   router.push({ path: '/settings', query: tabKey && tabKey !== 'general' ? { tab: tabKey } : {} });
 }
 
-function toggleDock(dock) {
-  activeDock.value = activeDock.value === dock ? null : dock;
-}
-
 function toggleParameterPanel() {
-  if (!developerMode.value) return;
   toggleDock('parameters');
 }
 
@@ -272,6 +264,15 @@ const paletteCommands = computed(() => {
       run: toggleSidebar,
     },
     {
+      id: 'toggle-parameters',
+      when: () => developerMode.value,
+      label: openDock.value === 'parameters' ? 'Hide parameters' : 'Show parameters',
+      icon: 'material-symbols:tune',
+      keywords: ['temperature', 'top_p', 'seed', 'sampling', 'config'],
+      hint: hintFor('toggle_parameters'),
+      run: toggleParameterPanel,
+    },
+    {
       id: 'toggle-theme',
       label: isDark.value ? 'Switch to light theme' : 'Switch to dark theme',
       icon: isDark.value ? 'material-symbols:light-mode-outline' : 'material-symbols:dark-mode-outline',
@@ -313,30 +314,19 @@ const paletteCommands = computed(() => {
       keywords: ['keybinds', 'hotkeys', 'bindings'],
       run: openShortcutHelp,
     },
-  ];
-
-  if (developerMode.value) {
-    commands.push({
-      id: 'toggle-parameters',
-      label: activeDock.value === 'parameters' ? 'Hide parameters' : 'Show parameters',
-      icon: 'material-symbols:tune',
-      keywords: ['temperature', 'top_p', 'seed', 'sampling', 'config'],
-      hint: hintFor('toggle_parameters'),
-      run: toggleParameterPanel,
-    });
-  }
-
-  if (canExport.value) {
-    commands.push({
+    {
       id: 'export-chat',
+      when: () => canExport.value,
       label: 'Export this chat',
       icon: 'material-symbols:download',
       keywords: ['save', 'zip', 'download', 'backup'],
       run: handleExportChat,
-    });
-  }
+    },
+  ];
 
-  return commands;
+  // One list in display order: a command's visibility rule sits on the
+  // command itself rather than in an append block further down.
+  return commands.filter(command => command.when?.() ?? true);
 });
 
 //-- Keyboard shortcuts

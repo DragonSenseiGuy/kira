@@ -11,12 +11,11 @@ import MessageEditArea from './MessageEditArea.vue';
 import { useContextCompression } from '../composables/useContextCompression';
 import { getFormattedStatsFromExecutedTools } from '../composables/searchViewStats';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
-import { useSettings } from '../composables/useSettings';
+import { useDeveloperMode } from '../composables/useDeveloperMode';
 
 // Debug tooling (e.g. the message debug copy button) is opt-in via
-// Settings → General → Show Debug Options.
-const settingsManager = useSettings();
-const showDebugOptions = computed(() => !!settingsManager.settings.show_debug_options);
+// Settings → General → Developer Mode.
+const developerMode = useDeveloperMode();
 
 const props = defineProps({
   currConvo: {
@@ -874,7 +873,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                   </UiTooltip>
 
                   <UiTooltip
-                    v-if="message.role === 'assistant' && showDebugOptions"
+                    v-if="message.role === 'assistant' && developerMode"
                     content="Copy debug info (timings, usage, tool calls)"
                   >
                     <UiIconButton

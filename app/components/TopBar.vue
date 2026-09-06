@@ -60,7 +60,7 @@
         </UiTooltip>
 
         <UiTooltip
-          v-if="showParametersButton && !parameterConfigOpen"
+          v-if="developerMode && !parameterConfigOpen"
           content="Model parameters"
           side="bottom"
           shortcut="mod+alt+b"
@@ -88,6 +88,12 @@
 import { computed, ref } from 'vue';
 import { useRouter } from "vue-router";
 import { useGlobalIncognito } from "~/composables/useGlobalIncognito";
+import { useDeveloperMode } from '~/composables/useDeveloperMode';
+
+// The model parameters button is Developer Mode surface. Read straight from
+// the setting — it is global, so threading it through as a prop would only
+// add a way for the bar and the dock to disagree.
+const developerMode = useDeveloperMode();
 
 const props = defineProps({
   isScrolledTop: {
@@ -103,11 +109,6 @@ const props = defineProps({
     default: false
   },
   isIncognito: {
-    type: Boolean,
-    default: false
-  },
-  // Model parameters are a Developer Mode feature; the layout owns the flag.
-  showParametersButton: {
     type: Boolean,
     default: false
   },
