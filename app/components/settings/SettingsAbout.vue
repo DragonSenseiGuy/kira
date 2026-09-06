@@ -19,16 +19,17 @@
           <h3>Project links</h3>
           <p>Source code, issues and releases</p>
         </div>
-        <div style="display: flex; gap: 8px">
+        <div class="link-row">
           <a
-            class="stx-btn"
-            href="https://github.com/DragonSenseiGuy/kira"
+            v-for="link in projectLinks"
+            :key="link.href"
+            class="stx-btn link-pill"
+            :href="link.href"
             target="_blank"
             rel="noopener noreferrer"
-            style="text-decoration: none; padding: 4px 0"
           >
-            <Icon icon="mdi:github" width="18" height="18" />
-            GitHub
+            <Icon :icon="link.icon" width="18" height="18" />
+            {{ link.label }}
           </a>
         </div>
       </div>
@@ -59,12 +60,39 @@
 <script setup>
 import { Icon } from '@iconify/vue';
 
+const REPO = 'https://github.com/DragonSenseiGuy/kira';
+
+// Matches the "Source code, issues and releases" description above.
+const projectLinks = [
+  { label: 'GitHub', icon: 'mdi:github', href: REPO },
+  { label: 'Issues', icon: 'material-symbols:bug-report-outline-rounded', href: `${REPO}/issues` },
+  { label: 'Releases', icon: 'material-symbols:package-2-outline-rounded', href: `${REPO}/releases` },
+];
+
 const config = useRuntimeConfig();
 // Read from build-time runtime config so this NEVER goes stale.
 const appVersion = config.public.appVersion || 'dev';
 </script>
 
 <style scoped>
+/* Pills wrap onto their own line rather than squeezing the description
+   on narrow panels. */
+.link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* .stx-btn is built for <button>; an anchor needs the underline removed
+   and the inherited line-height pinned so the pill matches button height.
+   (The old inline `padding: 4px 0` killed the horizontal padding entirely
+   and left the label touching the border.) */
+.link-pill {
+  text-decoration: none;
+  line-height: 1.2;
+}
+
 .about-paragraph {
   margin: 16px 0 0;
   font-size: 0.9rem;
