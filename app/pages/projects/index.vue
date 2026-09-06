@@ -14,29 +14,28 @@
             aria-label="Search projects"
           />
         </div>
-        <button type="button" class="pg-new" @click="createProject">New</button>
+        <UiButton variant="primary" @click="createProject">New</UiButton>
       </div>
     </header>
 
     <p v-if="error" class="pg-error">{{ error }}</p>
-    <p v-if="loading && !projects.length" class="pg-hint">Loading projects…</p>
 
-    <template v-else-if="!projects.length">
-      <div class="pg-empty-wrap">
-        <p class="pg-empty-note">No projects yet.</p>
-        <p class="pg-hint">
-          Projects hold files you can reuse across conversations — data sets,
-          documents, anything. Attach one from the Workspace panel in any chat.
-        </p>
-      </div>
-    </template>
+    <p v-if="viewState === 'loading'" class="pg-hint">Loading projects…</p>
 
-    <p v-else-if="!visibleProjects.length" class="pg-hint">
+    <div v-else-if="viewState === 'empty'" class="pg-empty-wrap">
+      <p class="pg-empty-note">No projects yet.</p>
+      <p class="pg-hint">
+        Projects hold files you can reuse across conversations — data sets,
+        documents, anything. Attach one from the Workspace panel in any chat.
+      </p>
+    </div>
+
+    <p v-else-if="viewState === 'no-match'" class="pg-hint">
       No projects match “{{ query }}”.
     </p>
 
     <!-- File-browser style listing: one row per project, newest first. -->
-    <table v-else class="pg-table">
+    <table v-else-if="viewState === 'ready'" class="pg-table">
       <thead>
         <tr>
           <th scope="col">Name</th>
@@ -46,27 +45,21 @@
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="proj in visibleProjects"
-          :key="proj.name"
-          class="pg-row"
-          tabindex="0"
-          :title="'Open ' + proj.name"
-          @click="open(proj.name)"
-          @keydown.enter="open(proj.name)"
-        >
+        <tr v-for="proj in visibleProjects" :key="proj.name" class="pg-row">
           <td>
-            <div class="cell-name">
+            <!-- A real link: the row-filling ::after keeps "click anywhere"
+                 while middle-click, cmd-click and keyboard still work. -->
+            <NuxtLink class="cell-name" :to="projectPath(proj.name)" :title="'Open ' + proj.name">
               <span class="proj-icon">
                 <Icon icon="material-symbols:folder-outline-rounded" width="18" height="18" />
               </span>
               <span class="proj-name">{{ proj.name }}</span>
-            </div>
+            </NuxtLink>
           </td>
           <td class="col-files proj-meta">
             {{ proj.files.length }} · {{ fmt(proj.bytes) }}
           </td>
-          <td class="col-modified proj-meta">{{ relativeTime(proj.modified) }}</td>
+          <td class="col-modified proj-meta">{{ relativeTime(proj.modified) || "—" }}</td>
           <td class="cell-actions" @click.stop>
             <button class="fp-mini danger" title="Delete project" @click.stop="deleteProject(proj.name)">
               <Icon icon="material-symbols:delete-outline-rounded" width="15" height="15" />
@@ -90,6 +83,7 @@ import {
 import { workspaceList, removeChildEntry, ensureWorkspaceSeeded } from "~/utils/workspace";
 import { promptDialog, confirmDialog } from "~/composables/useDialogs";
 import { emitter } from "~/composables/emitter";
+import { relativeTime } from "~/utils/relativeTime";
 
 const router = useRouter();
 
@@ -107,26 +101,21 @@ const visibleProjects = computed(() => {
   return [...list].sort((a, b) => b.modified - a.modified);
 });
 
+/** What the body renders — one value instead of a chain of negations. */
+const viewState = computed(() => {
+  if (loading.value && !projects.value.length) return "loading";
+  if (!projects.value.length) return "empty";
+  if (!visibleProjects.value.length) return "no-match";
+  return "ready";
+});
+
 async function refresh() {
   error.value = "";
   try {
     const names = await listProjectNames();
-    const out = [];
-    for (const name of names) {
-      try {
-        const root = await getProjectRoot(name);
-        const listing = await workspaceList("", root);
-        out.push({
-          name,
-          files: listing.files,
-          bytes: listing.files.reduce((n, f) => n + (f.size || 0), 0),
-          modified: listing.files.reduce((t, f) => Math.max(t, f.modified || 0), 0),
-        });
-      } catch {
-        out.push({ name, files: [], bytes: 0, modified: 0 });
-      }
-    }
-    projects.value = out;
+    // Projects are independent, and each listing now stats every file for
+    // its mtime — no reason to pay for that one project at a time.
+    projects.value = await Promise.all(names.map(describeProject));
   } catch (e) {
     error.value = e.message || String(e);
   } finally {
@@ -148,25 +137,35 @@ function fmt(bytes) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Compact "2h ago"-style stamp, matching the command palette's. */
-function relativeTime(value) {
-  if (!value) return "—";
-  const minutes = Math.round((Date.now() - value) / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(value).toLocaleDateString();
-}
-
 function cleanName(raw) {
   return String(raw || "").trim().replace(/[\\/:*?"<>|]/g, "-");
 }
 
-function open(name) {
-  router.push(`/projects/${encodeURIComponent(name)}`);
+function projectPath(name) {
+  return `/projects/${encodeURIComponent(name)}`;
+}
+
+/**
+ * Reads one project's listing into a row. A project whose directory can't
+ * be read still gets a row, so it stays visible (and deletable).
+ *
+ * @param {string} name
+ * @returns {Promise<{name: string, files: Array, bytes: number, modified: number}>}
+ */
+async function describeProject(name) {
+  try {
+    const root = await getProjectRoot(name);
+    const { files } = await workspaceList("", root);
+    let bytes = 0;
+    let modified = 0;
+    for (const file of files) {
+      bytes += file.size || 0;
+      modified = Math.max(modified, file.modified || 0);
+    }
+    return { name, files, bytes, modified };
+  } catch {
+    return { name, files: [], bytes: 0, modified: 0 };
+  }
 }
 
 async function createProject() {
@@ -247,13 +246,13 @@ async function deleteProject(name) {
   height: 38px;
   padding: 0 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-full, 9999px);
+  border-radius: var(--radius-full);
   background: var(--bg-primary);
 }
 
 .pg-search-icon {
   flex-shrink: 0;
-  color: var(--text-muted, var(--text-secondary));
+  color: var(--text-muted);
 }
 
 .pg-search-input {
@@ -268,34 +267,15 @@ async function deleteProject(name) {
 }
 
 .pg-search-input::placeholder {
-  color: var(--text-placeholder, var(--text-secondary));
+  color: var(--text-placeholder);
 }
 
-.pg-new {
-  height: 38px;
-  padding: 0 20px;
-  border: 1px solid var(--action, var(--border));
-  border-radius: var(--radius-full, 9999px);
-  background: var(--action);
-  color: var(--action-foreground);
-  font-family: inherit;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out-strong);
-}
-
-.pg-new:hover {
-  background: var(--action-hover);
-  border-color: var(--action-hover);
-}
-
-.pg-error { color: #dc2626; font-size: 0.8rem; margin: 0 0 12px; }
+.pg-error { color: var(--danger); font-size: 0.8rem; margin: 0 0 12px; }
 .pg-hint { color: var(--text-secondary); font-size: 0.84rem; margin: 6px 0; }
 
 .pg-empty-wrap {
   border: 1px dashed var(--border);
-  border-radius: var(--radius-xl, 16px);
+  border-radius: var(--radius-xl);
   padding: 56px 32px;
   text-align: center;
 }
@@ -317,19 +297,18 @@ async function deleteProject(name) {
 }
 
 .pg-row {
-  cursor: pointer;
+  position: relative;
   transition: background var(--duration-fast) var(--ease-out-strong);
 }
 
 .pg-row:hover,
-.pg-row:focus-visible {
+.pg-row:focus-within {
   background: var(--btn-hover);
-  outline: none;
 }
 
 .pg-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--muted-border, var(--border));
+  border-bottom: 1px solid var(--muted-border);
 }
 
 .cell-name {
@@ -337,9 +316,21 @@ async function deleteProject(name) {
   align-items: center;
   gap: 12px;
   min-width: 0;
+  color: inherit;
+  text-decoration: none;
 }
 
+/* Stretches the name link over the whole row so anywhere is clickable,
+   without nesting interactive elements inside one another. */
+.cell-name::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+/* Above the stretched link so the delete button stays reachable. */
 .cell-actions {
+  position: relative;
   width: 1%;
   text-align: right;
 }
@@ -360,7 +351,7 @@ async function deleteProject(name) {
 .pg-row:focus-within .fp-mini { opacity: 1; }
 .fp-mini:focus-visible { opacity: 1; }
 .fp-mini:hover { background: var(--btn-hover); }
-.fp-mini.danger:hover { color: #dc2626; }
+.fp-mini.danger:hover { color: var(--danger); }
 
 .proj-icon {
   display: inline-flex;

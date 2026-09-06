@@ -439,7 +439,9 @@ async function memCopyTree(srcNode, dstNode) {
       dstNode.children.set(name, {
         kind: "file",
         content: node.content,
-        modified: node.modified ?? Date.now(),
+        // 0, not now(): a copy of a file with no recorded mtime is not
+        // "just modified" — unknown has one meaning across this module.
+        modified: node.modified ?? 0,
       });
     } else {
       const next = { kind: "directory", children: new Map() };

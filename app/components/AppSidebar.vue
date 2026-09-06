@@ -87,12 +87,9 @@ const navItems = [
   { label: "Notepad", icon: "material-symbols:note-outline", to: "/notepad" },
 ];
 
-function isNavActive(to) {
-  return route.path === to || route.path.startsWith(`${to}/`);
-}
-
-function goTo(to) {
-  router.push(to);
+// NuxtLink handles navigation and the active class; the sidebar only has to
+// get out of the way on mobile once a destination is chosen.
+function closeOnMobile() {
   if (windowWidth.value < 950) closeSidebar();
 }
 
@@ -143,18 +140,16 @@ function handleMiddleClickNewChat(e) {
 
       <!-- Destination nav: the surfaces that aren't conversations. -->
       <nav class="sidebar-nav" aria-label="Sections">
-        <button
+        <NuxtLink
           v-for="item in navItems"
           :key="item.to"
-          type="button"
+          :to="item.to"
           class="nav-link"
-          :class="{ active: isNavActive(item.to) }"
-          :aria-current="isNavActive(item.to) ? 'page' : undefined"
-          @click="goTo(item.to)"
+          @click="closeOnMobile"
         >
           <Icon :icon="item.icon" width="18" height="18" />
           <span>{{ item.label }}</span>
-        </button>
+        </NuxtLink>
       </nav>
 
       <!-- Search Input -->
@@ -401,14 +396,11 @@ function handleMiddleClickNewChat(e) {
   gap: 10px;
   height: 34px;
   padding: 0 10px;
-  border: none;
   border-radius: var(--radius-control);
-  background: transparent;
   color: var(--text-primary);
-  font-family: inherit;
   font-size: 0.875rem;
   font-weight: 500;
-  text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-out-strong);
 }
@@ -417,7 +409,8 @@ function handleMiddleClickNewChat(e) {
   background: var(--btn-hover);
 }
 
-.nav-link.active {
+/* router-link-active covers nested routes (/projects/foo) too. */
+.nav-link.router-link-active {
   background: var(--btn-hover);
   font-weight: 600;
 }
