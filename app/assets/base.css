@@ -1124,6 +1124,11 @@ textarea::placeholder {
   animation: uEnter var(--duration-enter) var(--ease-out-strong) both;
 }
 
+/*
+  Ends on `transform: none`, so with `both` fill-mode it permanently WIPES any
+  positioning transform on the element it lands on. Anything animated with
+  uEnter must position itself with insets/margins, never a translate.
+*/
 @keyframes uEnter {
   from {
     opacity: 0;
