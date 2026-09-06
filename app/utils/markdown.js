@@ -57,6 +57,34 @@ function addCodeBlockRenderer(md) {
 }
 
 /**
+ * Sends every outbound link to a new tab.
+ *
+ * In-page anchors (footnote references and back-references, `#section`
+ * links) are left alone — opening a fragment in a new tab would reload the
+ * whole app. `rel` is set alongside `target` so a new tab can never reach
+ * back through `window.opener`.
+ *
+ * @param {MarkdownIt} md
+ */
+function addExternalLinkTargets(md) {
+  const defaultLinkOpen =
+    md.renderer.rules.link_open ||
+    function (tokens, idx, options, env, self) {
+      return self.renderToken(tokens, idx, options);
+    };
+
+  md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
+    const token = tokens[idx];
+    const href = token.attrGet("href") || "";
+    if (!href.startsWith("#")) {
+      token.attrSet("target", "_blank");
+      token.attrSet("rel", "noopener noreferrer");
+    }
+    return defaultLinkOpen(tokens, idx, options, env, self);
+  };
+}
+
+/**
  * Factory function for creating configured markdown-it instances
  * @param {Object} options - Configuration options
  * @param {boolean} options.enableKatex - Enable KaTeX math rendering (default: true)
@@ -104,6 +132,7 @@ export function createMarkdownInstance(options = {}) {
   }
 
   addCodeBlockRenderer(md);
+  addExternalLinkTargets(md);
   return md;
 }
 
