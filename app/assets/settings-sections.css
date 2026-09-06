@@ -173,12 +173,12 @@ a.stx-btn {
 }
 
 .stx-btn.danger {
-  color: #dc2626;
-  border-color: rgba(220, 38, 38, 0.35);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 .stx-btn.danger:hover:not(:disabled) {
-  background: rgba(220, 38, 38, 0.08);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
 }
 
 .stx-btn.ghost {
@@ -364,7 +364,7 @@ a.stx-btn {
 }
 
 .stx-error {
-  color: #dc2626;
+  color: var(--error-text);
   font-size: 0.82rem;
 }
 
