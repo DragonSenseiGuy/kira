@@ -10,7 +10,7 @@
  */
 
 export const KEYBIND_ACTIONS = [
-  { id: 'open_palette', label: 'Open command palette', default: 'mod+k' },
+  { id: 'open_palette', label: 'Toggle command palette', default: 'mod+k' },
   { id: 'focus_input', label: 'Focus text input', default: '/' },
   { id: 'new_chat', label: 'New chat', default: 'mod+alt+n' },
   { id: 'toggle_sidebar', label: 'Toggle main sidebar', default: 'mod+b' },

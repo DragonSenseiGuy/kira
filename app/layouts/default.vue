@@ -329,7 +329,9 @@ function openShortcutHelp() {
 }
 
 useKeybinds({
-  open_palette: () => { isPaletteOpen.value = true; },
+  // The palette shortcut toggles: the same keys that opened it close it
+  // again, which is what every other ⌘K palette does.
+  open_palette: () => { isPaletteOpen.value = !isPaletteOpen.value; },
   toggle_sidebar: toggleSidebar,
   toggle_parameters: toggleParameterPanel,
   new_chat: handleNewConversation,
