@@ -8,12 +8,12 @@
         @reload-settings="settingsManager.loadSettings" @open-settings="openSettingsPanel('general')" />
       <!-- Opens to General tab -->
     </Suspense>
-    <ParameterConfigPanel :is-open="parameterConfigPanelOpen" :settings-manager="settingsManager"
-      @close="parameterConfigPanelOpen = false" @save="handleParameterConfigSave" />
-    <WorkspacePanel :is-open="workspacePanelOpen" :settings-manager="settingsManager"
+    <ParameterConfigPanel :is-open="activeDock === 'parameters'" :settings-manager="settingsManager"
+      @close="activeDock = null" @save="handleParameterConfigSave" />
+    <WorkspacePanel :is-open="activeDock === 'workspace'" :settings-manager="settingsManager"
       :sidebar-open="sidebarOpen === true"
-      @close="workspacePanelOpen = false" @save="handleWorkspacePanelSave"
-      @resize="(w) => (dockWidth = w)" @sidebar-close="sidebarOpen = false" />
+      @close="activeDock = null" @save="handleWorkspacePanelSave"
+      @resize="(w) => (workspaceWidth = w)" @sidebar-close="sidebarOpen = false" />
     <NetConsentHost />
     <AppDialogHost />
     <!--
@@ -23,10 +23,10 @@
       - NuxtPage: Takes full width with internal max-width constraint (contains page-specific content)
     -->
     <div class="main-container"
-      :class="{ 'sidebar-open': sidebarOpen, 'parameter-config-open': parameterConfigPanelOpen, 'workspace-open': workspacePanelOpen }">
+      :class="{ 'sidebar-open': sidebarOpen, 'dock-open': activeDock }">
       <TopBar :is-scrolled-top="isScrolledTop" :toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen"
         :is-incognito="isIncognito" :show-incognito-button="!route.params.id && messages.length === 0" :messages="messages"
-        :parameter-config-open="parameterConfigPanelOpen" :workspace-open="workspacePanelOpen"
+        :parameter-config-open="activeDock === 'parameters'" :workspace-open="activeDock === 'workspace'"
         :conversation-id="route.params.id"
         :can-export="canExport"
         @toggle-incognito="toggleIncognito"
@@ -83,22 +83,35 @@ const { getIsScrolledTop } = useGlobalScrollStatus();
 // Use global incognito state
 const { isIncognito, toggleIncognito: globalToggleIncognito } = useGlobalIncognito();
 
-// selectedModelId for potential future use
-const selectedModelId = computed(() => settingsManager.settings.selected_model_id);
-
 const route = useRoute(); // Get current route
 const router = useRouter();
 
 const sidebarOpen = ref(null); // null = indeterminate, will be set in onMounted based on screen width
-const workspacePanelOpen = ref(false);
-const parameterConfigPanelOpen = ref(false);
-const dockWidth = ref(0); // px; driven by the Files dock (normal vs expanded)
+
+// Both docks live on the same right-hand edge, so one value names whichever
+// occupies it: null | 'parameters' | 'workspace'. Assignment *is* mutual
+// exclusion — there is no state where both are open to guard against.
+const activeDock = ref(null);
+
+const workspaceWidth = ref(0); // px; reported by the Files dock (normal vs expanded)
+const PARAMETER_DOCK_WIDTH = 300; // px; matches .parameter-config-panel
+
+// Width of whichever dock is currently occupying the edge, so --dock-w can
+// never hold a stale workspace width while the parameter dock is open.
+const dockWidth = computed(() => {
+  if (activeDock.value === 'parameters') return PARAMETER_DOCK_WIDTH;
+  if (activeDock.value === 'workspace') return workspaceWidth.value;
+  return 0;
+});
 
 // Route side effects (workspace scope, staging discard, mobile panel
 // closes) live in a composable so they can be unit-tested.
 useLayoutRouteWatch(route, {
   sidebarOpen,
-  dockOpen: workspacePanelOpen,
+  dockOpen: computed({
+    get: () => activeDock.value !== null,
+    set: (open) => { if (!open) activeDock.value = null; },
+  }),
 });
 
 // Set up dynamic page title
@@ -161,19 +174,19 @@ function openSettingsPanel(tabKey = 'general') {
   router.push({ path: '/settings', query: tabKey && tabKey !== 'general' ? { tab: tabKey } : {} });
 }
 
-// Both docks occupy the same right-hand edge, so opening one closes the
-// other rather than letting them fight over --dock-w.
+function toggleDock(dock) {
+  activeDock.value = activeDock.value === dock ? null : dock;
+}
+
 function toggleParameterPanel() {
-  parameterConfigPanelOpen.value = !parameterConfigPanelOpen.value;
-  if (parameterConfigPanelOpen.value) workspacePanelOpen.value = false;
+  toggleDock('parameters');
 }
 
 function toggleWorkspacePanel() {
-  workspacePanelOpen.value = !workspacePanelOpen.value;
-  if (workspacePanelOpen.value) parameterConfigPanelOpen.value = false;
+  toggleDock('workspace');
 }
 
-function handleParameterConfigSave(params) {
+function handleParameterConfigSave() {
   // The settings are already saved in the ParameterConfigPanel component.
 }
 
@@ -246,7 +259,7 @@ const paletteCommands = computed(() => {
     },
     {
       id: 'toggle-parameters',
-      label: parameterConfigPanelOpen.value ? 'Hide parameters' : 'Show parameters',
+      label: activeDock.value === 'parameters' ? 'Hide parameters' : 'Show parameters',
       icon: 'material-symbols:tune',
       keywords: ['temperature', 'top_p', 'seed', 'sampling', 'config'],
       hint: hintFor('toggle_parameters'),
@@ -317,10 +330,10 @@ function openShortcutHelp() {
 
 useKeybinds({
   open_palette: () => { isPaletteOpen.value = true; },
-  toggle_sidebar: () => toggleSidebar(),
-  toggle_parameters: () => toggleParameterPanel(),
-  new_chat: () => handleNewConversation(),
-  toggle_incognito: () => toggleIncognito(),
+  toggle_sidebar: toggleSidebar,
+  toggle_parameters: toggleParameterPanel,
+  new_chat: handleNewConversation,
+  toggle_incognito: toggleIncognito,
 });
 
 /**
@@ -385,11 +398,11 @@ function hintFor(id) {
     margin-left: 280px;
   }
 
-  .main-container.workspace-open {
+  .main-container.dock-open {
     margin-right: var(--dock-w, 380px);
   }
 
-  .main-container.sidebar-open.workspace-open {
+  .main-container.sidebar-open.dock-open {
     margin-left: 280px;
     margin-right: var(--dock-w, 380px);
   }
@@ -439,8 +452,8 @@ function hintFor(id) {
   }
 
   .main-container.sidebar-open,
-  .main-container.workspace-open,
-  .main-container.sidebar-open.workspace-open {
+  .main-container.dock-open,
+  .main-container.sidebar-open.dock-open {
     transform: none;
     margin: 0;
   }
@@ -457,7 +470,7 @@ function hintFor(id) {
 
   /* Use overlay positioning for mobile panels */
   .sidebar-open .main-container,
-  .workspace-open .main-container {
+  .dock-open .main-container {
     transform: none;
     margin: 0;
   }

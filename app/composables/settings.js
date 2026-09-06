@@ -11,10 +11,21 @@ import {
   hasHcFullModels,
 } from './providers';
 import DEFAULT_PARAMETERS from './defaultParameters';
+import { KEYBIND_ACTIONS } from '~/utils/keybinds';
 import {
   DEFAULT_THRESHOLD_TOKENS,
   DEFAULT_KEEP_RECENT_TOKENS,
 } from './contextCompressor';
+
+/**
+ * Shipped keybinds, derived from the action registry so a new action or a
+ * changed default only has to be written once (in `utils/keybinds.js`).
+ *
+ * @returns {Object<string, string>} action id -> default combo
+ */
+function defaultKeybinds() {
+  return Object.fromEntries(KEYBIND_ACTIONS.map((action) => [action.id, action.default]));
+}
 
 /**
  * Manages application settings for the Kira Interface.
@@ -62,14 +73,7 @@ class Settings {
       provider_last_model: {}, // providerId -> last selected model on it
       favorite_models: {}, // providerId -> [modelId] favorited in the picker
       // --- Keybind Settings ---
-      keybinds: {
-        open_palette: 'mod+k',
-        focus_input: '/',
-        new_chat: 'mod+alt+n',
-        toggle_sidebar: 'mod+b',
-        toggle_parameters: 'mod+alt+b',
-        toggle_incognito: 'mod+alt+i',
-      },
+      keybinds: defaultKeybinds(),
 
       // --- Model-Specific Settings ---
       model_settings: {}, // Per-model settings storage
@@ -109,14 +113,7 @@ class Settings {
       custom_providers: [], // Default: no custom providers configured
       provider_last_model: {},
       favorite_models: {}, // Default: no favorites
-      keybinds: {
-        open_palette: 'mod+k',
-        focus_input: '/',
-        new_chat: 'mod+alt+n',
-        toggle_sidebar: 'mod+b',
-        toggle_parameters: 'mod+alt+b',
-        toggle_incognito: 'mod+alt+i',
-      },
+      keybinds: defaultKeybinds(),
       model_settings: {}, // Default value for model settings
       parameter_config: { ...DEFAULT_PARAMETERS },
       gpt_oss_limit_tables: false, // Default value for GPT-OSS table limiting

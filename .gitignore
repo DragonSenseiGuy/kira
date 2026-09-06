@@ -25,3 +25,6 @@ logs
 
 # Test coverage
 coverage
+
+# Vitest JSON reporter output
+vitest-report.json
