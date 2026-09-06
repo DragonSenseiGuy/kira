@@ -56,12 +56,20 @@ function addCodeBlockRenderer(md) {
   };
 }
 
+// A link is "external" only if it leaves the app over the web. Everything
+// else — in-page anchors (`#section`, footnote references and their
+// back-references), relative in-app routes (`/settings`), and non-web
+// schemes like `mailto:`/`tel:` — is either handled by the router or by the
+// OS, and would only be broken or cluttered by a `target`.
+const EXTERNAL_LINK = /^https?:\/\//i;
+
 /**
- * Sends every outbound link to a new tab.
+ * Sends links that point out to the web into a new tab.
  *
- * In-page anchors (footnote references and back-references, `#section`
- * links) are left alone — opening a fragment in a new tab would reload the
- * whole app. `rel` is set alongside `target` so a new tab can never reach
+ * Only absolute `http(s)` URLs qualify: in-page anchors, relative in-app
+ * routes and non-web schemes are left untouched so they keep their normal
+ * behaviour (a `target` on `/settings` would tear the SPA out into a full
+ * page reload). `rel` is set alongside `target` so a new tab can never reach
  * back through `window.opener`.
  *
  * @param {MarkdownIt} md
@@ -76,7 +84,7 @@ function addExternalLinkTargets(md) {
   md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
     const token = tokens[idx];
     const href = token.attrGet("href") || "";
-    if (!href.startsWith("#")) {
+    if (EXTERNAL_LINK.test(href)) {
       token.attrSet("target", "_blank");
       token.attrSet("rel", "noopener noreferrer");
     }

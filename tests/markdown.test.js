@@ -82,6 +82,20 @@ describe("link targets", () => {
     expect(html).not.toContain('target="_blank"');
   });
 
+  it("leaves relative in-app links to the router", () => {
+    const instance = createMarkdownInstance();
+    const html = instance.render("[docs](/settings)");
+    expect(html).toContain('href="/settings"');
+    expect(html).not.toContain('target="_blank"');
+  });
+
+  it("leaves mailto links alone", () => {
+    const instance = createMarkdownInstance();
+    const html = instance.render("[mail](mailto:hi@example.com)");
+    expect(html).toContain("mailto:hi@example.com");
+    expect(html).not.toContain('target="_blank"');
+  });
+
   it("keeps footnote references in-page", () => {
     const instance = createMarkdownInstance();
     const html = instance.render("text[^1]\n\n[^1]: note");
