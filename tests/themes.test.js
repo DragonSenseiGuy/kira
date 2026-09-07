@@ -106,22 +106,31 @@ describe("theme registry", () => {
   });
 });
 
+/** Every theme that has blocks in themes.css — i.e. all but the default. */
+const THEMED = THEMES.filter((theme) => theme.id !== DEFAULT_THEME_ID);
+
 describe("themes.css", () => {
-  it("defines a light and a dark block for every registered theme", () => {
-    for (const theme of THEMES) {
+  it("leaves the default to base.css instead of restating it", () => {
+    // The default is layer 1. A block here would be a byte-for-byte copy of
+    // :root/.dark and a second place to forget when a primitive changes.
+    expect(blockFor(DEFAULT_THEME_ID, "light")).toBeNull();
+    expect(blockFor(DEFAULT_THEME_ID, "dark")).toBeNull();
+  });
+
+  it("defines a light and a dark block for every other theme", () => {
+    for (const theme of THEMED) {
       expect(blockFor(theme.id, "light"), `${theme.id} light`).not.toBeNull();
       expect(blockFor(theme.id, "dark"), `${theme.id} dark`).not.toBeNull();
     }
   });
 
   it("declares an identical token set in every block", () => {
-    // The default's light block is the reference — a theme that omits a token
-    // inherits it from whatever was applied before, which reads as a subtle,
-    // hard-to-report mismatch rather than an obvious break.
-    const expected = Object.keys(customProperties(blockFor(DEFAULT_THEME_ID, "light"))).sort();
+    // A theme that omits a token inherits it from base.css, which reads as a
+    // subtle, hard-to-report mismatch rather than an obvious break.
+    const expected = Object.keys(customProperties(blockFor(THEMED[0].id, "light"))).sort();
     expect(expected.length).toBeGreaterThan(40);
 
-    for (const theme of THEMES) {
+    for (const theme of THEMED) {
       for (const mode of ["light", "dark"]) {
         const tokens = Object.keys(customProperties(blockFor(theme.id, mode))).sort();
         expect(tokens, `${theme.id} ${mode}`).toEqual(expected);
@@ -130,7 +139,7 @@ describe("themes.css", () => {
   });
 
   it("sets scrollbar-color in every block", () => {
-    for (const theme of THEMES) {
+    for (const theme of THEMED) {
       for (const mode of ["light", "dark"]) {
         expect(blockFor(theme.id, mode)["scrollbar-color"], `${theme.id} ${mode}`).toBeTruthy();
       }
@@ -148,7 +157,7 @@ describe("themes.css", () => {
       ...Object.keys(customProperties(ruleBody(codeCss, ".dark"))),
     ]);
 
-    for (const theme of THEMES) {
+    for (const theme of THEMED) {
       for (const mode of ["light", "dark"]) {
         for (const token of Object.keys(customProperties(blockFor(theme.id, mode)))) {
           expect(known.has(token), `${theme.id} ${mode}: unknown token ${token}`).toBe(true);
@@ -157,19 +166,23 @@ describe("themes.css", () => {
     }
   });
 
-  it("keeps the default theme byte-identical to the shipped tokens", () => {
-    // `[data-theme="kira"]` restates base.css so the settings swatch can
-    // preview it while another theme is applied. That duplication is only safe
-    // while the two agree, so pin them together here.
+  it("gives base.css a value for every token a theme restyles", () => {
+    // The other direction of the same contract: a token a theme sets but the
+    // default never does would leave the default flavour unstyled.
     for (const [mode, selector] of [["light", ":root"], ["dark", ".dark"]]) {
       const shipped = {
-        ...customProperties(ruleBody(baseCss, selector)),
-        ...customProperties(ruleBody(codeCss, selector)),
+        ...customProperties(ruleBody(baseCss, ":root")),
+        ...customProperties(ruleBody(codeCss, ":root")),
+        ...(selector === ".dark"
+          ? {
+              ...customProperties(ruleBody(baseCss, ".dark")),
+              ...customProperties(ruleBody(codeCss, ".dark")),
+            }
+          : {}),
       };
-      const themed = customProperties(blockFor(DEFAULT_THEME_ID, mode));
 
-      for (const [token, value] of Object.entries(themed)) {
-        expect(shipped[token], `kira ${mode}: ${token}`).toBe(value);
+      for (const token of Object.keys(customProperties(blockFor(THEMED[0].id, mode)))) {
+        expect(shipped[token], `default ${mode}: ${token}`).toBeTruthy();
       }
     }
   });

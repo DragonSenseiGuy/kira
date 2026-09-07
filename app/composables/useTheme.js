@@ -108,9 +108,10 @@ const activeTheme = ref(DEFAULT_THEME_ID);
  * Write the theme onto <html> and persist it.
  *
  * Every theme — including the default — gets an explicit `data-theme`, so the
- * attribute is never "sometimes there". The settings swatches rely on that:
- * they render the same attribute on a nested element to preview a palette the
- * page isn't using.
+ * attribute is never "sometimes there". The settings swatches render the same
+ * attribute on a nested element to preview a palette the page isn't using;
+ * the default previews correctly with no rule of its own, because it *is*
+ * base.css and those tokens simply inherit.
  *
  * @param {string} id theme id; unknown ids fall back to the default
  * @returns {string} the id that was actually applied
