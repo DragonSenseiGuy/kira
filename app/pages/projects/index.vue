@@ -213,6 +213,9 @@ async function deleteProject(name) {
   margin: 0 auto;
   padding: 28px 32px 64px;
   box-sizing: border-box;
+  /* Columns key off the space this page ACTUALLY gets: the sidebar and the
+     right-hand dock eat into it, and a viewport query cannot see that. */
+  container-type: inline-size;
 }
 
 /* Title on the left, search + New on the right. */
@@ -384,10 +387,17 @@ async function deleteProject(name) {
 .col-files { width: 16%; }
 .col-modified { width: 20%; }
 
-/* Narrow panes drop the file-count column before the timestamp. */
+/* Narrow panes drop the file-count column before the timestamp. Measured
+   against the page container, so opening a dock collapses the table the same
+   way a narrow window does. */
+@container (max-width: 700px) {
+  .col-files { display: none; }
+}
+
+/* Padding is the one thing that really is about the device rather than the
+   pane, so it stays on a viewport query. */
 @media (max-width: 700px) {
   .projects-page { padding: 20px 16px 48px; }
-  .col-files { display: none; }
 }
 
 .sr-only {

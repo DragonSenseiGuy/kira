@@ -12,22 +12,26 @@ import { computed, ref } from 'vue';
  * nothing has to remember to close it when the predicate flips (e.g. turning
  * Developer Mode off while the parameter dock is open).
  *
+ * The occupied dock is deliberately not exposed raw: `openDock` is the only
+ * reading of the state that accounts for availability, so it is the only one
+ * callers get.
+ *
  * @param {Record<string, () => boolean>} available - Predicate per dock id.
  * @returns {{
- *   activeDock: import('vue').Ref<string|null>,
  *   openDock: import('vue').ComputedRef<string|null>,
  *   toggleDock: (dock: string) => void,
  *   closeDock: () => void,
- * }} `openDock` is the value every reader should use.
+ * }}
  */
 export function useDock(available) {
   const isAvailable = (dock) => !!dock && (available[dock]?.() ?? false);
 
-  const activeDock = ref(null);
+  // Which dock has been asked for, before availability is applied.
+  const occupied = ref(null);
 
   // The dock that is actually open: an unavailable dock is closed by
   // construction, so nothing has to remember to close it.
-  const openDock = computed(() => (isAvailable(activeDock.value) ? activeDock.value : null));
+  const openDock = computed(() => (isAvailable(occupied.value) ? occupied.value : null));
 
   /**
    * Opens `dock`, or closes it if it is the one already open. Writing an
@@ -37,13 +41,13 @@ export function useDock(available) {
    * @param {string} dock - Dock id.
    */
   function toggleDock(dock) {
-    activeDock.value = openDock.value === dock || !isAvailable(dock) ? null : dock;
+    occupied.value = openDock.value === dock || !isAvailable(dock) ? null : dock;
   }
 
   /** Closes whatever dock is open. */
   function closeDock() {
-    activeDock.value = null;
+    occupied.value = null;
   }
 
-  return { activeDock, openDock, toggleDock, closeDock };
+  return { openDock, toggleDock, closeDock };
 }
