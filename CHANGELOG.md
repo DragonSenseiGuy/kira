@@ -13,6 +13,24 @@ All notable changes to Kira are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+- Custom themes. Six palettes ship in Settings → General: **Kira** (the
+  existing look), **Catppuccin** (Latte / Mocha), **Rosé Pine** (Dawn / Moon),
+  **Nord** (Snow Storm / Polar Night), **Gruvbox** (Light / Dark Medium) and
+  **Tokyo Night** (Day / Storm). Each theme is a light *and* a dark palette,
+  so the dark-mode switch keeps working exactly as before and picks the
+  matching flavour.
+- Themes are also reachable from the command palette (`mod+k` → "Theme: …").
+
+### Changed
+- The browser's `theme-color` (the address-bar tint on mobile) now follows the
+  active theme and light/dark flavour instead of being a fixed blue that was
+  never right in dark mode.
+
+---
+
 ## [2.1.0] - 2026-09-05
 
 Kira is now synced with upstream Libre Assistant 2.1.0. Kira's version number

@@ -36,7 +36,6 @@ export default defineNuxtConfig({
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'description', content: 'An open-source AI chat assistant' },
-        { name: 'theme-color', content: '#0285ff' }, // --accent
         { name: 'format-detection', content: 'telephone=no' },
 
         // SEO and social media meta tags
