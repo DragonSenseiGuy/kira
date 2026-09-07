@@ -57,6 +57,7 @@ import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
 import { useGlobalIncognito } from '~/composables/useGlobalIncognito';
 import { useKeybinds } from '~/composables/useKeybinds';
 import { useLayoutRouteWatch } from '~/composables/useLayoutRouteWatch';
+import { useTheme } from '~/composables/useTheme';
 
 import AppSidebar from '~/components/AppSidebar.vue'
 import WorkspacePanel from '~/components/WorkspacePanel.vue'
@@ -73,6 +74,9 @@ import {
 } from '~/composables/importExport';
 
 const isDark = useDark();
+
+// Theme (palette) selection — orthogonal to the light/dark switch above.
+const { theme, themes, setTheme } = useTheme();
 
 // Use the shared settings instance
 const settingsManager = useSettings();
@@ -272,6 +276,18 @@ const paletteCommands = computed(() => {
       keywords: ['dark', 'light', 'appearance', 'colour', 'color'],
       run: () => { isDark.value = !isDark.value; },
     },
+    // One entry per theme, so the palette is searchable by name ("nord",
+    // "catppuccin") instead of hiding behind a cycle command. The active
+    // theme drops out — selecting it would be a no-op.
+    ...themes
+      .filter((option) => option.id !== theme.value)
+      .map((option) => ({
+        id: `theme-${option.id}`,
+        label: `Theme: ${option.name}`,
+        icon: 'material-symbols:palette-outline',
+        keywords: ['theme', 'colour', 'color', 'palette', 'appearance', option.flavours],
+        run: () => setTheme(option.id),
+      })),
     {
       id: 'open-notepad',
       label: 'Open Notepad',

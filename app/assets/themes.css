@@ -1,0 +1,816 @@
+/* ============================================================
+   Kira themes
+
+   Each theme restyles layer 1 of the design system — the primitives in
+   base.css — and nothing else. The semantic aliases (`--bg`, `--text-primary`,
+   `--border`, ...) are all defined in terms of those primitives, so a theme
+   never has to touch them and no component needs to know a theme exists.
+
+   Selector contract, and why it looks like this:
+
+     [data-theme="x"]:not(.dark)   light flavour
+     [data-theme="x"].dark         dark flavour
+
+   `.dark` (specificity 0,1,0) is still toggled on <html> by `useDark()`, so
+   a bare `[data-theme="x"]` block would tie with it and — being later in the
+   cascade — would win even in dark mode. Both selectors here are 0,2,0, which
+   puts them above `.dark` in both directions.
+
+   The pair also makes the settings swatches work: a <span data-theme="nord">
+   (optionally with .dark) picks up that theme's palette in isolation, without
+   the page having to switch to it.
+
+   Non-colour dark adjustments — shadow alphas, `color-scheme` — stay in the
+   `.dark` block in base.css and apply to every theme.
+
+   Kira has no block here. It IS layer 1 — `:root` and `.dark`, in base.css and
+   code-blocks.css — and a `[data-theme="kira"]` block would be a byte-for-byte
+   copy of those, i.e. a second place to forget when a primitive changes.
+   `:root` inherits into the settings swatch and `.dark` is not html-scoped, so
+   the preview span still works without a rule of its own.
+
+   Adding a theme: copy a pair of blocks, keep the token list identical to
+   base.css (the suite in tests/themes.test.js enforces that), and register the
+   id in app/composables/useTheme.js.
+   ============================================================ */
+
+/* ---------- Catppuccin — Latte (light) / Mocha (dark) ---------- */
+
+[data-theme="catppuccin"]:not(.dark) {
+  /* Surfaces */
+  --page: #eff1f5;
+  --canvas: #e6e9ef;
+  --card: #f6f7fa;
+  --inset: #e6e9ef;
+  --field: #dce0e8;
+  --hover: #e0e4ec;
+  --hover-2: #ccd0da;
+
+  /* Text */
+  --ink: #4c4f69;
+  --ink-2: #6c6f85;
+  --ink-3: #8c8fa1;
+
+  /* Lines */
+  --line: #dce0e8;
+  --line-strong: #bcc0cc;
+
+  /* Primary action */
+  --action: #8839ef;
+  --action-hover: #7429d6;
+  --action-on: #eff1f5;
+  --action-disabled: #bcc0cc;
+
+  /* Accent */
+  --accent: #1e66f5;
+  --accent-ink: #1552c9;
+  --accent-tint: #dfe6fd;
+  --accent-on: #eff1f5;
+
+  /* Composer */
+  --composer-bg: #f6f7fa;
+  --composer-ring: var(--line-strong);
+
+  /* Status */
+  --green: #40a02b;
+  --green-tint: #e3f0df;
+  --orange: #fe640b;
+  --orange-tint: #fde8dc;
+  --red: #d20f39;
+  --red-tint: #f8dee3;
+
+  /* Stripes */
+  --stripe: #4c4f6913;
+  --stripe-bg: #e6e9ef;
+
+  /* Tooltip */
+  --tooltip-bg: #4c4f69;
+  --tooltip-fg: #eff1f5;
+  --tooltip-muted: #9ca0b0;
+  --tooltip-border: #5c5f77;
+
+  /* Overlays */
+  --overlay-hover: #4c4f690a;
+  --overlay-active: #4c4f6914;
+  --overlay-accent: #4c4f690f;
+  --scrim: rgba(76, 79, 105, 0.4);
+
+  /* Alias overrides */
+  --primary-a4: #4c4f6914;
+  --destructive-600: #b00d30;
+  --destructive-foreground: #eff1f5;
+  --color-bubble-user-bg: #e6e9ef;
+
+  /* Code */
+  --code-comment: #8c8fa1;
+  --code-keyword: #8839ef;
+  --code-function: #1e66f5;
+  --code-string: #40a02b;
+  --code-number: #fe640b;
+  --code-variable: #e64553;
+  --code-property: #179299;
+
+  scrollbar-color: #bcc0cc transparent;
+}
+
+[data-theme="catppuccin"].dark {
+  /* Surfaces */
+  --page: #1e1e2e;
+  --canvas: #181825;
+  --card: #313244;
+  --inset: #262637;
+  --field: #313244;
+  --hover: #313244;
+  --hover-2: #45475a;
+
+  /* Text */
+  --ink: #cdd6f4;
+  --ink-2: #a6adc8;
+  --ink-3: #7f849c;
+
+  /* Lines */
+  --line: #cdd6f41a;
+  --line-strong: #cdd6f426;
+
+  /* Primary action */
+  --action: #cba6f7;
+  --action-hover: #dbc0fa;
+  --action-on: #1e1e2e;
+  --action-disabled: #45475a;
+
+  /* Accent */
+  --accent: #89b4fa;
+  --accent-ink: #b4befe;
+  --accent-tint: #cdd6f414;
+  --accent-on: #1e1e2e;
+
+  /* Composer */
+  --composer-bg: #313244;
+  --composer-ring: transparent;
+
+  /* Status */
+  --green: #a6e3a1;
+  --green-tint: #a6e3a124;
+  --orange: #fab387;
+  --orange-tint: #fab38724;
+  --red: #f38ba8;
+  --red-tint: #f38ba824;
+
+  /* Stripes */
+  --stripe: #cdd6f40e;
+  --stripe-bg: #181825;
+
+  /* Tooltip */
+  --tooltip-bg: #cdd6f4;
+  --tooltip-fg: #1e1e2e;
+  --tooltip-muted: #585b70;
+  --tooltip-border: transparent;
+
+  /* Overlays */
+  --overlay-hover: #cdd6f40f;
+  --overlay-active: #cdd6f41f;
+  --overlay-accent: #cdd6f414;
+  --scrim: rgba(17, 17, 27, 0.6);
+
+  /* Alias overrides */
+  --primary-a4: #cdd6f41f;
+  --destructive-600: #f38ba8;
+  --destructive-foreground: #1e1e2e;
+  --color-bubble-user-bg: #313244;
+
+  /* Code */
+  --code-comment: #7f849c;
+  --code-keyword: #cba6f7;
+  --code-function: #89b4fa;
+  --code-string: #a6e3a1;
+  --code-number: #fab387;
+  --code-variable: #f38ba8;
+  --code-property: #94e2d5;
+
+  scrollbar-color: #45475a transparent;
+}
+
+/* ---------- Rosé Pine — Dawn (light) / Moon (dark) ---------- */
+
+[data-theme="rose-pine"]:not(.dark) {
+  /* Surfaces */
+  --page: #faf4ed;
+  --canvas: #f2e9e1;
+  --card: #fffaf3;
+  --inset: #f4ede8;
+  --field: #f2e9e1;
+  --hover: #efe5dc;
+  --hover-2: #dfdad9;
+
+  /* Text */
+  --ink: #575279;
+  --ink-2: #797593;
+  --ink-3: #9893a5;
+
+  /* Lines */
+  --line: #e8ded6;
+  --line-strong: #cecacd;
+
+  /* Primary action */
+  --action: #907aa9;
+  --action-hover: #7d6796;
+  --action-on: #faf4ed;
+  --action-disabled: #dfdad9;
+
+  /* Accent */
+  --accent: #286983;
+  --accent-ink: #1d4f63;
+  --accent-tint: #e2ecf0;
+  --accent-on: #faf4ed;
+
+  /* Composer */
+  --composer-bg: #fffaf3;
+  --composer-ring: var(--line-strong);
+
+  /* Status */
+  --green: #56949f;
+  --green-tint: #e2eff1;
+  --orange: #ea9d34;
+  --orange-tint: #fbf0dd;
+  --red: #b4637a;
+  --red-tint: #f6e5ea;
+
+  /* Stripes */
+  --stripe: #57527913;
+  --stripe-bg: #f2e9e1;
+
+  /* Tooltip */
+  --tooltip-bg: #575279;
+  --tooltip-fg: #faf4ed;
+  --tooltip-muted: #9893a5;
+  --tooltip-border: #6e6a86;
+
+  /* Overlays */
+  --overlay-hover: #5752790a;
+  --overlay-active: #57527914;
+  --overlay-accent: #5752790f;
+  --scrim: rgba(87, 82, 121, 0.4);
+
+  /* Alias overrides */
+  --primary-a4: #57527914;
+  --destructive-600: #9c5468;
+  --destructive-foreground: #faf4ed;
+  --color-bubble-user-bg: #f2e9e1;
+
+  /* Code */
+  --code-comment: #9893a5;
+  --code-keyword: #286983;
+  --code-function: #d7827e;
+  --code-string: #ea9d34;
+  --code-number: #907aa9;
+  --code-variable: #b4637a;
+  --code-property: #56949f;
+
+  scrollbar-color: #cecacd transparent;
+}
+
+[data-theme="rose-pine"].dark {
+  /* Surfaces */
+  --page: #232136;
+  --canvas: #1c1a2b;
+  --card: #2a273f;
+  --inset: #262338;
+  --field: #393552;
+  --hover: #393552;
+  --hover-2: #44415a;
+
+  /* Text */
+  --ink: #e0def4;
+  --ink-2: #908caa;
+  --ink-3: #6e6a86;
+
+  /* Lines */
+  --line: #e0def41a;
+  --line-strong: #e0def426;
+
+  /* Primary action */
+  --action: #c4a7e7;
+  --action-hover: #d5bff0;
+  --action-on: #232136;
+  --action-disabled: #44415a;
+
+  /* Accent */
+  --accent: #3e8fb0;
+  --accent-ink: #61a9c6;
+  --accent-tint: #e0def414;
+  --accent-on: #232136;
+
+  /* Composer */
+  --composer-bg: #2a273f;
+  --composer-ring: transparent;
+
+  /* Status */
+  --green: #9ccfd8;
+  --green-tint: #9ccfd824;
+  --orange: #f6c177;
+  --orange-tint: #f6c17724;
+  --red: #eb6f92;
+  --red-tint: #eb6f9224;
+
+  /* Stripes */
+  --stripe: #e0def40e;
+  --stripe-bg: #1c1a2b;
+
+  /* Tooltip */
+  --tooltip-bg: #e0def4;
+  --tooltip-fg: #232136;
+  --tooltip-muted: #6e6a86;
+  --tooltip-border: transparent;
+
+  /* Overlays */
+  --overlay-hover: #e0def40f;
+  --overlay-active: #e0def41f;
+  --overlay-accent: #e0def414;
+  --scrim: rgba(20, 18, 32, 0.6);
+
+  /* Alias overrides */
+  --primary-a4: #e0def41f;
+  --destructive-600: #eb6f92;
+  --destructive-foreground: #232136;
+  --color-bubble-user-bg: #393552;
+
+  /* Code */
+  --code-comment: #6e6a86;
+  --code-keyword: #3e8fb0;
+  --code-function: #ea9a97;
+  --code-string: #f6c177;
+  --code-number: #c4a7e7;
+  --code-variable: #eb6f92;
+  --code-property: #9ccfd8;
+
+  scrollbar-color: #44415a transparent;
+}
+
+/* ---------- Nord — Snow Storm (light) / Polar Night (dark) ---------- */
+
+[data-theme="nord"]:not(.dark) {
+  /* Surfaces */
+  --page: #eceff4;
+  --canvas: #e5e9f0;
+  --card: #f4f6f9;
+  --inset: #e5e9f0;
+  --field: #dfe4ec;
+  --hover: #e1e6ee;
+  --hover-2: #d8dee9;
+
+  /* Text */
+  --ink: #2e3440;
+  --ink-2: #4c566a;
+  --ink-3: #7b88a1;
+
+  /* Lines */
+  --line: #dbe1ea;
+  --line-strong: #c9d2df;
+
+  /* Primary action */
+  --action: #3b4252;
+  --action-hover: #4c566a;
+  --action-on: #eceff4;
+  --action-disabled: #d8dee9;
+
+  /* Accent */
+  --accent: #5e81ac;
+  --accent-ink: #4c6b91;
+  --accent-tint: #e1e8f2;
+  --accent-on: #eceff4;
+
+  /* Composer */
+  --composer-bg: #f4f6f9;
+  --composer-ring: var(--line-strong);
+
+  /* Status */
+  --green: #6f9354;
+  --green-tint: #e9eee3;
+  --orange: #b46a54;
+  --orange-tint: #f4e8e3;
+  --red: #a54a53;
+  --red-tint: #f3e3e5;
+
+  /* Stripes */
+  --stripe: #2e344013;
+  --stripe-bg: #e5e9f0;
+
+  /* Tooltip */
+  --tooltip-bg: #2e3440;
+  --tooltip-fg: #eceff4;
+  --tooltip-muted: #7b88a1;
+  --tooltip-border: #434c5e;
+
+  /* Overlays */
+  --overlay-hover: #2e34400a;
+  --overlay-active: #2e344014;
+  --overlay-accent: #2e34400f;
+  --scrim: rgba(46, 52, 64, 0.4);
+
+  /* Alias overrides */
+  --primary-a4: #2e344014;
+  --destructive-600: #93414a;
+  --destructive-foreground: #eceff4;
+  --color-bubble-user-bg: #e5e9f0;
+
+  /* Code */
+  --code-comment: #7b88a1;
+  --code-keyword: #5e81ac;
+  --code-function: #46688f;
+  --code-string: #6f9354;
+  --code-number: #b46a54;
+  --code-variable: #8b6a92;
+  --code-property: #3d7e7d;
+
+  scrollbar-color: #c9d2df transparent;
+}
+
+[data-theme="nord"].dark {
+  /* Surfaces */
+  --page: #2e3440;
+  --canvas: #272c36;
+  --card: #3b4252;
+  --inset: #333a47;
+  --field: #3b4252;
+  --hover: #3b4252;
+  --hover-2: #434c5e;
+
+  /* Text */
+  --ink: #eceff4;
+  --ink-2: #d8dee9;
+  --ink-3: #9aa5b8;
+
+  /* Lines */
+  --line: #eceff41a;
+  --line-strong: #eceff426;
+
+  /* Primary action */
+  --action: #eceff4;
+  --action-hover: #d8dee9;
+  --action-on: #2e3440;
+  --action-disabled: #4c566a;
+
+  /* Accent */
+  --accent: #88c0d0;
+  --accent-ink: #8fbcbb;
+  --accent-tint: #eceff414;
+  --accent-on: #2e3440;
+
+  /* Composer */
+  --composer-bg: #3b4252;
+  --composer-ring: transparent;
+
+  /* Status */
+  --green: #a3be8c;
+  --green-tint: #a3be8c24;
+  --orange: #d08770;
+  --orange-tint: #d0877024;
+  --red: #bf616a;
+  --red-tint: #bf616a24;
+
+  /* Stripes */
+  --stripe: #eceff40e;
+  --stripe-bg: #272c36;
+
+  /* Tooltip */
+  --tooltip-bg: #eceff4;
+  --tooltip-fg: #2e3440;
+  --tooltip-muted: #4c566a;
+  --tooltip-border: transparent;
+
+  /* Overlays */
+  --overlay-hover: #eceff40f;
+  --overlay-active: #eceff41f;
+  --overlay-accent: #eceff414;
+  --scrim: rgba(23, 26, 33, 0.6);
+
+  /* Alias overrides */
+  --primary-a4: #eceff41f;
+  --destructive-600: #cf6d76;
+  --destructive-foreground: #2e3440;
+  --color-bubble-user-bg: #3b4252;
+
+  /* Code */
+  --code-comment: #7b88a1;
+  --code-keyword: #81a1c1;
+  --code-function: #88c0d0;
+  --code-string: #a3be8c;
+  --code-number: #d08770;
+  --code-variable: #b48ead;
+  --code-property: #8fbcbb;
+
+  scrollbar-color: #4c566a transparent;
+}
+
+/* ---------- Gruvbox — retro groove, light & dark medium ---------- */
+
+[data-theme="gruvbox"]:not(.dark) {
+  /* Surfaces */
+  --page: #fbf1c7;
+  --canvas: #f2e5bc;
+  --card: #fbf1c7;
+  --inset: #f2e5bc;
+  --field: #ebdbb2;
+  --hover: #efe3b4;
+  --hover-2: #d5c4a1;
+
+  /* Text */
+  --ink: #3c3836;
+  --ink-2: #665c54;
+  --ink-3: #928374;
+
+  /* Lines */
+  --line: #e8dbaf;
+  --line-strong: #d5c4a1;
+
+  /* Primary action */
+  --action: #3c3836;
+  --action-hover: #504945;
+  --action-on: #fbf1c7;
+  --action-disabled: #d5c4a1;
+
+  /* Accent */
+  --accent: #076678;
+  --accent-ink: #045260;
+  --accent-tint: #dfe9e6;
+  --accent-on: #fbf1c7;
+
+  /* Composer */
+  --composer-bg: #fbf1c7;
+  --composer-ring: var(--line-strong);
+
+  /* Status */
+  --green: #79740e;
+  --green-tint: #eeead0;
+  --orange: #af3a03;
+  --orange-tint: #f7e3d4;
+  --red: #9d0006;
+  --red-tint: #f6ded6;
+
+  /* Stripes */
+  --stripe: #3c383613;
+  --stripe-bg: #f2e5bc;
+
+  /* Tooltip */
+  --tooltip-bg: #3c3836;
+  --tooltip-fg: #fbf1c7;
+  --tooltip-muted: #928374;
+  --tooltip-border: #504945;
+
+  /* Overlays */
+  --overlay-hover: #3c38360a;
+  --overlay-active: #3c383614;
+  --overlay-accent: #3c38360f;
+  --scrim: rgba(60, 56, 54, 0.4);
+
+  /* Alias overrides */
+  --primary-a4: #3c383614;
+  --destructive-600: #cc241d;
+  --destructive-foreground: #fbf1c7;
+  --color-bubble-user-bg: #ebdbb2;
+
+  /* Code */
+  --code-comment: #928374;
+  --code-keyword: #9d0006;
+  --code-function: #427b58;
+  --code-string: #79740e;
+  --code-number: #8f3f71;
+  --code-variable: #076678;
+  --code-property: #b57614;
+
+  scrollbar-color: #bdae93 transparent;
+}
+
+[data-theme="gruvbox"].dark {
+  /* Surfaces */
+  --page: #282828;
+  --canvas: #1d2021;
+  --card: #3c3836;
+  --inset: #32302f;
+  --field: #3c3836;
+  --hover: #3c3836;
+  --hover-2: #504945;
+
+  /* Text */
+  --ink: #ebdbb2;
+  --ink-2: #d5c4a1;
+  --ink-3: #a89984;
+
+  /* Lines */
+  --line: #ebdbb21a;
+  --line-strong: #ebdbb226;
+
+  /* Primary action */
+  --action: #ebdbb2;
+  --action-hover: #d5c4a1;
+  --action-on: #282828;
+  --action-disabled: #504945;
+
+  /* Accent */
+  --accent: #83a598;
+  --accent-ink: #a3bfb4;
+  --accent-tint: #ebdbb214;
+  --accent-on: #282828;
+
+  /* Composer */
+  --composer-bg: #3c3836;
+  --composer-ring: transparent;
+
+  /* Status */
+  --green: #b8bb26;
+  --green-tint: #b8bb2624;
+  --orange: #fe8019;
+  --orange-tint: #fe801924;
+  --red: #fb4934;
+  --red-tint: #fb493424;
+
+  /* Stripes */
+  --stripe: #ebdbb20e;
+  --stripe-bg: #1d2021;
+
+  /* Tooltip */
+  --tooltip-bg: #ebdbb2;
+  --tooltip-fg: #282828;
+  --tooltip-muted: #665c54;
+  --tooltip-border: transparent;
+
+  /* Overlays */
+  --overlay-hover: #ebdbb20f;
+  --overlay-active: #ebdbb21f;
+  --overlay-accent: #ebdbb214;
+  --scrim: rgba(20, 20, 20, 0.6);
+
+  /* Alias overrides */
+  --primary-a4: #ebdbb21f;
+  --destructive-600: #fb4934;
+  --destructive-foreground: #282828;
+  --color-bubble-user-bg: #3c3836;
+
+  /* Code */
+  --code-comment: #928374;
+  --code-keyword: #fb4934;
+  --code-function: #8ec07c;
+  --code-string: #b8bb26;
+  --code-number: #d3869b;
+  --code-variable: #83a598;
+  --code-property: #fabd2f;
+
+  scrollbar-color: #504945 transparent;
+}
+
+/* ---------- Tokyo Night — Day (light) / Storm (dark) ---------- */
+
+[data-theme="tokyo-night"]:not(.dark) {
+  /* Surfaces */
+  --page: #e1e2e7;
+  --canvas: #d8dae3;
+  --card: #e9eaee;
+  --inset: #dcdee5;
+  --field: #d5d6db;
+  --hover: #d8d9e0;
+  --hover-2: #c9cbd4;
+
+  /* Text */
+  --ink: #3760bf;
+  --ink-2: #6172b0;
+  --ink-3: #848cb5;
+
+  /* Lines */
+  --line: #ced1dd;
+  --line-strong: #b9bdcd;
+
+  /* Primary action */
+  --action: #2e7de9;
+  --action-hover: #1f66c4;
+  --action-on: #ffffff;
+  --action-disabled: #c4c8d4;
+
+  /* Accent */
+  --accent: #2e7de9;
+  --accent-ink: #1f66c4;
+  --accent-tint: #dde7f8;
+  --accent-on: #ffffff;
+
+  /* Composer */
+  --composer-bg: #e9eaee;
+  --composer-ring: var(--line-strong);
+
+  /* Status */
+  --green: #587539;
+  --green-tint: #e5ebdd;
+  --orange: #b15c00;
+  --orange-tint: #f4e7d4;
+  --red: #f52a65;
+  --red-tint: #fbdee5;
+
+  /* Stripes */
+  --stripe: #3760bf13;
+  --stripe-bg: #d8dae3;
+
+  /* Tooltip */
+  --tooltip-bg: #3760bf;
+  --tooltip-fg: #e1e2e7;
+  --tooltip-muted: #a8aecb;
+  --tooltip-border: #2e5ab8;
+
+  /* Overlays */
+  --overlay-hover: #3760bf0a;
+  --overlay-active: #3760bf14;
+  --overlay-accent: #3760bf0f;
+  --scrim: rgba(55, 96, 191, 0.35);
+
+  /* Alias overrides */
+  --primary-a4: #3760bf14;
+  --destructive-600: #d41a52;
+  --destructive-foreground: #ffffff;
+  --color-bubble-user-bg: #d8dae3;
+
+  /* Code */
+  --code-comment: #848cb5;
+  --code-keyword: #9854f1;
+  --code-function: #2e7de9;
+  --code-string: #587539;
+  --code-number: #b15c00;
+  --code-variable: #f52a65;
+  --code-property: #007197;
+
+  scrollbar-color: #b9bdcd transparent;
+}
+
+[data-theme="tokyo-night"].dark {
+  /* Surfaces */
+  --page: #24283b;
+  --canvas: #1f2335;
+  --card: #292e42;
+  --inset: #262b3d;
+  --field: #2f344a;
+  --hover: #292e42;
+  --hover-2: #3b4261;
+
+  /* Text */
+  --ink: #c0caf5;
+  --ink-2: #a9b1d6;
+  --ink-3: #7f88b0;
+
+  /* Lines */
+  --line: #c0caf51a;
+  --line-strong: #c0caf526;
+
+  /* Primary action */
+  --action: #7aa2f7;
+  --action-hover: #9ab4f9;
+  --action-on: #1f2335;
+  --action-disabled: #3b4261;
+
+  /* Accent */
+  --accent: #7aa2f7;
+  --accent-ink: #a4c0fa;
+  --accent-tint: #c0caf514;
+  --accent-on: #1f2335;
+
+  /* Composer */
+  --composer-bg: #292e42;
+  --composer-ring: transparent;
+
+  /* Status */
+  --green: #9ece6a;
+  --green-tint: #9ece6a24;
+  --orange: #ff9e64;
+  --orange-tint: #ff9e6424;
+  --red: #f7768e;
+  --red-tint: #f7768e24;
+
+  /* Stripes */
+  --stripe: #c0caf50e;
+  --stripe-bg: #1f2335;
+
+  /* Tooltip */
+  --tooltip-bg: #c0caf5;
+  --tooltip-fg: #24283b;
+  --tooltip-muted: #565f89;
+  --tooltip-border: transparent;
+
+  /* Overlays */
+  --overlay-hover: #c0caf50f;
+  --overlay-active: #c0caf51f;
+  --overlay-accent: #c0caf514;
+  --scrim: rgba(19, 22, 33, 0.6);
+
+  /* Alias overrides */
+  --primary-a4: #c0caf51f;
+  --destructive-600: #f7768e;
+  --destructive-foreground: #1f2335;
+  --color-bubble-user-bg: #2f344a;
+
+  /* Code */
+  --code-comment: #565f89;
+  --code-keyword: #bb9af7;
+  --code-function: #7aa2f7;
+  --code-string: #9ece6a;
+  --code-number: #ff9e64;
+  --code-variable: #f7768e;
+  --code-property: #7dcfff;
+
+  scrollbar-color: #3b4261 transparent;
+}
+

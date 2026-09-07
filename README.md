@@ -17,6 +17,7 @@ Kira does **not** sell user information. Chats stay on your device by default; i
 - Conversation branching with message editing/regenerating
 - Context compression system
 - Programmable keybinds
+- Six built-in themes — Kira, Catppuccin, Rosé Pine, Nord, Gruvbox and Tokyo Night — each with a light and a dark flavour
 
 ## Todo
 
