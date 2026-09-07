@@ -965,8 +965,6 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 <style>
 .chat-wrapper {
-  --bubble-user-bg: var(--color-bubble-user-bg);
-  --bubble-user-text: var(--color-bubble-user-text);
   --text-primary-light: var(--text-primary);
   --text-secondary-light: var(--text-secondary);
   --text-primary-dark: var(--text-primary);
@@ -1193,8 +1191,8 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 /* The user turn is a grey capsule, evenly rounded — no tail, no ring, no
    accent fill. Only the assistant's text runs the full column. */
 .message.user .bubble {
-  background: var(--bubble-user-bg);
-  color: var(--bubble-user-text);
+  background: var(--color-bubble-user-bg);
+  color: var(--color-bubble-user-text);
   box-shadow: none;
   white-space: pre-wrap;
   margin-left: auto;

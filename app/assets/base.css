@@ -220,7 +220,6 @@
   /* Chat bubbles — the user turn is a neutral grey capsule, never accented */
   --color-bubble-user-bg: #f4f4f4;
   --color-bubble-user-text: var(--ink);
-  --bubble-user-text: var(--ink);
 
   /* Code */
   --code-header-bg: var(--inset);
