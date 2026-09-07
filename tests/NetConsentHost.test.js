@@ -2,13 +2,12 @@
  * Mount tests for app/components/NetConsentHost.vue.
  *
  * The host is the UI half of a two-part contract with composables/sandboxNet:
- * it resolves the pending promise and leaves `window.__libreNetRemember` set
- * for sandboxNet to read *after* it awaits. The remember case is the one worth
- * pinning down — sandboxNet reads the flag a microtask late, so a host that
- * clears it synchronously silently downgrades "always allow" to "allow once".
+ * it answers the pending request with (allowed, remember). Both halves travel
+ * in the answer, so "always allow" cannot degrade to "allow once" the way it
+ * did when `remember` went through a global read a microtask later.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { emitter } from "../app/composables/emitter";
@@ -47,16 +46,14 @@ function buttonLabelled(text) {
 async function request(url = "https://example.com/data.json", domain = "example.com") {
   let resolve;
   const answered = new Promise((r) => {
-    resolve = r;
+    // Mirrors sandboxNet's `finish`, which packs both arguments into the
+    // value it resolves.
+    resolve = (allowed, remember) => r({ allowed: !!allowed, remember: !!remember });
   });
   emitter.emit("net-consent-request", { url, domain, answer: resolve });
   await nextTick();
   return { answered };
 }
-
-beforeEach(() => {
-  window.__libreNetRemember = false;
-});
 
 afterEach(() => {
   wrapper?.unmount();
@@ -84,7 +81,7 @@ describe("NetConsentHost", () => {
     const { answered } = await request();
 
     buttonLabelled("Allow once").click();
-    expect(await answered).toBe(true);
+    expect(await answered).toEqual({ allowed: true, remember: false });
   });
 
   it("resolves false when the request is denied", async () => {
@@ -92,26 +89,15 @@ describe("NetConsentHost", () => {
     const { answered } = await request();
 
     buttonLabelled("Deny").click();
-    expect(await answered).toBe(false);
+    expect(await answered).toEqual({ allowed: false, remember: false });
   });
 
-  it("leaves the remember flag set for the awaiting reader on always-allow", async () => {
+  it("asks for the domain to be remembered on always-allow", async () => {
     mountHost();
     const { answered } = await request();
-    // Mirrors sandboxNet: read the flag in the continuation of the await.
-    const flagAtRead = answered.then(() => window.__libreNetRemember);
 
     buttonLabelled("Always allow").click();
-    expect(await flagAtRead).toBe(true);
-  });
-
-  it("does not set the remember flag for a one-off allow", async () => {
-    mountHost();
-    const { answered } = await request();
-    const flagAtRead = answered.then(() => window.__libreNetRemember);
-
-    buttonLabelled("Allow once").click();
-    expect(await flagAtRead).toBe(false);
+    expect(await answered).toEqual({ allowed: true, remember: true });
   });
 
   it("replaces the actions with the outcome once answered", async () => {

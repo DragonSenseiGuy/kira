@@ -33,24 +33,24 @@ afterEach(() => {
 describe("AgentProgress", () => {
   it("shows sub-minute time to a tenth of a second", () => {
     const wrapper = mount(AgentProgress, {
-      props: { label: "Churning", elapsedSeconds: 9.44 },
+      props: { label: "Churning", initialSeconds: 9.44, running: false },
     });
     expect(wrapper.text()).toContain("Churning");
     expect(wrapper.text()).toContain("9.4s");
   });
 
   it("switches to minutes and zero-padded seconds past a minute", () => {
-    const wrapper = mount(AgentProgress, { props: { elapsedSeconds: 151.6 } });
+    const wrapper = mount(AgentProgress, { props: { initialSeconds: 151.6, running: false } });
     expect(wrapper.text()).toContain("2m 31s");
   });
 
   it("pads the seconds so the row never changes width", () => {
-    const wrapper = mount(AgentProgress, { props: { elapsedSeconds: 125 } });
+    const wrapper = mount(AgentProgress, { props: { initialSeconds: 125, running: false } });
     expect(wrapper.text()).toContain("2m 05s");
   });
 
   it("never renders a negative clock", () => {
-    const wrapper = mount(AgentProgress, { props: { elapsedSeconds: -3 } });
+    const wrapper = mount(AgentProgress, { props: { initialSeconds: -3, running: false } });
     expect(wrapper.text()).toContain("0.0s");
   });
 
@@ -81,7 +81,7 @@ describe("ReasoningText", () => {
   it("starts on the first phrase and advances on the interval", async () => {
     vi.useFakeTimers();
     const wrapper = mount(ReasoningText, {
-      props: { phrases: ["Thinking", "Searching"], variant: "swap", interval: 1000 },
+      props: { phrases: ["Thinking", "Searching"], interval: 1000 },
       ...reasoningOptions,
     });
 
@@ -96,7 +96,7 @@ describe("ReasoningText", () => {
   it("wraps back round to the first phrase", async () => {
     vi.useFakeTimers();
     const wrapper = mount(ReasoningText, {
-      props: { phrases: ["One", "Two"], variant: "swap", interval: 500 },
+      props: { phrases: ["One", "Two"], interval: 500 },
       ...reasoningOptions,
     });
 
@@ -106,9 +106,9 @@ describe("ReasoningText", () => {
     expect(wrapper.text()).toContain("One");
   });
 
-  it("splits the cascade variant into per-word elements", () => {
+  it("splits the phrase into per-word elements so they can cascade in", () => {
     const wrapper = mount(ReasoningText, {
-      props: { phrases: ["Reading the context"], variant: "cascade" },
+      props: { phrases: ["Reading the context"] },
       ...reasoningOptions,
     });
     expect(wrapper.findAll(".ui-reasoning__word")).toHaveLength(3);

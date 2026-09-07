@@ -5,17 +5,14 @@
     </slot>
 
     <UiAgentThinkingShimmer :duration="shimmerDuration" class="ui-reasoning__text">
-      <span :key="index" class="ui-reasoning__phrase" :class="`is-${variant}`">
-        <template v-if="variant === 'cascade'">
-          <span
-            v-for="(word, i) in words"
-            :key="`${index}-${i}`"
-            class="ui-reasoning__word"
-            :style="{ animationDelay: `${i * 45}ms` }"
-            >{{ word }}</span
-          >
-        </template>
-        <template v-else>{{ displayed }}</template>
+      <span :key="index" class="ui-reasoning__phrase">
+        <span
+          v-for="(word, i) in words"
+          :key="`${index}-${i}`"
+          class="ui-reasoning__word"
+          :style="{ animationDelay: `${i * 45}ms` }"
+          >{{ word }}</span
+        >
       </span>
     </UiAgentThinkingShimmer>
   </span>
@@ -24,13 +21,11 @@
 <script setup>
 /**
  * Shimmering reasoning copy that cycles through phrases, ported from beUI's
- * `reasoning-text`. Three transitions: `cascade` rises the new phrase in a
- * word at a time, `swap` blur-fades the whole line, and `scramble` resolves
- * it left to right out of random glyphs.
+ * `reasoning-text`. Each new phrase rises into place a word at a time.
  *
  * The phrases are decorative — the shimmer already tells the user work is in
  * flight — so under reduced motion the cycle keeps running for its
- * information value while every transform and scramble is dropped.
+ * information value while every transform is dropped.
  */
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 
@@ -45,12 +40,6 @@ const props = defineProps({
       "Forming a response",
     ],
   },
-  /** Transition used when the active phrase changes. */
-  variant: {
-    type: String,
-    default: "cascade",
-    validator: (v) => ["cascade", "swap", "scramble"].includes(v),
-  },
   /** Milliseconds each phrase remains visible. */
   interval: { type: Number, default: 1800 },
   /** Seconds taken for one shimmer pass. */
@@ -58,15 +47,11 @@ const props = defineProps({
 });
 
 const GLYPHS = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const SCRAMBLE_POOL = "abcdefghijklmnopqrstuvwxyz#$%&*+/<>";
-const SCRAMBLE_STEP_MS = 45;
 
 const index = ref(0);
 const glyph = ref(GLYPHS[0]);
-const displayed = ref(props.phrases[0] ?? "");
 
-const phrase = computed(() => props.phrases[index.value] ?? "");
-const words = computed(() => phrase.value.split(" "));
+const words = computed(() => (props.phrases[index.value] ?? "").split(" "));
 
 function reducedMotion() {
   if (typeof window === "undefined") return false;
@@ -104,52 +89,10 @@ if (!reducedMotion()) {
   }, 80);
 }
 
-// --- Scramble ---
-
-let scrambleTimer = null;
-
-function stopScramble() {
-  if (scrambleTimer) {
-    clearInterval(scrambleTimer);
-    scrambleTimer = null;
-  }
-}
-
-/**
- * Resolve `target` one character at a time, filling the not-yet-resolved tail
- * with noise so the line never changes width mid-transition.
- */
-function scrambleTo(target) {
-  stopScramble();
-  let resolved = 0;
-  scrambleTimer = setInterval(() => {
-    resolved += 1;
-    if (resolved >= target.length) {
-      displayed.value = target;
-      stopScramble();
-      return;
-    }
-    const noise = Array.from({ length: target.length - resolved }, () =>
-      SCRAMBLE_POOL[Math.floor(Math.random() * SCRAMBLE_POOL.length)],
-    ).join("");
-    displayed.value = target.slice(0, resolved) + noise;
-  }, SCRAMBLE_STEP_MS);
-}
-
-watch(phrase, (next) => {
-  if (props.variant === "scramble" && !reducedMotion()) {
-    scrambleTo(next);
-    return;
-  }
-  stopScramble();
-  displayed.value = next;
-});
-
 watch(() => [props.phrases, props.interval], startCycle, { immediate: true });
 
 onBeforeUnmount(() => {
   stopCycle();
-  stopScramble();
   if (glyphTimer) clearInterval(glyphTimer);
 });
 </script>
@@ -176,11 +119,6 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.ui-reasoning__phrase.is-swap {
-  display: inline-block;
-  animation: uiPhraseSwap var(--duration-slow) var(--ease-out-strong);
-}
-
 .ui-reasoning__word {
   display: inline-block;
   white-space: pre;
@@ -191,17 +129,6 @@ onBeforeUnmount(() => {
   content: " ";
 }
 
-.ui-reasoning__phrase.is-scramble {
-  font-variant-ligatures: none;
-}
-
-@keyframes uiPhraseSwap {
-  from {
-    opacity: 0;
-    filter: blur(3px);
-  }
-}
-
 @keyframes uiPhraseCascade {
   from {
     opacity: 0;
@@ -210,7 +137,6 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-reasoning__phrase.is-swap,
   .ui-reasoning__word {
     animation: none;
   }

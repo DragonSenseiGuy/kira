@@ -23,9 +23,10 @@
  * in composables/sandboxNet.js; this component only renders the question.
  * If no host is mounted, sandboxNet falls back to window.confirm().
  *
- * The card resolves the sandbox's promise immediately on click and then holds
- * on screen for a beat showing the outcome, so the answer is visible rather
- * than the prompt just vanishing.
+ * The card answers the sandbox immediately on click and then holds on screen
+ * for a beat showing the outcome, so the decision is visible rather than the
+ * prompt just vanishing. `answer` takes (allowed, remember) — sandboxNet
+ * packs both into the value it resolves.
  */
 import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import { emitter } from "~/composables/emitter";
@@ -49,16 +50,9 @@ function onRequest({ url, domain, answer: resolve }) {
 function answer(allowed, remember) {
   if (!pending.value) return;
 
-  // sandboxNet reads the remember flag off the window, but it does so after
-  // awaiting the promise we resolve here — i.e. in a later microtask. Clearing
-  // the flag synchronously (as this component used to) always beat that read,
-  // so "always allow" never actually granted the domain. Defer the reset past
-  // the awaiting continuation instead.
-  window.__libreNetRemember = remember;
-  pending.value.resolve(allowed);
-  setTimeout(() => {
-    window.__libreNetRemember = false;
-  }, 0);
+  // Both halves of the decision travel in the answer itself, so there is no
+  // window flag and no ordering to get right.
+  pending.value.resolve(allowed, remember);
 
   status.value = allowed ? "approved" : "denied";
   dismissTimer = setTimeout(() => {

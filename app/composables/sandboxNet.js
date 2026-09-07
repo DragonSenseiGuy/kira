@@ -44,27 +44,37 @@ function rememberGrant(domain) {
 }
 
 /**
- * Asks the user about a domain. Resolves true when allowed.
+ * Asks the user about a domain.
+ *
+ * The answer carries both halves of the decision — whether to allow it, and
+ * whether to remember the domain — because they are one answer. An earlier
+ * version resolved the boolean and passed `remember` through a global that
+ * the caller read a microtask later; the ordering was impossible to see from
+ * either side and "always allow" quietly degraded to "allow once".
+ *
  * Prefers the mounted consent modal; falls back to window.confirm().
+ *
+ * @returns {Promise<{allowed: boolean, remember: boolean}>}
  */
 function askConsent(url, domain) {
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (allowed) => {
+    const finish = (allowed, remember) => {
       if (settled) return;
       settled = true;
       clearTimeout(fallbackId);
       window.removeEventListener("libre-net-consent", onWindowAnswer);
-      resolve(!!allowed);
+      resolve({ allowed: !!allowed, remember: !!remember });
     };
 
     // Fallback path: native dialog after a short grace period, or an
-    // explicit answer event from the consent modal.
+    // explicit answer event from the consent modal. Neither can express
+    // "remember", so both answer for this request only.
     const fallbackId = setTimeout(() => {
-      finish(window.confirm(`Allow the code sandbox to reach "${domain}"?\n\n${url}`));
+      finish(window.confirm(`Allow the code sandbox to reach "${domain}"?\n\n${url}`), false);
     }, 350);
 
-    const onWindowAnswer = (e) => finish(e.detail?.allowed);
+    const onWindowAnswer = (e) => finish(e.detail?.allowed, e.detail?.remember);
     window.addEventListener("libre-net-consent", onWindowAnswer);
 
     emitter.emit("net-consent-request", { url, domain, answer: finish });
@@ -83,11 +93,9 @@ export async function sandboxNetFetch(url, opts = {}) {
 
   let decision = decideNetAccess(mode, settings.net_grants, domain);
   if (decision.decision === "ask") {
-    const allowed = await askConsent(url, domain);
+    const { allowed, remember } = await askConsent(url, domain);
     decision = allowed ? { decision: "allow" } : { decision: "deny", reason: "Denied by user." };
-    if (allowed && typeof window !== "undefined" && window.__libreNetRemember) {
-      rememberGrant(domain);
-    }
+    if (allowed && remember) rememberGrant(domain);
   }
 
   if (decision.decision === "deny") {
