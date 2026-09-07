@@ -35,13 +35,11 @@ describe("useDock", () => {
 
   it("reads an unavailable dock as closed without anyone closing it", () => {
     const devMode = ref(true);
-    const { openDock } = setup(devMode);
-    const dock = setup(devMode);
-    dock.toggleDock("parameters");
-    expect(dock.openDock.value).toBe("parameters");
+    const { openDock, toggleDock } = setup(devMode);
+    toggleDock("parameters");
+    expect(openDock.value).toBe("parameters");
 
     devMode.value = false;
-    expect(dock.openDock.value).toBe(null);
     expect(openDock.value).toBe(null);
   });
 
