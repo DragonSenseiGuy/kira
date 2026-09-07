@@ -1,25 +1,19 @@
 <template>
   <Teleport to="body">
-    <div v-if="pending" class="nc-overlay" role="dialog" aria-label="Network permission request">
-      <div class="nc-card">
-        <div class="nc-head">
-          <Icon icon="material-symbols:public-rounded" width="20" height="20" />
-          <strong>Sandbox wants network access</strong>
-        </div>
-        <p class="nc-domain">
-          <code>{{ pending.domain }}</code>
-        </p>
-        <p class="nc-url">{{ pending.url }}</p>
-        <label class="nc-remember">
-          <input v-model="remember" type="checkbox" />
-          Always allow this domain
-        </label>
-        <div class="nc-actions">
-          <button type="button" class="nc-btn" @click="answer(false)">Deny</button>
-          <button type="button" class="nc-btn primary" @click="answer(true)">Allow</button>
-        </div>
+    <Transition name="nc">
+      <div v-if="pending" class="nc-overlay" role="dialog" aria-label="Network permission request">
+        <UiAgentToolApproval
+          tool="sandbox.fetch"
+          title="Allow network access?"
+          :description="pending.url"
+          :status="status"
+          :parameters="parameters"
+          @approve="answer(true, false)"
+          @always-allow="answer(true, true)"
+          @deny="answer(false, false)"
+        />
       </div>
-    </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -28,31 +22,56 @@
  * Global host for sandbox network-consent prompts. The decision logic lives
  * in composables/sandboxNet.js; this component only renders the question.
  * If no host is mounted, sandboxNet falls back to window.confirm().
+ *
+ * The card resolves the sandbox's promise immediately on click and then holds
+ * on screen for a beat showing the outcome, so the answer is visible rather
+ * than the prompt just vanishing.
  */
-import { ref, onMounted, onBeforeUnmount } from "vue";
-import { Icon } from "@iconify/vue";
+import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import { emitter } from "~/composables/emitter";
 
-const pending = ref(null);
-const remember = ref(true);
+const SETTLE_MS = 900;
 
-function onRequest({ url, domain, answer }) {
-  pending.value = { url, domain };
-  pending.value.answer = answer;
+const pending = ref(null);
+const status = ref("pending");
+let dismissTimer = null;
+
+const parameters = computed(() =>
+  pending.value ? [{ id: "domain", label: "Domain", value: pending.value.domain }] : [],
+);
+
+function onRequest({ url, domain, answer: resolve }) {
+  clearTimeout(dismissTimer);
+  status.value = "pending";
+  pending.value = { url, domain, resolve };
 }
 
-function answer(allowed) {
-  if (pending.value) {
-    window.__libreNetRemember = remember.value;
-    pending.value.answer(allowed);
+function answer(allowed, remember) {
+  if (!pending.value) return;
+
+  // sandboxNet reads the remember flag off the window, but it does so after
+  // awaiting the promise we resolve here — i.e. in a later microtask. Clearing
+  // the flag synchronously (as this component used to) always beat that read,
+  // so "always allow" never actually granted the domain. Defer the reset past
+  // the awaiting continuation instead.
+  window.__libreNetRemember = remember;
+  pending.value.resolve(allowed);
+  setTimeout(() => {
     window.__libreNetRemember = false;
-  }
-  pending.value = null;
-  remember.value = true;
+  }, 0);
+
+  status.value = allowed ? "approved" : "denied";
+  dismissTimer = setTimeout(() => {
+    pending.value = null;
+    status.value = "pending";
+  }, SETTLE_MS);
 }
 
 onMounted(() => emitter.on("net-consent-request", onRequest));
-onBeforeUnmount(() => emitter.off("net-consent-request", onRequest));
+onBeforeUnmount(() => {
+  emitter.off("net-consent-request", onRequest);
+  clearTimeout(dismissTimer);
+});
 </script>
 
 <style scoped>
@@ -61,61 +80,27 @@ onBeforeUnmount(() => emitter.off("net-consent-request", onRequest));
   right: 16px;
   bottom: 16px;
   z-index: 2000;
+  width: 340px;
+  max-width: calc(100vw - 32px);
 }
-.nc-card {
-  width: 320px;
-  background: var(--bg);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(0,0,0,.22);
-  padding: 14px;
+
+.nc-enter-active,
+.nc-leave-active {
+  transition:
+    opacity var(--duration) var(--ease-out-strong),
+    transform var(--duration) var(--ease-out-strong);
 }
-.nc-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: .9rem;
+
+.nc-enter-from,
+.nc-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
-.nc-domain { margin: 10px 0 4px; }
-.nc-domain code {
-  background: var(--bg-secondary);
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: .82rem;
-}
-.nc-url {
-  margin: 4px 0 10px;
-  font-size: .72rem;
-  color: var(--text-secondary);
-  word-break: break-all;
-  max-height: 54px;
-  overflow: hidden;
-}
-.nc-remember {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: .78rem;
-  margin-bottom: 12px;
-}
-.nc-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.nc-btn {
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font-size: .8rem;
-}
-.nc-btn.primary {
-  background: var(--primary);
-  border-color: transparent;
-  color: var(--primary-foreground);
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-enter-active,
+  .nc-leave-active {
+    transition: none;
+  }
 }
 </style>

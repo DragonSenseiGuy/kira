@@ -104,8 +104,12 @@ function formatStatValue(value, type) {
   }
 }
 
-const liveReasoningTimers = reactive({});
-const timerIntervals = {};
+// Reasoning status is split in two: a settled label once the model has
+// finished thinking, and a start timestamp while it still is. The live case
+// used to be a per-message 100ms interval rebuilding a string; UiAgentProgress
+// owns that clock now, so nothing here has to tick.
+const reasoningSettledLabels = reactive({});
+const reasoningLiveSince = reactive({});
 const messageLoadingStates = reactive({});
 
 // Phase 2.2: Message stats cache
@@ -138,6 +142,14 @@ function formatDuration(ms) {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
+
+/** Cycled by the pending indicator while the first token is outstanding. */
+const PENDING_PHRASES = [
+  "Thinking",
+  "Reading the conversation",
+  "Working through the details",
+  "Preparing a response",
+];
 
 const isAtBottom = ref(true);
 const chatWrapper = ref(null);
@@ -331,11 +343,6 @@ watch(
     }
 
     newMessages.forEach((msg) => {
-      if (timerIntervals[msg.id]) {
-        clearInterval(timerIntervals[msg.id]);
-        delete timerIntervals[msg.id];
-      }
-
       // Handle loading states for assistant messages
       if (msg.role === 'assistant') {
         // Show loading spinner for new messages that are not complete and have no content
@@ -354,40 +361,37 @@ watch(
 
       if (msg.role === "assistant" && msg.reasoning) {
         if (msg.complete) {
+          delete reasoningLiveSince[msg.id];
+
           if (msg.reasoningDuration) {
-            liveReasoningTimers[msg.id] =
+            reasoningSettledLabels[msg.id] =
               `Thought for ${formatDuration(msg.reasoningDuration)}`;
           }
           else if (msg.reasoningStartTime && msg.reasoningEndTime) {
             const duration =
               msg.reasoningEndTime.getTime() - msg.reasoningStartTime.getTime();
-            liveReasoningTimers[msg.id] =
+            reasoningSettledLabels[msg.id] =
               `Thought for ${formatDuration(duration)}`;
           }
           else if (msg.reasoningStartTime) {
-            liveReasoningTimers[msg.id] = "Thought for a moment";
+            reasoningSettledLabels[msg.id] = "Thought for a moment";
           }
           return;
         }
 
-        if (!timerIntervals[msg.id]) {
-          const startTime = msg.reasoningStartTime || new Date();
-          timerIntervals[msg.id] = setInterval(() => {
-            const elapsed = new Date().getTime() - startTime.getTime();
-            liveReasoningTimers[msg.id] =
-              `Thinking for ${formatDuration(elapsed)}...`;
-          }, 100);
+        if (reasoningLiveSince[msg.id] === undefined) {
+          reasoningLiveSince[msg.id] =
+            (msg.reasoningStartTime || new Date()).getTime();
         }
       }
     });
 
     const currentMessageIds = newMessages.map((msg) => msg.id);
-    Object.keys(timerIntervals).forEach((timerId) => {
-      if (!currentMessageIds.includes(timerId)) {
-        clearInterval(timerIntervals[timerId]);
-        delete timerIntervals[timerId];
-        delete liveReasoningTimers[timerId];
-      }
+    Object.keys(reasoningSettledLabels).forEach((msgId) => {
+      if (!currentMessageIds.includes(msgId)) delete reasoningSettledLabels[msgId];
+    });
+    Object.keys(reasoningLiveSince).forEach((msgId) => {
+      if (!currentMessageIds.includes(msgId)) delete reasoningLiveSince[msgId];
     });
 
     // Clean up loading states for removed messages
@@ -436,11 +440,6 @@ onUnmounted(() => {
   // Clean up scroll listener from cached container or document fallback
   const scrollTarget = cachedScrollContainer || document;
   scrollTarget.removeEventListener('scroll', handleScroll);
-
-  // Clean up all timers
-  Object.values(timerIntervals).forEach(timer => {
-    clearInterval(timer);
-  });
 });
 
 // Render message content with markdown and trigger lazy highlighting.
@@ -752,6 +751,16 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
             :data-message-id="message.id"
           >
             <div class="message-content">
+                  <!-- Pending: the request is away but nothing has come back yet.
+                       Suppressed once any part exists, because the reasoning
+                       widget carries its own live status from there on. -->
+                  <div
+                    v-if="messageLoadingStates[message.id] && !(message.parts && message.parts.length > 0)"
+                    class="loading-animation"
+                  >
+                    <UiAgentReasoningText :phrases="PENDING_PHRASES" />
+                  </div>
+
                   <!-- New Parts-Based Rendering -->
                   <div v-if="message.parts && message.parts.length > 0" class="message-parts-container">
                     <template v-for="(group, groupIndex) in getPartGroups(message.parts)" :key="`group-${groupIndex}-${group.parts.map(p => p._id).join('-')}`">
@@ -766,7 +775,8 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                             <ChatWidget
                               type="reasoning"
                               :content="part.content"
-                              status="Reasoning Process"
+                              :status="reasoningSettledLabels[message.id] || 'Reasoning Process'"
+                              :live-since="reasoningLiveSince[message.id] ?? null"
                             />
                           </div>
 

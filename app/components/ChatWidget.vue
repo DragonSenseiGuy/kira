@@ -27,6 +27,12 @@
               <span class="chat-widget-search-separator"></span>
               <span class="chat-widget-search-query">{{ headerDetail }}</span>
             </template>
+            <!-- Reasoning still in flight shows a live clock in place of a
+                 label: the verb and the elapsed time are the whole status, so
+                 no badge is needed beside them. -->
+            <template v-else-if="liveSince !== null">
+              <UiAgentProgress label="Thinking" :initial-seconds="liveElapsedSeconds" />
+            </template>
             <template v-else>
               {{ displayedName }}
             </template>
@@ -250,6 +256,14 @@ const props = defineProps({
   status: {
     type: String,
     default: ''
+  },
+  /**
+   * Epoch milliseconds at which reasoning began, or null once it has settled.
+   * Present only for `type="reasoning"`.
+   */
+  liveSince: {
+    type: Number,
+    default: null
   },
   // Tool properties (for both single tools and tool groups)
   toolCall: {
@@ -584,6 +598,15 @@ const displayedStatus = computed(() => {
 
   return null;
 });
+
+/**
+ * Seconds already spent reasoning when the widget mounts. UiAgentProgress
+ * carries the clock forward from there, so re-rendering the list does not
+ * restart the count.
+ */
+const liveElapsedSeconds = computed(() =>
+  props.liveSince === null ? 0 : Math.max(0, (Date.now() - props.liveSince) / 1000),
+);
 
 const statusIsLive = computed(() =>
   typeof displayedStatus.value === 'string' && displayedStatus.value.endsWith('…'),
