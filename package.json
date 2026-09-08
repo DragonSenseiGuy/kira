@@ -20,7 +20,6 @@
   "dependencies": {
     "@iconify/vue": "^5.0.0",
     "@nuxtjs/sitemap": "^8.5.0",
-    "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
     "fflate": "^0.8.3",
     "highlight.js": "^11.11.1",
