@@ -47,7 +47,6 @@
 import { ref, nextTick, onMounted, computed } from 'vue';
 import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
-import { injectSpeedInsights } from '@vercel/speed-insights';
 import { useDark } from "@vueuse/core";
 import { useHead } from '@unhead/vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -430,4 +429,3 @@ function hintFor(id) {
 }
 
 </style>
-
