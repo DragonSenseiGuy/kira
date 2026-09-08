@@ -50,7 +50,7 @@ const glyphSize = computed(() => (props.size === "sm" ? 16 : props.size === "lg"
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-full);
   cursor: pointer;
 }
 
@@ -60,19 +60,18 @@ const glyphSize = computed(() => (props.size === "sm" ? 16 : props.size === "lg"
 }
 
 .ui-icon-btn--sm {
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-chip);
+  width: 28px;
+  height: 28px;
 }
 
 .ui-icon-btn--md {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
 }
 
 .ui-icon-btn--lg {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
 }
 
 .ui-icon-btn--ghost:hover:not(:disabled) {
@@ -90,13 +89,13 @@ const glyphSize = computed(() => (props.size === "sm" ? 16 : props.size === "lg"
 }
 
 .ui-icon-btn--solid {
-  background: var(--accent);
-  color: var(--accent-on);
-  box-shadow: var(--shadow-btn);
+  background: var(--action);
+  color: var(--action-on);
+  box-shadow: none;
 }
 
 .ui-icon-btn--solid:hover:not(:disabled) {
-  background: var(--accent-ink);
+  background: var(--action-hover);
 }
 
 .ui-icon-btn--danger:hover:not(:disabled) {
@@ -105,7 +104,7 @@ const glyphSize = computed(() => (props.size === "sm" ? 16 : props.size === "lg"
 }
 
 .ui-icon-btn.is-active {
-  background: var(--accent-tint);
-  color: var(--accent-ink);
+  background: var(--hover-2);
+  color: var(--text-primary);
 }
 </style>

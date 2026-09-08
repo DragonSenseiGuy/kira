@@ -1,5 +1,5 @@
 <template>
-  <div class="markdown-content streaming-message-wrapper">
+  <div ref="rootEl" class="markdown-content streaming-message-wrapper">
     <!-- Static content (complete blocks) - rendered as HTML string -->
     <div v-if="staticHtml" class="streaming-content-static" v-html="staticHtml"></div>
     
@@ -15,10 +15,11 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, computed } from 'vue';
+import { ref, watch, nextTick, onBeforeUnmount } from 'vue';
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode } from '../utils/codeBlockUtils';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
+import { splitIntoBlocks, addCaretToHtml } from '../utils/streamBlocks';
 
 // Props
 const props = defineProps({
@@ -28,6 +29,8 @@ const props = defineProps({
 
 const emit = defineEmits(['complete', 'start']);
 
+const rootEl = ref(null);
+
 // Reactive HTML strings for static and streaming content
 const staticHtml = ref('');
 const streamingHtml = ref('');
@@ -35,7 +38,6 @@ const streamingHtml = ref('');
 // Internal state
 let processedContent = '';
 let hasEmittedStart = false;
-let isProcessing = false;
 
 // Make sure global functions are available
 if (typeof window !== 'undefined') {
@@ -43,103 +45,62 @@ if (typeof window !== 'undefined') {
   window.downloadCode = downloadCode;
 }
 
-// --- Block Splitting ---
-
 /**
- * Smart block splitting that respects fenced code blocks.
- * Prevents code blocks with blank lines from being prematurely split.
+ * Memoized markdown rendering for STATIC (finished) blocks.
+ *
+ * During streaming this component re-processes the full content on every
+ * update; without the cache every finished block would be re-parsed by
+ * markdown-it each frame. Blocks are immutable once complete, so a Map
+ * keyed by block text gives near-100% hit rate. The cache is capped and
+ * cleared wholesale when oversized — re-rendering after a clear is only
+ * a one-frame cost.
  */
-function splitIntoBlocks(markdown) {
-  if (!markdown) return [''];
+const staticRenderCache = new Map();
+const STATIC_RENDER_CACHE_MAX = 300;
 
-  const lines = markdown.split('\n');
-  const blocks = [];
-  let currentBlock = [];
-  let inCodeFence = false;
-  let fenceChar = '';
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    // Check for fence start/end (``` or ~~~)
-    const fenceMatch = trimmed.match(/^(```|~~~)/);
-    if (fenceMatch) {
-      if (!inCodeFence) {
-        // Starting a code fence — finalize any current block first
-        if (currentBlock.length > 0) {
-          blocks.push(currentBlock.join('\n'));
-          currentBlock = [];
-        }
-        inCodeFence = true;
-        fenceChar = fenceMatch[1];
-        currentBlock.push(line);
-      } else if (trimmed.startsWith(fenceChar)) {
-        // Ending a code fence
-        currentBlock.push(line);
-        blocks.push(currentBlock.join('\n'));
-        currentBlock = [];
-        inCodeFence = false;
-        fenceChar = '';
-      } else {
-        currentBlock.push(line);
-      }
-    } else if (inCodeFence) {
-      currentBlock.push(line);
-    } else if (trimmed === '' && currentBlock.length > 0) {
-      // Blank line outside code fence — potential block boundary
-      const nextNonBlankIndex = lines.findIndex((l, idx) => idx > i && l.trim() !== '');
-      const nextLine = nextNonBlankIndex !== -1 ? lines[nextNonBlankIndex] : null;
-
-      // Patterns that typically start new blocks
-      const blockStarters = /^#{1,6}\s|^>|^[-*+]\s|^\d+\.\s|^```|^~~~|^\|/;
-
-      if (!nextLine || blockStarters.test(nextLine)) {
-        blocks.push(currentBlock.join('\n'));
-        currentBlock = [];
-      } else {
-        currentBlock.push(line);
-      }
-    } else {
-      currentBlock.push(line);
-    }
+function renderBlockHtmlCached(mdText) {
+  if (!mdText || mdText.trim().length === 0) return '';
+  const cached = staticRenderCache.get(mdText);
+  if (cached !== undefined) return cached;
+  const html = md.render(mdText);
+  if (staticRenderCache.size >= STATIC_RENDER_CACHE_MAX) {
+    staticRenderCache.clear();
   }
-
-  if (currentBlock.length > 0) {
-    blocks.push(currentBlock.join('\n'));
-  }
-
-  return blocks.length ? blocks : [''];
+  staticRenderCache.set(mdText, html);
+  return html;
 }
 
-// Render a block of markdown to HTML
 function renderBlockHtml(mdText) {
   if (!mdText || mdText.trim().length === 0) return '';
   return md.render(mdText);
 }
 
-// --- Caret Management ---
+// --- Highlight scheduling ---
+
+let highlightTimer = null;
 
 /**
- * Add streaming caret to the end of the streaming HTML
+ * Debounced, scoped highlighting. The previous implementation called
+ * highlightAllBlocks(document.body) on EVERY streaming frame — an O(document)
+ * DOM scan per token. Highlighting is purely cosmetic for finished code
+ * blocks, so a short trailing debounce scoped to this component is
+ * visually identical and dramatically cheaper.
  */
-function addCaretToHtml(html) {
-  // Always return at least the caret, even if no content
-  if (!html || html.trim().length === 0) {
-    return '<span class="streaming-caret"></span>';
-  }
-  
-  // Find the last closing tag and insert caret before it
-  // This ensures caret appears inline at the end of content
-  const lastCloseMatch = html.match(/<\/[^>]+>$/);
-  if (lastCloseMatch) {
-    const insertPos = html.lastIndexOf(lastCloseMatch[0]);
-    return html.slice(0, insertPos) + '<span class="streaming-caret"></span>' + html.slice(insertPos);
-  }
-  
-  // No closing tag at end - just append caret
-  return html + '<span class="streaming-caret"></span>';
+function scheduleHighlight() {
+  if (highlightTimer) return;
+  highlightTimer = setTimeout(() => {
+    highlightTimer = null;
+    const scope = rootEl.value || document.body;
+    highlightAllBlocks(scope);
+  }, 250);
 }
+
+onBeforeUnmount(() => {
+  if (highlightTimer) {
+    clearTimeout(highlightTimer);
+    highlightTimer = null;
+  }
+});
 
 // --- Content Processing ---
 
@@ -147,9 +108,6 @@ function addCaretToHtml(html) {
  * Process content update and split into static/streaming portions
  */
 function processContent(newContent, isComplete) {
-  if (isProcessing) return;
-  isProcessing = true;
-  
   newContent = newContent || '';
   
   // Emit start event on first content
@@ -168,11 +126,10 @@ function processContent(newContent, isComplete) {
     
     // Trigger highlighting on completion
     nextTick(() => {
-      highlightAllBlocks(document.body);
+      highlightAllBlocks(rootEl.value || document.body);
       emit('complete');
     });
     
-    isProcessing = false;
     return;
   }
   
@@ -182,7 +139,6 @@ function processContent(newContent, isComplete) {
   if (blocks.length === 0) {
     staticHtml.value = '';
     streamingHtml.value = '';
-    isProcessing = false;
     return;
   }
   
@@ -195,8 +151,8 @@ function processContent(newContent, isComplete) {
     const completeBlocks = blocks.slice(0, -1);
     const streamingBlock = blocks[blocks.length - 1];
     
-    // Render complete blocks
-    const staticContent = completeBlocks.map(renderBlockHtml).join('');
+    // Render complete blocks (memoized — finished blocks never change)
+    const staticContent = completeBlocks.map(renderBlockHtmlCached).join('');
     staticHtml.value = staticContent;
     
     // Render streaming block with caret
@@ -205,12 +161,8 @@ function processContent(newContent, isComplete) {
   
   processedContent = newContent;
   
-  // Schedule highlighting for any new code blocks
-  nextTick(() => {
-    highlightAllBlocks(document.body);
-  });
-  
-  isProcessing = false;
+  // Schedule debounced highlighting for any new code blocks
+  scheduleHighlight();
 }
 
 // Watch for content changes

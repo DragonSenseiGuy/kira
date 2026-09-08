@@ -70,7 +70,7 @@ const label = computed(() => {
   align-items: center;
   gap: 12px;
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width);
   margin: 14px auto;
   padding: 0 12px;
   box-sizing: border-box;

@@ -61,6 +61,53 @@ describe("createMarkdownInstance", () => {
   });
 });
 
+describe("link targets", () => {
+  it("opens markdown links in a new tab", () => {
+    const instance = createMarkdownInstance();
+    const html = instance.render("[example](https://example.com)");
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
+  });
+
+  it("opens autolinked URLs in a new tab", () => {
+    const instance = createMarkdownInstance();
+    const html = instance.render("Visit https://example.com today.");
+    expect(html).toContain('target="_blank"');
+  });
+
+  it("leaves in-page anchors alone", () => {
+    const instance = createMarkdownInstance();
+    const html = instance.render("[section](#section)");
+    expect(html).toContain('href="#section"');
+    expect(html).not.toContain('target="_blank"');
+  });
+
+  it("leaves relative in-app links to the router", () => {
+    const instance = createMarkdownInstance();
+    const html = instance.render("[docs](/settings)");
+    expect(html).toContain('href="/settings"');
+    expect(html).not.toContain('target="_blank"');
+  });
+
+  it("leaves mailto links alone", () => {
+    const instance = createMarkdownInstance();
+    const html = instance.render("[mail](mailto:hi@example.com)");
+    expect(html).toContain("mailto:hi@example.com");
+    expect(html).not.toContain('target="_blank"');
+  });
+
+  it("keeps footnote references in-page", () => {
+    const instance = createMarkdownInstance();
+    const html = instance.render("text[^1]\n\n[^1]: note");
+    expect(html).not.toContain('target="_blank"');
+  });
+
+  it("applies to the shared singleton", () => {
+    const html = md.render("[example](https://example.com)");
+    expect(html).toContain('target="_blank"');
+  });
+});
+
 describe("default md singleton", () => {
   it("is a usable markdown-it instance", () => {
     expect(md).toBeDefined();

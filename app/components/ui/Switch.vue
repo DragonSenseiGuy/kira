@@ -69,7 +69,7 @@ defineEmits(["update:modelValue"]);
 }
 
 .ui-switch[data-state="checked"] {
-  background: var(--accent);
+  background: var(--action);
 }
 
 .ui-switch:disabled {
@@ -82,7 +82,9 @@ defineEmits(["update:modelValue"]);
   width: 18px;
   height: 18px;
   border-radius: var(--radius-full);
-  background: #fff;
+  /* Tracks the action token so the thumb stays visible once the checked
+     track goes white in dark mode. */
+  background: var(--action-on);
   box-shadow: 0 1px 2px #0000002e;
   transform: translateX(2px);
   transition: transform var(--duration) var(--ease-out-strong);

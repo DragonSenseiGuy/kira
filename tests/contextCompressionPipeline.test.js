@@ -72,9 +72,11 @@ function makeConvo(n, tokensEach = 100) {
 function makeSettings(overrides = {}) {
   return {
     context_compression_enabled: true,
-    context_compression_model: 'test-model',
     context_compression_threshold_tokens: 4000,
     context_compression_keep_recent_tokens: 1000,
+    // Compression now runs on the user's SELECTED model/provider.
+    selected_model_id: 'test-model',
+    custom_api_key: 'test-key',
     ...overrides,
   };
 }
@@ -88,6 +90,9 @@ function mockFetchSummary(text = 'SUMMARY') {
 
 beforeEach(() => {
   store.clear();
+  // Seed the persisted settings snapshot that background tasks read
+  // (getBackgroundTarget resolves the selected model from here).
+  store.set('settings', JSON.parse(JSON.stringify(makeSettings())));
   fetchMock.mockReset();
   mockFetchSummary();
   for (const key of Object.keys(compressionStates)) {

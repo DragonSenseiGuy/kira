@@ -25,7 +25,9 @@
 
 import localforage from "localforage";
 import { toRaw } from "vue";
-import { getSessionToken } from "~/composables/useSession";
+import { requestCompletion, extractCompletionText } from "~/composables/apiClient";
+import { getBackgroundTarget } from "~/composables/backgroundCredentials";
+import { collectWorkspaceContext } from "~/composables/workspaceContext";
 
 // ---------------------------------------------------------------------------
 // Defaults & keys
@@ -33,8 +35,11 @@ import { getSessionToken } from "~/composables/useSession";
 
 export const CONTEXT_SUMMARY_KEY_PREFIX = "context_summary_";
 
-/** Cheap, large-context model used for compression by default. */
-export const DEFAULT_COMPRESSION_MODEL = "deepseek/deepseek-v4-pro";
+/**
+ * @deprecated Compression now runs on the user's currently selected model.
+ * Kept only as a display fallback for old summary records.
+ */
+export const DEFAULT_COMPRESSION_MODEL = "deepseek/deepseek-v4-flash-0731";
 
 /** Effective-token count at which compression is offered / auto-runs. */
 export const DEFAULT_THRESHOLD_TOKENS = 40_000;
@@ -197,17 +202,15 @@ export function hashBranchPath(branchPath) {
  * Resolves compression settings from the user's settings object,
  * falling back to safe defaults for anything missing or invalid.
  *
+ * Note: compression runs on the user's CURRENTLY SELECTED model — there
+ * is no separate compression-model setting anymore.
+ *
  * @param {Object} settings
- * @returns {{enabled: boolean, model: string, thresholdTokens: number, keepRecentTokens: number}}
+ * @returns {{enabled: boolean, thresholdTokens: number, keepRecentTokens: number}}
  */
 export function resolveCompressionSettings(settings) {
   const s = settings || {};
   const enabled = s.context_compression_enabled !== false; // default true
-  const model =
-    typeof s.context_compression_model === "string" &&
-    s.context_compression_model.trim()
-      ? s.context_compression_model.trim()
-      : DEFAULT_COMPRESSION_MODEL;
   let thresholdTokens = Number(s.context_compression_threshold_tokens);
   if (!Number.isFinite(thresholdTokens) || thresholdTokens < 4000) {
     thresholdTokens = DEFAULT_THRESHOLD_TOKENS;
@@ -216,7 +219,7 @@ export function resolveCompressionSettings(settings) {
   if (!Number.isFinite(keepRecentTokens) || keepRecentTokens < 1000) {
     keepRecentTokens = DEFAULT_KEEP_RECENT_TOKENS;
   }
-  return { enabled, model, thresholdTokens, keepRecentTokens };
+  return { enabled, thresholdTokens, keepRecentTokens };
 }
 
 // ---------------------------------------------------------------------------
@@ -705,29 +708,36 @@ The compressed messages REPLACES the original messages in the context the assist
 }
 
 /**
- * Calls the compression model and returns the summary text.
- * Returns null on failure.
+ * Calls the compression model (the user's CURRENTLY SELECTED model) and
+ * returns the summary text. Returns null on failure.
  *
  * @param {Array} chunk  Messages in the range to summarize.
  * @param {Object} options
- * @param {string} options.apiKey
- * @param {string} options.model
  * @param {string} [options.previousSummary]  Summary of the preceding range, if any.
  * @param {AbortSignal} [options.signal]
- * @returns {Promise<string|null>}
+ * @returns {Promise<{summaryText: string|null, model: string|null}>}
  */
 export async function callCompressionModel(chunk, options) {
-  const { apiKey, model = DEFAULT_COMPRESSION_MODEL, previousSummary, signal } =
-    options || {};
+  const { previousSummary, signal } = options || {};
 
-  if (!Array.isArray(chunk) || chunk.length === 0) return null;
+  if (!Array.isArray(chunk) || chunk.length === 0) {
+    return { summaryText: null, model: null };
+  }
+
+  const target = await getBackgroundTarget();
+  if (!target.model) return { summaryText: null, model: null };
+
+  // Same-chat background prompt, so the active workspace context is
+  // accurate here: the summarizer learns which files exist and can keep
+  // path references intact instead of inventing content.
+  const workspaceContext = await collectWorkspaceContext();
 
   const formatted = chunk
     .map(formatMessageForSummaryPrompt)
     .filter((s) => s && s.trim())
     .join("\n\n---\n\n");
 
-  if (!formatted.trim()) return null;
+  if (!formatted.trim()) return { summaryText: null, model: target.model };
 
   const systemPrompt = buildSummaryPrompt({
     messageCount: chunk.length,
@@ -742,46 +752,42 @@ export async function callCompressionModel(chunk, options) {
     (previousSummary && previousSummary.trim()
       ? `<previous_summary>\n${previousSummary.trim()}\n</previous_summary>\n\n`
       : "") +
+    (workspaceContext ? `${workspaceContext}\n\n` : "") +
     `<messages_to_compress>\n${formatted}\n</messages_to_compress>\n\n` +
     `Summarize the ${chunk.length} messages above into a dense replacement summary, following the system instructions. Output ONLY the summary — do not reply to the messages or continue the conversation.`;
 
   try {
-    const sessionToken = await getSessionToken();
-    const response = await fetch("/api/ai", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-session-token": sessionToken,
-      },
-      body: JSON.stringify({
-        model,
+    const data = await requestCompletion(
+      {
+        model: target.model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
-        stream: false,
-        ...(apiKey ? { customApiKey: apiKey } : {}),
-      }),
-      ...(signal ? { signal } : {}),
-    });
+        ...(target.customApiKey ? { customApiKey: target.customApiKey } : {}),
+        ...(target.upstreamBaseUrl ? { upstreamBaseUrl: target.upstreamBaseUrl } : {}),
+      },
+      { signal },
+    );
 
-    if (!response.ok) {
-      throw new Error(`Compression request failed: ${response.status}`);
+    const text = extractCompletionText(data);
+    if (typeof text !== "string") {
+      return { summaryText: null, model: target.model };
     }
 
-    const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content;
-    if (typeof text !== "string") return null;
-
     const trimmed = text.trim();
-    if (!trimmed) return null;
-    return trimmed.length > MAX_SUMMARY_CHARS
-      ? trimmed.substring(0, MAX_SUMMARY_CHARS)
-      : trimmed;
+    if (!trimmed) return { summaryText: null, model: target.model };
+    return {
+      summaryText:
+        trimmed.length > MAX_SUMMARY_CHARS
+          ? trimmed.substring(0, MAX_SUMMARY_CHARS)
+          : trimmed,
+      model: target.model,
+    };
   } catch (error) {
-    if (error?.name === "AbortError") return null;
+    if (error?.name === "AbortError") return { summaryText: null, model: target.model };
     console.error("[contextCompressor] callCompressionModel failed:", error);
-    return null;
+    return { summaryText: null, model: target.model };
   }
 }
 

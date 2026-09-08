@@ -407,7 +407,7 @@ const parameters = [
 
 .value-input:focus {
   outline: none;
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--ink-3);
 }
 
 .slider {
@@ -433,7 +433,7 @@ const parameters = [
 .slider-range {
   position: absolute;
   height: 100%;
-  background: var(--accent);
+  background: var(--action);
   border-radius: var(--radius-full);
 }
 
@@ -461,7 +461,7 @@ const parameters = [
 
 .slider-thumb:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--ink-3);
 }
 
 /* Tooltip */

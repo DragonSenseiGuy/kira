@@ -3,12 +3,19 @@ import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode } from '../utils/codeBlockUtils';
+import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
 import ContextSummaryMarker from './ContextSummaryMarker.vue';
+import MessageEditArea from './MessageEditArea.vue';
 import { useContextCompression } from '../composables/useContextCompression';
 import { getFormattedStatsFromExecutedTools } from '../composables/searchViewStats';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
+import { useDeveloperMode } from '../composables/useDeveloperMode';
+
+// Debug tooling (e.g. the message debug copy button) is opt-in via
+// Settings → General → Developer Mode.
+const developerMode = useDeveloperMode();
 
 const props = defineProps({
   currConvo: {
@@ -97,8 +104,12 @@ function formatStatValue(value, type) {
   }
 }
 
-const liveReasoningTimers = reactive({});
-const timerIntervals = {};
+// Reasoning status is split in two: a settled label once the model has
+// finished thinking, and a start timestamp while it still is. The live case
+// used to be a per-message 100ms interval rebuilding a string; UiAgentProgress
+// owns that clock now, so nothing here has to tick.
+const reasoningSettledLabels = reactive({});
+const reasoningLiveSince = reactive({});
 const messageLoadingStates = reactive({});
 
 // Phase 2.2: Message stats cache
@@ -131,6 +142,14 @@ function formatDuration(ms) {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
+
+/** Cycled by the pending indicator while the first token is outstanding. */
+const PENDING_PHRASES = [
+  "Thinking",
+  "Reading the conversation",
+  "Working through the details",
+  "Preparing a response",
+];
 
 const isAtBottom = ref(true);
 const chatWrapper = ref(null);
@@ -324,11 +343,6 @@ watch(
     }
 
     newMessages.forEach((msg) => {
-      if (timerIntervals[msg.id]) {
-        clearInterval(timerIntervals[msg.id]);
-        delete timerIntervals[msg.id];
-      }
-
       // Handle loading states for assistant messages
       if (msg.role === 'assistant') {
         // Show loading spinner for new messages that are not complete and have no content
@@ -347,40 +361,37 @@ watch(
 
       if (msg.role === "assistant" && msg.reasoning) {
         if (msg.complete) {
+          delete reasoningLiveSince[msg.id];
+
           if (msg.reasoningDuration) {
-            liveReasoningTimers[msg.id] =
+            reasoningSettledLabels[msg.id] =
               `Thought for ${formatDuration(msg.reasoningDuration)}`;
           }
           else if (msg.reasoningStartTime && msg.reasoningEndTime) {
             const duration =
               msg.reasoningEndTime.getTime() - msg.reasoningStartTime.getTime();
-            liveReasoningTimers[msg.id] =
+            reasoningSettledLabels[msg.id] =
               `Thought for ${formatDuration(duration)}`;
           }
           else if (msg.reasoningStartTime) {
-            liveReasoningTimers[msg.id] = "Thought for a moment";
+            reasoningSettledLabels[msg.id] = "Thought for a moment";
           }
           return;
         }
 
-        if (!timerIntervals[msg.id]) {
-          const startTime = msg.reasoningStartTime || new Date();
-          timerIntervals[msg.id] = setInterval(() => {
-            const elapsed = new Date().getTime() - startTime.getTime();
-            liveReasoningTimers[msg.id] =
-              `Thinking for ${formatDuration(elapsed)}...`;
-          }, 100);
+        if (reasoningLiveSince[msg.id] === undefined) {
+          reasoningLiveSince[msg.id] =
+            (msg.reasoningStartTime || new Date()).getTime();
         }
       }
     });
 
     const currentMessageIds = newMessages.map((msg) => msg.id);
-    Object.keys(timerIntervals).forEach((timerId) => {
-      if (!currentMessageIds.includes(timerId)) {
-        clearInterval(timerIntervals[timerId]);
-        delete timerIntervals[timerId];
-        delete liveReasoningTimers[timerId];
-      }
+    Object.keys(reasoningSettledLabels).forEach((msgId) => {
+      if (!currentMessageIds.includes(msgId)) delete reasoningSettledLabels[msgId];
+    });
+    Object.keys(reasoningLiveSince).forEach((msgId) => {
+      if (!currentMessageIds.includes(msgId)) delete reasoningLiveSince[msgId];
     });
 
     // Clean up loading states for removed messages
@@ -390,7 +401,7 @@ watch(
       }
     });
   },
-  { deep: true, immediate: true },
+  { immediate: true },
 );
 
 watch(
@@ -429,16 +440,26 @@ onUnmounted(() => {
   // Clean up scroll listener from cached container or document fallback
   const scrollTarget = cachedScrollContainer || document;
   scrollTarget.removeEventListener('scroll', handleScroll);
-
-  // Clean up all timers
-  Object.values(timerIntervals).forEach(timer => {
-    clearInterval(timer);
-  });
 });
 
-// Render message content with markdown and trigger lazy highlighting
+// Render message content with markdown and trigger lazy highlighting.
+// Complete content never changes, so rendered HTML is memoized by content
+// string — re-renders of a streaming message skip re-parsing finished
+// content groups entirely.
+const markdownHtmlCache = new Map();
+const MARKDOWN_CACHE_MAX = 200;
+
 function renderMessageContent(content) {
-  const html = md.render(content || '');
+  const key = content || '';
+  const cached = markdownHtmlCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const html = md.render(key);
+
+  if (markdownHtmlCache.size >= MARKDOWN_CACHE_MAX) {
+    markdownHtmlCache.clear();
+  }
+  markdownHtmlCache.set(key, html);
 
   // Schedule lazy highlighting for any code blocks in the rendered HTML
   nextTick(() => {
@@ -499,72 +520,34 @@ function copyMessage(message, event) {
   });
 }
 
+// Copy a diagnostic report (timings, usage, part structure, tool calls).
+// Long bodies are previewed rather than dumped — "Copy message" above is
+// the button for the actual text.
+function copyDebugDump(message, event) {
+  const button = event.currentTarget;
+  navigator.clipboard
+    .writeText(buildMessageDebugDump(message))
+    .then(() => {
+      button.classList.add('copied');
+      setTimeout(() => button.classList.remove('copied'), 2000);
+    })
+    .catch((err) => console.error('Failed to copy debug dump:', err));
+}
+
 // --- Branching Logic ---
 const editingMessageId = ref(null);
-const editContent = ref("");
-const editAttachments = ref([]);
-const editTextarea = ref(null);
-
-function setEditTextareaRef(el) {
-  editTextarea.value = el;
-}
 
 function startEditing(message) {
   editingMessageId.value = message.id;
-  editContent.value = message.content;
-  // Clone attachments to allow modifications during editing
-  editAttachments.value = message.attachments ? [...message.attachments] : [];
-  resizeEditTextarea();
 }
 
 function cancelEditing() {
   editingMessageId.value = null;
-  editContent.value = "";
-  editAttachments.value = [];
-  if (editTextarea.value) {
-    editTextarea.value.style.height = "auto";
-  }
 }
 
-function submitEdit(messageId) {
-  if (editContent.value.trim() === "" && editAttachments.value.length === 0) return;
-  emit("edit-message", messageId, editContent.value, editAttachments.value);
+function submitEdit(messageId, newContent, newAttachments) {
+  emit("edit-message", messageId, newContent, newAttachments);
   editingMessageId.value = null;
-  editAttachments.value = [];
-  if (editTextarea.value) {
-    editTextarea.value.style.height = "auto";
-  }
-}
-
-function removeEditAttachment(index) {
-  editAttachments.value.splice(index, 1);
-}
-
-/**
- * Resizes the edit textarea to fit its content.
- */
-function resizeEditTextarea() {
-  nextTick(() => {
-    if (editTextarea.value) {
-      editTextarea.value.style.height = "auto";
-      if (editContent.value !== "") {
-        editTextarea.value.style.height = `${editTextarea.value.scrollHeight}px`;
-      }
-    }
-  });
-}
-
-watch(editContent, resizeEditTextarea);
-
-/**
- * Handles Enter key presses in the edit textarea.
- * On desktop, plain Enter submits; Shift+Enter or mobile Enter inserts a newline.
- */
-function handleEditEnterKey(event, messageId) {
-  if (typeof window !== 'undefined' && window.innerWidth >= 768 && !event.shiftKey) {
-    event.preventDefault();
-    submitEdit(messageId);
-  }
 }
 
 function regenerateMessage(messageId) {
@@ -601,7 +584,7 @@ function getPartClass(partType, index, parts) {
 
 // Function to group adjacent reasoning and tool_group parts together
 // Sequential tools/reasoning are visually grouped but each tool gets its own widget
-function getPartGroups(parts) {
+function getPartGroupsUncached(parts) {
   if (!parts || parts.length === 0) return [];
 
   const groups = [];
@@ -640,7 +623,6 @@ function getPartGroups(parts) {
         currentGroup = [part];
         currentGroupType = 'content';
       } else {
-        // Add to current content group
         currentGroup.push(part);
       }
     }
@@ -654,7 +636,6 @@ function getPartGroups(parts) {
         currentGroup = [part];
         currentGroupType = 'image';
       } else {
-        // Add to current image group
         currentGroup.push(part);
       }
     }
@@ -665,6 +646,23 @@ function getPartGroups(parts) {
     groups.push({ type: currentGroupType, parts: currentGroup });
   }
 
+  return groups;
+}
+
+/**
+ * Memoized grouping. The template calls getPartGroups several times per
+ * message per render; since parts arrays are replaced (never mutated),
+ * a WeakMap keyed on array identity caches cleanly across frames.
+ */
+const partGroupsCache = new WeakMap();
+
+function getPartGroups(parts) {
+  if (!parts || parts.length === 0) return [];
+  let groups = partGroupsCache.get(parts);
+  if (!groups) {
+    groups = getPartGroupsUncached(parts);
+    partGroupsCache.set(parts, groups);
+  }
   return groups;
 }
 
@@ -702,7 +700,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   <div class="chat-wrapper" ref="chatWrapper">
     <div class="chat-container">
       <div v-if="messages.length < 1 && showWelcome" class="welcome-container">
-        <h1 v-if="!isIncognito" class="welcome-message">How can I help you?</h1>
+        <h1 v-if="!isIncognito" class="welcome-message">What can I help with?</h1>
         <div v-if="!isIncognito" class="suggestion-chips">
           <button class="suggestion-chip" @click="emit('set-message', 'Help me create something new and interesting')">
             <Icon icon="material-symbols:auto-fix-high-outline" width="16" height="16" />
@@ -753,6 +751,16 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
             :data-message-id="message.id"
           >
             <div class="message-content">
+                  <!-- Pending: the request is away but nothing has come back yet.
+                       Suppressed once any part exists, because the reasoning
+                       widget carries its own live status from there on. -->
+                  <div
+                    v-if="messageLoadingStates[message.id] && !(message.parts && message.parts.length > 0)"
+                    class="loading-animation"
+                  >
+                    <UiAgentReasoningText :phrases="PENDING_PHRASES" />
+                  </div>
+
                   <!-- New Parts-Based Rendering -->
                   <div v-if="message.parts && message.parts.length > 0" class="message-parts-container">
                     <template v-for="(group, groupIndex) in getPartGroups(message.parts)" :key="`group-${groupIndex}-${group.parts.map(p => p._id).join('-')}`">
@@ -767,7 +775,8 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                             <ChatWidget
                               type="reasoning"
                               :content="part.content"
-                              status="Reasoning Process"
+                              :status="reasoningSettledLabels[message.id] || 'Reasoning Process'"
+                              :live-since="reasoningLiveSince[message.id] ?? null"
                             />
                           </div>
 
@@ -776,6 +785,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                             <ChatWidget
                               type="tool"
                               :tool-calls="part.tools"
+                              :streaming="!message.complete"
                             />
                           </div>
                         </template>
@@ -852,59 +862,11 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                       <div v-if="editingMessageId !== message.id" class="user-text">{{ message.content }}</div>
                       <!-- Edit area -->
                       <div v-else class="edit-area">
-                        <!-- Editable attachments -->
-                        <div v-if="editAttachments.length > 0" class="edit-attachments">
-                          <div
-                            v-for="(attachment, index) in editAttachments"
-                            :key="attachment.id"
-                            class="edit-attachment-item"
-                            :class="attachment.type"
-                          >
-                            <img
-                              v-if="attachment.type === 'image'"
-                              :src="attachment.dataUrl"
-                              :alt="attachment.filename"
-                            />
-                            <div v-else class="edit-pdf-item">
-                              <Icon icon="material-symbols:picture-as-pdf" width="20" height="20" />
-                              <span class="edit-pdf-filename">{{ attachment.filename }}</span>
-                            </div>
-                            <UiIconButton
-                              class="remove-attachment-btn"
-                              icon="material-symbols:close-rounded"
-                              label="Remove attachment"
-                              size="sm"
-                              @click="removeEditAttachment(index)"
-                            />
-                          </div>
-                        </div>
-                        <textarea
-                          v-model="editContent"
-                          class="edit-textarea"
-                          :ref="setEditTextareaRef"
-                          placeholder="Edit your message..."
-                          rows="1"
-                          @keydown.enter="(event) => handleEditEnterKey(event, message.id)"
-                          @keydown.esc="cancelEditing"
-                        ></textarea>
-                        <div class="edit-actions">
-                          <UiButton
-                            variant="ghost"
-                            size="sm"
-                            icon="material-symbols:close-rounded"
-                            @click="cancelEditing"
-                          >
-                            Cancel
-                          </UiButton>
-                          <UiButton
-                            variant="primary"
-                            size="sm"
-                            icon="material-symbols:check-rounded"
-                            @click="submitEdit(message.id)"
-                          >
-                            Save &amp; Submit
-                          </UiButton>
-                        </div>
+                        <MessageEditArea
+                          :message="message"
+                          @submit="(content, attachments) => submitEdit(message.id, content, attachments)"
+                          @cancel="cancelEditing"
+                        />
                       </div>
                     </div>
                   </div>
@@ -917,6 +879,19 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                       label="Copy message"
                       size="sm"
                       @click="copyMessage(message, $event)"
+                    />
+                  </UiTooltip>
+
+                  <UiTooltip
+                    v-if="message.role === 'assistant' && developerMode"
+                    content="Copy debug info (timings, usage, tool calls)"
+                  >
+                    <UiIconButton
+                      class="footer-action-btn debug-copy-button"
+                      icon="material-symbols:bug-report-outline-rounded"
+                      label="Copy debug info"
+                      size="sm"
+                      @click="copyDebugDump(message, $event)"
                     />
                   </UiTooltip>
 
@@ -990,14 +965,10 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 <style>
 .chat-wrapper {
-  --bubble-user-bg: var(--color-bubble-user-bg, var(--primary));
-  --bubble-user-text: var(--color-bubble-user-text, var(--primary-foreground));
   --text-primary-light: var(--text-primary);
   --text-secondary-light: var(--text-secondary);
   --text-primary-dark: var(--text-primary);
   --text-secondary-dark: var(--text-secondary);
-  --reasoning-border-light: var(--border);
-  --reasoning-border-dark: var(--border);
   flex: 1;
   position: relative;
   width: 100%;
@@ -1006,9 +977,9 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 .chat-container {
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width);
   margin: 0 auto;
-  padding: 12px;
+  padding: 12px 0;
   box-sizing: border-box;
   position: relative;
   transition:
@@ -1017,12 +988,15 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
     box-shadow var(--duration-slow) var(--ease-out-strong),
     transform var(--duration-slow) var(--ease-out-strong),
     opacity var(--duration-slow) var(--ease-out-strong);
-  padding-bottom: 100px;
+  padding-bottom: 120px;
 }
 
+/* Cold-start screen. ChatGPT centres a single short question and puts the
+   composer directly under it — the suggestions are secondary, so they read
+   quieter than the heading rather than competing with it. */
 .welcome-container {
   text-align: center;
-  margin: calc(1rem + 15vh) 0 2rem;
+  margin: calc(1rem + 12vh) 0 1.5rem;
   width: 100%;
   max-width: 640px;
   margin-left: auto;
@@ -1030,11 +1004,11 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 }
 
 .welcome-message {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 1.75rem;
+  font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 1.5rem 0;
-  letter-spacing: -0.03em;
+  margin: 0 0 1.75rem 0;
+  letter-spacing: -0.015em;
 }
 
 .suggestion-chips {
@@ -1050,15 +1024,15 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 8px 16px;
+  padding: 9px 14px;
   border-radius: var(--radius-full);
   border: none;
-  background: var(--card);
-  box-shadow: var(--shadow-btn);
+  background: transparent;
+  box-shadow: 0 0 0 1px var(--line-strong);
   color: var(--text-secondary);
   font-family: inherit;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 400;
   cursor: pointer;
   white-space: nowrap;
   transition:
@@ -1068,8 +1042,8 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 }
 
 .suggestion-chip:hover {
-  background: var(--overlay-accent);
-  color: var(--primary);
+  background: var(--btn-hover);
+  color: var(--text-primary);
 }
 
 .suggestion-chip:active {
@@ -1122,11 +1096,14 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   line-height: 1.6;
 }
 
+/* One turn. The vertical rhythm between turns does the grouping work; there
+   are no rules or panels between them. */
 .message {
   display: block;
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width);
   margin: 0 auto;
+  padding: 10px 0;
   position: relative;
   transition:
     background-color var(--duration-slow) var(--ease-out-strong),
@@ -1189,7 +1166,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 .message.user .message-content {
   align-items: flex-end;
-  max-width: 85%;
+  max-width: 80%;
   width: 100%;
   min-width: 0;
   display: flex;
@@ -1198,10 +1175,10 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 .bubble {
   display: block;
-  padding: 10px 14px;
-  border-radius: var(--radius-xl);
-  line-height: 1.55;
-  font-size: 0.95rem;
+  padding: 10px 20px;
+  border-radius: var(--radius-bubble);
+  line-height: 1.7;
+  font-size: 1rem;
   width: 100%;
   transition:
     background-color var(--duration-slow) var(--ease-out-strong),
@@ -1211,14 +1188,15 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
     opacity var(--duration-slow) var(--ease-out-strong);
 }
 
+/* The user turn is a grey capsule, evenly rounded — no tail, no ring, no
+   accent fill. Only the assistant's text runs the full column. */
 .message.user .bubble {
-  background: var(--bubble-user-bg);
-  color: var(--bubble-user-text);
-  box-shadow: var(--shadow-hairline);
+  background: var(--color-bubble-user-bg);
+  color: var(--color-bubble-user-text);
+  box-shadow: none;
   white-space: pre-wrap;
-  border-bottom-right-radius: var(--radius-chip);
   margin-left: auto;
-  max-width: calc(800px * 0.85);
+  max-width: calc(var(--chat-width) * 0.8);
   width: fit-content;
   transition:
     background-color var(--duration-slow) var(--ease-out-strong),
@@ -1237,8 +1215,9 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   padding: 0;
   color: var(--text-primary-light);
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width);
   margin: 0 auto;
+  line-height: 1.75;
   transition:
     background-color var(--duration-slow) var(--ease-out-strong),
     color var(--duration-slow) var(--ease-out-strong),
@@ -1254,6 +1233,15 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 
 /* Note: .markdown-content base styles are now in code-blocks.css */
+
+/* Both turns read at the same size. The user capsule sets 1rem on .bubble,
+   but the assistant's prose is a nested .markdown-content that would
+   otherwise fall back to the 14px body size — scoped here rather than in
+   code-blocks.css, which the reasoning card and file previews also use. */
+.message.assistant .markdown-content {
+  font-size: 1rem;
+  line-height: 1.75;
+}
 
 .copy-button-container {
   margin-top: 8px;
@@ -1425,13 +1413,13 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #fff;
+  color: var(--destructive-foreground);
   padding: 0;
 }
 
 .remove-attachment-btn:hover {
   background: var(--red);
-  color: #fff;
+  color: var(--destructive-foreground);
 }
 
 .edit-textarea {
@@ -1464,7 +1452,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 }
 
 .edit-textarea:focus {
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--ink-3);
 }
 
 .edit-actions {
@@ -1653,14 +1641,14 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   gap: 8px;
   margin-bottom: 12px;
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width);
 }
 
 /* Reasoning Card Styles */
 .reasoning-card {
   margin-bottom: 12px;
   width: 100%;
-  max-width: 800px;
+  max-width: var(--chat-width);
 }
 
 
@@ -1772,7 +1760,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   padding: 8px;
   font-size: 0.85rem;
   color: var(--text-secondary);
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border);
   background: var(--bg-tertiary);
   overflow: hidden;
   text-overflow: ellipsis;

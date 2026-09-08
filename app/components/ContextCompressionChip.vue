@@ -249,7 +249,7 @@ function dismiss() {
   border-radius: var(--radius-chip);
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-out);
 }

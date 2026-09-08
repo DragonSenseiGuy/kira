@@ -252,13 +252,13 @@ async function handleImport() {
 
 .drop-zone:hover,
 .drop-zone.dragging {
-  border-color: var(--accent);
-  background: var(--overlay-accent);
+  border-color: var(--ink-3);
+  background: var(--hover);
 }
 
 .drop-zone.hasFile {
   border-style: solid;
-  border-color: var(--accent);
+  border-color: var(--ink-3);
 }
 
 .file-input {

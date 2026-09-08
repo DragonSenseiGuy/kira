@@ -9,7 +9,7 @@
           <Icon v-else-if="isWebCrawl" icon="material-symbols:web-asset" width="16" height="16" />
           <Icon v-else-if="isSearch" icon="material-symbols:search-rounded" width="16" height="16" />
           <Icon v-else-if="isMemory" icon="material-symbols:psychology-rounded" width="16" height="16" />
-          <Icon v-else icon="material-symbols:build-circle-outline-rounded" width="16" height="16" />
+          <Icon v-else :icon="primaryIcon" width="16" height="16" />
         </div>
 
         <div class="chat-widget-info">
@@ -22,13 +22,29 @@
               <span class="chat-widget-search-separator"></span>
               <span class="chat-widget-search-query">{{ searchQuery }}</span>
             </template>
+            <template v-else-if="headerDetail">
+              <span>{{ displayedName }}</span>
+              <span class="chat-widget-search-separator"></span>
+              <span class="chat-widget-search-query">{{ headerDetail }}</span>
+            </template>
+            <!-- Reasoning still in flight shows a live clock in place of a
+                 label: the verb and the elapsed time are the whole status, so
+                 no badge is needed beside them. -->
+            <template v-else-if="liveSince !== null">
+              <UiAgentProgress label="Thinking" :initial-seconds="liveElapsedSeconds" />
+            </template>
             <template v-else>
               {{ displayedName }}
             </template>
           </div>
         </div>
 
-        <UiBadge v-if="displayedStatus" tone="neutral" class="chat-widget-badge">
+        <UiBadge
+          v-if="displayedStatus"
+          tone="neutral"
+          class="chat-widget-badge"
+          :class="{ 'is-live': statusIsLive }"
+        >
           {{ displayedStatus }}
         </UiBadge>
 
@@ -96,6 +112,112 @@
           </div>
         </div>
       </div>
+      <!-- Run Code (run_javascript) -->
+      <div v-else-if="primaryKind === 'code'" class="cw-details">
+        <div class="cw-section-label">Code</div>
+        <pre class="cw-code">{{ runCode }}</pre>
+
+        <template v-if="runResult.state !== 'running'">
+          <div class="cw-status-row">
+            <span class="cw-chip" :class="`cw-${runResult.state}`">
+              {{ runResult.state === 'ok' ? 'Ran successfully' : runResult.state === 'timeout' ? 'Timed out' : 'Error' }}
+            </span>
+            <span v-if="runResult.logs.length" class="cw-meta">{{ runResult.logs.length }} console line{{ runResult.logs.length === 1 ? '' : 's' }}</span>
+          </div>
+
+          <template v-if="runResult.state === 'error' && runResult.error">
+            <div class="cw-section-label">Error</div>
+            <pre class="cw-code cw-code-error">{{ runResult.error }}</pre>
+          </template>
+
+          <template v-if="runResult.hasResult && runResult.valueText">
+            <div class="cw-section-label">Returned</div>
+            <pre class="cw-code">{{ runResult.valueText }}</pre>
+          </template>
+
+          <template v-if="runResult.logs.length">
+            <div class="cw-section-label">Console output</div>
+            <pre class="cw-code cw-logs">{{ runResult.logs.join('\n') }}</pre>
+          </template>
+        </template>
+        <div v-else class="cw-meta">Running…</div>
+      </div>
+
+      <!-- Workspace file tools -->
+      <div
+        v-else-if="FILE_KINDS.includes(primaryKind)"
+        class="cw-details"
+      >
+        <!-- write_file -->
+        <template v-if="primaryKind === 'file-write'">
+          <div class="cw-kv"><span class="cw-kv-key">Path</span><span class="cw-mono">{{ args.path || '—' }}</span></div>
+          <div v-if="args.content" class="cw-section-label">Content</div>
+          <pre v-if="args.content" class="cw-code">{{ truncate(args.content, 800) }}{{ (args.content.length > 800) ? '\n…' : '' }}</pre>
+          <div v-if="writeResult" class="cw-meta">{{ writeResult }}</div>
+        </template>
+
+        <!-- read_file -->
+        <template v-else-if="primaryKind === 'file-read'">
+          <div class="cw-kv"><span class="cw-kv-key">Path</span><span class="cw-mono">{{ args.path || '—' }}</span></div>
+          <template v-if="readResult">
+            <div class="cw-section-label">Contents</div>
+            <pre class="cw-code">{{ readResult }}</pre>
+          </template>
+          <div v-else-if="hasResultPayload" class="cw-meta">File not found or unreadable.</div>
+        </template>
+
+        <!-- edit_file: show as old → new blocks -->
+        <template v-else-if="primaryKind === 'file-edit'">
+          <div class="cw-kv"><span class="cw-kv-key">Path</span><span class="cw-mono">{{ args.path || '—' }}</span></div>
+          <div class="cw-section-label">Before</div>
+          <pre class="cw-code cw-code-old">{{ args.old_text || '(empty)' }}</pre>
+          <div class="cw-section-label">After</div>
+          <pre class="cw-code cw-code-new">{{ args.new_text !== undefined && args.new_text !== null ? args.new_text : '(empty)' }}</pre>
+          <div v-if="hasResultPayload" class="cw-meta">Applied.</div>
+        </template>
+
+        <!-- delete_file -->
+        <template v-else-if="primaryKind === 'file-delete'">
+          <div class="cw-kv"><span class="cw-kv-key">Path</span><span class="cw-mono">{{ args.path || '—' }}</span></div>
+          <div v-if="hasResultPayload" class="cw-meta">Deleted.</div>
+        </template>
+
+        <!-- move / rename -->
+        <template v-else-if="primaryKind === 'file-move'">
+          <div class="cw-kv"><span class="cw-kv-key">From</span><span class="cw-mono">{{ args.from || args.path || '—' }}</span></div>
+          <div class="cw-kv"><span class="cw-kv-key">To</span><span class="cw-mono">{{ args.to || args.new_name || '—' }}</span></div>
+          <div v-if="hasResultPayload" class="cw-meta">Moved.</div>
+        </template>
+
+        <!-- search_files -->
+        <template v-else-if="primaryKind === 'file-search'">
+          <div class="cw-kv"><span class="cw-kv-key">Pattern</span><span class="cw-mono">{{ args.pattern || '—' }}</span></div>
+          <div v-if="searchMatches !== null" class="cw-meta">{{ searchMatches }} match{{ searchMatches === 1 ? '' : 'es' }}</div>
+          <div v-if="searchFiles.length" class="cw-files">
+            <div v-for="f in searchFiles.slice(0, 20)" :key="f.path" class="cw-file-row">
+              <span class="cw-mono cw-file-path">{{ f.path }}</span>
+              <span class="cw-file-size">{{ formatBytes(f.size) }}</span>
+            </div>
+          </div>
+        </template>
+
+        <!-- list_files -->
+        <template v-else>
+          <div class="cw-kv"><span class="cw-kv-key">Directory</span><span class="cw-mono">{{ args.path || '(workspace root)' }}</span></div>
+          <template v-if="listFiles.length">
+            <div class="cw-files">
+              <div v-for="f in listFiles.slice(0, 100)" :key="f.path" class="cw-file-row">
+                <span class="cw-mono cw-file-path">{{ f.path }}</span>
+                <span class="cw-file-size">{{ formatBytes(f.size) }}</span>
+              </div>
+              <div v-if="listTruncated" class="cw-meta">Listing truncated — more files exist.</div>
+              <div v-else-if="listFiles.length > 100" class="cw-meta">{{ listFiles.length - 100 }} more not shown.</div>
+            </div>
+          </template>
+          <div v-else-if="hasResultPayload" class="cw-meta">No files found.</div>
+        </template>
+      </div>
+
       <!-- Tool arguments (non-search, non-memory tools) -->
       <div v-else class="tool-args">
         <pre>{{ formattedArgs }}</pre>
@@ -108,6 +230,16 @@
 import { ref, computed } from 'vue';
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
+import {
+  getToolDisplay,
+  parseToolJson,
+  parsePartialToolArgs,
+  toolHeaderDetail,
+  parseRunResult,
+  formatBytes,
+  prettifyToolName,
+  TOOL_DISPLAY,
+} from '../utils/toolDisplay';
 
 const props = defineProps({
   // Widget type: 'reasoning' or 'tool'
@@ -125,6 +257,14 @@ const props = defineProps({
     type: String,
     default: ''
   },
+  /**
+   * Epoch milliseconds at which reasoning began, or null once it has settled.
+   * Present only for `type="reasoning"`.
+   */
+  liveSince: {
+    type: Number,
+    default: null
+  },
   // Tool properties (for both single tools and tool groups)
   toolCall: {
     type: Object,
@@ -137,6 +277,11 @@ const props = defineProps({
   result: {
     type: String,
     default: null
+  },
+  // True while the parent message is still streaming (tool may be mid-call)
+  streaming: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -195,16 +340,117 @@ const isMemory = computed(() => {
 });
 
 // Phase 2.2: Use cached parsed args
+// While a tool call is still STREAMING its arguments are incomplete JSON —
+// parse leniently so widgets show live path/content instead of nothing.
 const args = computed(() => {
-  if (props.toolCall?.function?.arguments) {
-    try {
-      return JSON.parse(props.toolCall.function.arguments);
-    } catch {
-      return {};
-    }
-  }
-  return {};
+  const raw = props.toolCall?.function?.arguments ??
+    primaryTool.value?.function?.arguments;
+  if (!raw) return {};
+  const { args: parsed } = parsePartialToolArgs(raw);
+  return parsed;
 });
+
+// --- Sandbox / workspace tool presentation -------------------------------
+
+/** The representative tool for icon/title/detail purposes. */
+const primaryTool = computed(() => {
+  if (props.toolCall) return props.toolCall;
+  if (props.toolCalls && props.toolCalls.length > 0) return props.toolCalls[0];
+  return null;
+});
+
+const primaryName = computed(
+  () => primaryTool.value?.function?.name || primaryTool.value?.name || '',
+);
+
+const FILE_KINDS = [
+  'file-write',
+  'file-read',
+  'file-edit',
+  'file-delete',
+  'file-move',
+  'file-search',
+  'file-list',
+];
+
+const primaryDisplay = computed(() => getToolDisplay(primaryName.value));
+
+const primaryKind = computed(() =>
+  props.type === 'tool' ? primaryDisplay.value.kind : 'generic',
+);
+
+const primaryIcon = computed(() => primaryDisplay.value.icon);
+
+const primaryArgsJson = computed(() => {
+  const t = primaryTool.value;
+  return t?.function?.arguments ?? (t?.name ? undefined : undefined);
+});
+
+const headerDetail = computed(() => {
+  if (props.type !== 'tool' || isSearch.value || isWebCrawl.value || isMemory.value) return '';
+  const kindsWithDetail = ['code', 'file-write', 'file-read', 'file-edit', 'file-delete', 'file-move'];
+  if (!kindsWithDetail.includes(primaryKind.value)) return '';
+  return toolHeaderDetail(primaryName.value, primaryTool.value?.function?.arguments);
+});
+
+const runCode = computed(() => {
+  const raw = primaryTool.value?.function?.arguments;
+  if (!raw) return '';
+  return parsePartialToolArgs(raw).args.code || '';
+});
+
+const runResult = computed(() => {
+  if (primaryKind.value !== 'code') {
+    return { state: 'running', valueText: null, logs: [], error: null, hasResult: false };
+  }
+  const t = primaryTool.value;
+  return parseRunResult(t?.result ?? props.result ?? null);
+});
+
+const writeResult = computed(() => {
+  if (primaryKind.value !== 'file-write') return null;
+  const data = parseToolJson(primaryTool.value?.result);
+  if (!data.path && !data.bytes) return null;
+  return data.bytes !== undefined
+    ? `Saved ${data.path} (${formatBytes(data.bytes)})`
+    : `Saved ${data.path}`;
+});
+
+const readResult = computed(() => {
+  if (primaryKind.value !== 'file-read') return null;
+  const data = parseToolJson(primaryTool.value?.result);
+  return typeof data.content === 'string' ? data.content : null;
+});
+
+const hasResultPayload = computed(() => !!primaryTool.value?.result);
+
+const listFiles = computed(() => {
+  if (primaryKind.value !== 'file-list') return [];
+  const data = parseToolJson(primaryTool.value?.result);
+  return Array.isArray(data.files) ? data.files : [];
+});
+
+const listTruncated = computed(() => {
+  const data = parseToolJson(primaryTool.value?.result);
+  return data.truncated === true;
+});
+
+const searchMatches = computed(() => {
+  if (primaryKind.value !== 'file-search') return null;
+  const data = parseToolJson(primaryTool.value?.result);
+  return typeof data.matches === 'number' ? data.matches : null;
+});
+
+const searchFiles = computed(() => {
+  if (primaryKind.value !== 'file-search') return [];
+  const data = parseToolJson(primaryTool.value?.result);
+  return Array.isArray(data.files) ? data.files : [];
+});
+
+function truncate(text, max) {
+  if (typeof text !== 'string') return '';
+  return text.length <= max ? text : text.slice(0, max);
+}
 
 const searchArgs = computed(() => {
   if (props.toolCalls?.length > 0 && props.toolCalls[0]?.function?.arguments) {
@@ -283,71 +529,26 @@ const displayedName = computed(() => {
     return 'Search';
   }
 
+  const knownTitle = TOOL_DISPLAY[primaryName.value]?.title;
+
   // Check for tool groups first
   if (isToolGroup.value && props.toolCalls && props.toolCalls.length > 0) {
-    const firstTool = props.toolCalls[0];
-    // Get the type/name of the first tool more comprehensively
-    const firstToolRawType = firstTool?.function?.name ||
-                           firstTool?.name ||
-                           firstTool?.type ||
-                           firstTool?.id ||
-                           'unknown';
-
-    // Make the type user-friendly
-    let firstToolType = firstToolRawType;
-    if (firstToolRawType === 'addMemory') firstToolType = 'Added memory';
-    else if (firstToolRawType === 'modifyMemory') firstToolType = 'Modified memory';
-    else if (firstToolRawType === 'deleteMemory') firstToolType = 'Deleted memory';
-    else {
-      // Just capitalize the first letter for normal tools
-      firstToolType = firstToolRawType.charAt(0).toUpperCase() + firstToolRawType.slice(1);
-    }
-
-    const allSameType = props.toolCalls.every(tool => {
-      const toolType = tool?.function?.name || tool?.name || tool?.type || tool?.id || 'unknown';
-      return toolType === firstToolRawType;
-    });
-
+    const allSameType = props.toolCalls.every(
+      (t) => (t?.function?.name || t?.name || t?.type || t?.id) === primaryName.value,
+    );
     if (allSameType) {
-      return `${firstToolType} (${props.toolCalls.length} calls)`;
-    } else {
-      return `Multiple Tools (${props.toolCalls.length} calls)`;
+      return `${knownTitle || prettifyToolName(primaryName.value)} (${props.toolCalls.length} calls)`;
     }
+    return `Multiple Tools (${props.toolCalls.length} calls)`;
   }
 
-  // Check for single tool call
-  if (props.toolCall) {
-    // Try different possible locations for the function name
-    let functionName = props.toolCall.function?.name ||
-                      props.toolCall.name ||
-                      props.toolCall.type ||
-                      props.toolCall.id;
-
-    if (functionName) {
-      // Handle memory management tools specifically
-      if (functionName === 'addMemory') return 'Added memory';
-      if (functionName === 'modifyMemory') return 'Modified memory';
-      if (functionName === 'deleteMemory') return 'Deleted memory';
-      return `${functionName.charAt(0).toUpperCase() + functionName.slice(1)} Tool`;
-    }
-  }
-
-  // Last resort: try to get info from toolCalls even if not technically a "group"
-  // This handles cases where a single tool is passed in the toolCalls array
-  if (props.toolCalls && props.toolCalls.length === 1) {
-    const singleTool = props.toolCalls[0];
-    let functionName = singleTool?.function?.name ||
-                      singleTool?.name ||
-                      singleTool?.type ||
-                      singleTool?.id;
-
-    if (functionName) {
-      // Handle memory management tools specifically
-      if (functionName === 'addMemory') return 'Added memory';
-      if (functionName === 'modifyMemory') return 'Modified memory';
-      if (functionName === 'deleteMemory') return 'Deleted memory';
-      return `${functionName.charAt(0).toUpperCase() + functionName.slice(1)} Tool`;
-    }
+  // Single tool — prefer the human title, then memory phrasing, then prettified.
+  if (primaryName.value) {
+    if (knownTitle) return knownTitle;
+    if (primaryName.value === 'addMemory') return 'Added memory';
+    if (primaryName.value === 'modifyMemory') return 'Modified memory';
+    if (primaryName.value === 'deleteMemory') return 'Deleted memory';
+    return prettifyToolName(primaryName.value);
   }
 
   return 'Tool: unknown';
@@ -356,7 +557,35 @@ const displayedName = computed(() => {
 const displayedStatus = computed(() => {
   // Reasoning type doesn't show status below the name
   if (props.type === 'reasoning') return null;
-  
+
+  const kind = primaryKind.value;
+
+  // Code execution: reflect run state directly.
+  if (kind === 'code') {
+    switch (runResult.value.state) {
+      case 'ok': return 'Completed';
+      case 'error': return 'Failed';
+      case 'timeout': return 'Timed out';
+      default: return props.streaming ? 'Running…' : null;
+    }
+  }
+
+  // File tools: reflect live progress while streaming, completion after.
+  if (FILE_KINDS.includes(kind)) {
+    if (hasResultPayload.value) return 'Completed';
+    if (!props.streaming) return null;
+    const verbs = {
+      'file-write': 'Writing…',
+      'file-read': 'Reading…',
+      'file-edit': 'Patching…',
+      'file-delete': 'Deleting…',
+      'file-move': 'Moving…',
+      'file-search': 'Searching…',
+      'file-list': 'Listing…',
+    };
+    return verbs[kind] || 'Working…';
+  }
+
   // For tool groups, show completion status only for non-search tools
   if (isToolGroup.value && !isSearch.value && props.toolCalls) {
     const completedTools = props.toolCalls.filter(tool => tool.result);
@@ -366,8 +595,22 @@ const displayedStatus = computed(() => {
       return `${completedTools.length}/${props.toolCalls.length} completed`;
     }
   }
+
   return null;
 });
+
+/**
+ * Seconds already spent reasoning when the widget mounts. UiAgentProgress
+ * carries the clock forward from there, so re-rendering the list does not
+ * restart the count.
+ */
+const liveElapsedSeconds = computed(() =>
+  props.liveSince === null ? 0 : Math.max(0, (Date.now() - props.liveSince) / 1000),
+);
+
+const statusIsLive = computed(() =>
+  typeof displayedStatus.value === 'string' && displayedStatus.value.endsWith('…'),
+);
 
 // Parsed args for all tools in a group (cached)
 const parsedToolGroupArgs = computed(() => {
@@ -480,3 +723,149 @@ function truncateContent(content, maxLength) {
   return content.substring(0, maxLength).trim() + '...';
 }
 </script>
+
+<style scoped>
+.cw-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cw-section-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.cw-code {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.cw-code-error {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+.cw-logs {
+  color: var(--text-secondary);
+}
+
+.cw-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cw-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.cw-ok {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+}
+
+.cw-error {
+  background: color-mix(in srgb, var(--danger) 13%, transparent);
+  color: var(--danger);
+}
+
+.cw-timeout {
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  color: var(--warning);
+}
+
+.cw-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.cw-kv {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cw-kv-key {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.cw-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.cw-files {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cw-file-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.76rem;
+}
+
+.cw-file-row:last-child {
+  border-bottom: none;
+}
+
+.cw-file-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cw-file-size {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cw-code-old {
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+.cw-code-new {
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+}
+
+.chat-widget-status.is-live {
+  animation: cw-live-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes cw-live-pulse {
+  50% { opacity: 0.45; }
+}
+</style>

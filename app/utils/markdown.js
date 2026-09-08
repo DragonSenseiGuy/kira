@@ -56,6 +56,42 @@ function addCodeBlockRenderer(md) {
   };
 }
 
+// A link is "external" only if it leaves the app over the web. Everything
+// else — in-page anchors (`#section`, footnote references and their
+// back-references), relative in-app routes (`/settings`), and non-web
+// schemes like `mailto:`/`tel:` — is either handled by the router or by the
+// OS, and would only be broken or cluttered by a `target`.
+const EXTERNAL_LINK = /^https?:\/\//i;
+
+/**
+ * Sends links that point out to the web into a new tab.
+ *
+ * Only absolute `http(s)` URLs qualify: in-page anchors, relative in-app
+ * routes and non-web schemes are left untouched so they keep their normal
+ * behaviour (a `target` on `/settings` would tear the SPA out into a full
+ * page reload). `rel` is set alongside `target` so a new tab can never reach
+ * back through `window.opener`.
+ *
+ * @param {MarkdownIt} md
+ */
+function addExternalLinkTargets(md) {
+  const defaultLinkOpen =
+    md.renderer.rules.link_open ||
+    function (tokens, idx, options, env, self) {
+      return self.renderToken(tokens, idx, options);
+    };
+
+  md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
+    const token = tokens[idx];
+    const href = token.attrGet("href") || "";
+    if (EXTERNAL_LINK.test(href)) {
+      token.attrSet("target", "_blank");
+      token.attrSet("rel", "noopener noreferrer");
+    }
+    return defaultLinkOpen(tokens, idx, options, env, self);
+  };
+}
+
 /**
  * Factory function for creating configured markdown-it instances
  * @param {Object} options - Configuration options
@@ -104,6 +140,7 @@ export function createMarkdownInstance(options = {}) {
   }
 
   addCodeBlockRenderer(md);
+  addExternalLinkTargets(md);
   return md;
 }
 

@@ -18,7 +18,7 @@
         ref="messageFormRef"
         :is-loading="isLoading"
         :selected-model-id="settingsManager.settings.selected_model_id"
-        :available-models="availableModels"
+        :models="hcFullModels"
         :selected-model-name="selectedModelName"
         :settings-manager="settingsManager"
         conversation-id="incognito"
@@ -36,22 +36,16 @@
 import { ref, nextTick, onMounted, computed, watch, onBeforeUnmount } from 'vue';
 import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
-import { inject } from "@vercel/analytics"
-import { injectSpeedInsights } from '@vercel/speed-insights';
 import { useDark } from "@vueuse/core";
 import { useRoute, useRouter } from '#app';
 import { useHead } from '#imports';
 
-import { availableModels } from '~/composables/availableModels';
+import { hcFullModels } from '~/composables/providers';
 import { useSettings } from '~/composables/useSettings';
 import { useConversation } from '~/composables/useConversation';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
 
 import ChatPanel from '~/components/ChatPanel.vue';
-
-// Inject Vercel's analytics and performance insights
-inject();
-injectSpeedInsights();
 
 const isDark = useDark();
 
@@ -72,7 +66,6 @@ const {
   changeConversation,
   deleteConversation,
   newConversation,
-  toggleIncognito,
   setChatPanel,
   chatPanel // This is the chat panel ref from the composable
 } = useConversation();
@@ -97,11 +90,6 @@ onMounted(async () => {
 
   // Since this is incognito mode, we don't need to load specific conversation data
   // The conversation happens in memory only
-
-  // Make sure incognito mode is enabled
-  if (!isIncognito.value) {
-    toggleIncognito();
-  }
 
   // Check if there's an initial message in the route query
   if (route.query.initialMessage) {
@@ -156,7 +144,7 @@ useHead({
   display: flex;
   flex-direction: column;
   flex: 1;
-  max-width: 700px;
+  max-width: var(--chat-width);
   width: 100%;
   margin: 0 auto;
   overflow: visible;    /* or just omit overflow entirely */

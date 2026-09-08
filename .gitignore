@@ -25,3 +25,9 @@ logs
 
 # Test coverage
 coverage
+
+# Vitest JSON reporter output
+vitest-report.json
+
+# Agent worktrees (project config under .claude/ stays tracked)
+.claude/worktrees/

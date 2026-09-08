@@ -3,6 +3,13 @@
     <div class="notepad-column">
       <div class="notepad-header">
         <div class="notepad-title-row">
+          <button class="np-back" aria-label="Back to settings" title="Back to settings" @click="goBackToSettings">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 12H5" />
+              <path d="M12 19l-7-7 7-7" />
+            </svg>
+          </button>
           <h1>My Notepad</h1>
           <span v-if="notepad?.metadata" class="last-updated">
             Last updated: {{ formatDate(notepad.metadata.lastUpdated) }}
@@ -86,6 +93,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { loadNotepad, exportNotepadAsDownload, resetNotepad } from '~/composables/notepad';
 import {
   getNotepadPipelineStatus,
@@ -94,6 +102,7 @@ import {
   notepadEvents,
 } from '~/composables/notepadPipeline';
 import { clearAllSummaries } from '~/composables/chatSummarizer';
+import { confirmDialog } from '~/composables/useDialogs';
 import { useSettings } from '~/composables/useSettings';
 import { md } from '~/utils/markdown';
 import { highlightAllBlocks } from '~/utils/lazyHighlight';
@@ -107,6 +116,12 @@ const pipelineStatus = ref(null);
 const contentRef = ref(null);
 
 const settingsManager = useSettings();
+const router = useRouter();
+
+// Mobile entry point: the Notepad lives under Settings → Memory.
+function goBackToSettings() {
+  router.push({ path: '/settings', query: { tab: 'memory' } });
+}
 
 /**
  * Render the notepad content using the shared markdown renderer.
@@ -166,15 +181,14 @@ async function loadNotepadData() {
  * wait for it to finish and reload.
  */
 async function refreshNotepad() {
-  // Wait until settings are loaded before we can read the API key.
+  // Wait until settings are loaded before we can resolve the selected model.
   if (!settingsManager.isLoaded) {
     error.value = 'Settings are still loading. Try again in a moment.';
     return;
   }
 
-  const apiKey = settingsManager.settings?.custom_api_key;
-  if (!apiKey) {
-    error.value = 'Please add an API key in settings to refresh the Notepad.';
+  if (!settingsManager.selectedModel) {
+    error.value = 'Select a model first — the Notepad runs on your currently selected model.';
     return;
   }
 
@@ -188,7 +202,7 @@ async function refreshNotepad() {
       return;
     }
 
-    const result = await runNotepadPipeline(apiKey);
+    const result = await runNotepadPipeline();
     if (result?.success) {
       await loadNotepadData();
     } else {
@@ -220,15 +234,17 @@ function exportNotepad() {
 }
 
 async function handleResetNotepad() {
-  if (!confirm(
-    "Reset your Notepad?\n\n" +
-    "This will delete all of your current notes and clear the existing " +
-    "chat summaries so they can be regenerated from scratch on the next " +
-    "maintenance pass. Your conversation history is not affected.\n\n" +
-    "This cannot be undone.",
-  )) {
-    return;
-  }
+  const ok = await confirmDialog({
+    title: "Reset your Notepad?",
+    message:
+      "This will delete all of your current notes and clear the existing " +
+      "chat summaries so they can be regenerated from scratch on the next " +
+      "maintenance pass. Your conversation history is not affected.\n\n" +
+      "This cannot be undone.",
+    confirmLabel: "Reset Notepad",
+    danger: true,
+  });
+  if (!ok) return;
 
   isResetting.value = true;
   error.value = null;
@@ -312,6 +328,28 @@ onBeforeUnmount(() => {
   gap: var(--spacing-12);
   flex-wrap: wrap;
   min-width: 0;
+}
+
+/* Mobile-only escape hatch back to Settings → Memory. Hidden on desktop,
+   where the sidebar/settings navigation is one click away anyway. */
+.np-back {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  align-self: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.np-back:hover { background: var(--btn-hover); color: var(--text-primary); }
+@media (max-width: 950px) {
+  .np-back { display: inline-flex; }
 }
 
 .notepad-header h1 {
@@ -420,7 +458,7 @@ onBeforeUnmount(() => {
   background: var(--bg-tertiary);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: 0.9em;
 }
 
@@ -438,7 +476,7 @@ onBeforeUnmount(() => {
 }
 
 .notepad-markdown :deep(blockquote) {
-  border-left: 3px solid var(--primary);
+  border-left: 3px solid var(--border);
   padding-left: var(--spacing-12);
   margin: 0 0 var(--spacing-12) 0 !important;
   color: var(--text-secondary);

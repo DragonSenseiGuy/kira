@@ -271,7 +271,7 @@ async function runCompressionInternal({
   const state = getCompressionState(conversationId);
   if (!state) return { ran: false, status: "skipped", reason: "no_state" };
 
-  const { model, thresholdTokens, keepRecentTokens } =
+  const { thresholdTokens, keepRecentTokens } =
     resolveCompressionSettings(settings);
   const branchPathHash = hashBranchPath(branchPath);
 
@@ -325,9 +325,7 @@ async function runCompressionInternal({
           ? previous.summaryText
           : null;
 
-      const summaryText = await callCompressionModel(range.messages, {
-        apiKey,
-        model,
+      const { summaryText, model } = await callCompressionModel(range.messages, {
         previousSummary,
       });
 

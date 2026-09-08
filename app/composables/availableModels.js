@@ -1,46 +1,49 @@
+import { isKnownModelId, findFullModelById, hasHcFullModels, HACKCLUB_DEFAULT_MODEL_ID } from './providers';
+
 /**
- * Available models from Hack Club
+ * @file availableModels.js
+ * @description Pure helpers that derive UI / API behaviour from a model's
+ * metadata, plus selection validation.
  *
- * ================================================
- * REASONING CONFIGURATION SCHEMA
- * ================================================
- * 
- * reasoning: {
- *   supported: true/false,       // Does this model support reasoning at all?
- *   
- *   toggleable: true/false,      // Can user toggle reasoning on/off?
- *   defaultEnabled: true/false,  // Initial state (if toggleable)
- *   
- *   effort: {                    // Optional - effort level configuration
- *     levels: ['low', 'medium', 'high'],
- *     default: 'medium'
- *   },
- *   
- *   alternateModel: "model-id"   // Optional - route to different model when reasoning enabled
- * }
- * 
- * ================================================
- * API PARAMETER MAPPING
- * ================================================
- * 
- * | Model Type              | User Setting | API Output                      |
- * |-------------------------|--------------|--------------------------------|
- * | supported: false        | -            | {} (nothing)                    |
- * | Always-on, no effort    | -            | {} (nothing)                    |
- * | Always-on + effort      | effort       | { effort: "..." }               |
- * | Toggleable              | enabled      | { enabled: true }               |
- * | Toggleable              | disabled     | { enabled: false }              |
- * | Model routing           | enabled      | model: "alt-model-id"           |
- * | Model routing           | disabled     | {} (original model)             |
- * 
- * ================================================
- * PROVIDER RESTRICTION
- * ================================================
- * 
- * providers: ["provider-id"], // Optional - restricts model to specific OpenRouter provider(s)
+ * The model catalog itself is decentralised: Kira uses the full
+ * Hack Club / OpenRouter catalog (see `hcFullModels` in providers.js). That
+ * catalog is fetched at runtime through the `/api/models` relay, cached in
+ * localStorage, and refreshed in the background whenever it changes (see
+ * `fetchHcFullModels`). There is no separate curated list anymore.
  */
 
-export const DEFAULT_MODEL_ID = "moonshotai/kimi-k2.6";
+/** The default model ID — Hack Club's designated default. */
+export const DEFAULT_MODEL_ID = HACKCLUB_DEFAULT_MODEL_ID;
+
+/**
+ * If the user's currently selected model ID is not present in the available
+ * model list, reset it to the DEFAULT model ID immediately. This prevents the
+ * UI from lingering in a "Loading..." state with an invalid model ID.
+ *
+ * @param {Object} settingsManager
+ */
+export function validateSelectedModel(settingsManager) {
+  if (!settingsManager?.isLoaded || !settingsManager?.settings) return;
+  // Don't reset until the catalog has been fetched at least once.
+  if (!hasHcFullModels()) return;
+
+  const currentId = settingsManager.settings.selected_model_id;
+  // Composite custom-provider IDs stay valid as long as their provider
+  // exists — their model list may not be fetched yet, which is fine.
+  if (isKnownModelId(settingsManager.settings, currentId, (id) => findFullModelById(id))) {
+    return;
+  }
+
+  if (currentId !== DEFAULT_MODEL_ID) {
+    console.warn(
+      `[models] Selected model ${currentId} is not in the available model list; resetting to ${DEFAULT_MODEL_ID}`,
+    );
+    settingsManager.settings.selected_model_id = DEFAULT_MODEL_ID;
+    settingsManager.saveSettings();
+  }
+}
+
+// --- PURE HELPER FUNCTIONS (used by UI and API pipeline) ---
 
 /**
  * Normalizes legacy reasoning formats to the new schema
@@ -49,40 +52,47 @@ export const DEFAULT_MODEL_ID = "moonshotai/kimi-k2.6";
  */
 export function normalizeReasoningConfig(model) {
   const r = model.reasoning;
-  
+
   // Already new format
   if (typeof r === 'object' && r !== null && 'supported' in r) {
     return r;
   }
-  
+
   // Legacy: reasoning: false
   if (r === false) {
     return { supported: false };
   }
-  
+
   // Legacy: reasoning: true
   if (r === true) {
     const hasEffort = model.extra_parameters?.reasoning_effort;
     return {
       supported: true,
       toggleable: false,
-      effort: hasEffort ? {
-        levels: hasEffort[0],
-        default: hasEffort[1]
-      } : undefined
+      effort: hasEffort
+        ? {
+            levels: hasEffort[0],
+            default: hasEffort[1],
+          }
+        : undefined,
     };
   }
-  
+
   // Legacy: reasoning: [true, false]
   if (Array.isArray(r) && r.length === 2 && r[0] === true && r[1] === false) {
     return { supported: true, toggleable: true, defaultEnabled: true };
   }
-  
+
   // Legacy: reasoning: "model-id"
   if (typeof r === 'string') {
-    return { supported: true, toggleable: true, defaultEnabled: false, alternateModel: r };
+    return {
+      supported: true,
+      toggleable: true,
+      defaultEnabled: false,
+      alternateModel: r,
+    };
   }
-  
+
   // Fallback: no reasoning support
   return { supported: false };
 }
@@ -104,7 +114,12 @@ export function showReasoningToggle(model) {
  */
 export function showReasoningEffortSelector(model) {
   const config = normalizeReasoningConfig(model);
-  return config.supported && config.effort && Array.isArray(config.effort.levels) && config.effort.levels.length > 0;
+  return (
+    config.supported &&
+    config.effort &&
+    Array.isArray(config.effort.levels) &&
+    config.effort.levels.length > 0
+  );
 }
 
 /**
@@ -168,12 +183,12 @@ export function formatReasoningLabel(value) {
  */
 export function isReasoningEnabled(model, userEffort) {
   const config = normalizeReasoningConfig(model);
-  
+
   if (!config.supported) return false;
-  
+
   // Non-toggleable models always have reasoning enabled
   if (!config.toggleable) return true;
-  
+
   // Toggleable models: check if effort is 'none'
   return userEffort !== 'none';
 }
@@ -186,11 +201,11 @@ export function isReasoningEnabled(model, userEffort) {
  */
 export function buildReasoningParams(model, userSettings) {
   const config = normalizeReasoningConfig(model);
-  
+
   if (!config.supported) {
     return { reasoningParams: null, alternateModel: null };
   }
-  
+
   const effort = userSettings?.reasoning_effort ?? config.effort?.default ?? 'default';
   const isEnabled = effort !== 'none';
 
@@ -198,7 +213,7 @@ export function buildReasoningParams(model, userSettings) {
   if (config.alternateModel && isEnabled) {
     return {
       reasoningParams: null,
-      alternateModel: config.alternateModel
+      alternateModel: config.alternateModel,
     };
   }
 
@@ -207,18 +222,18 @@ export function buildReasoningParams(model, userSettings) {
     if (!isEnabled) {
       return {
         reasoningParams: { enabled: false },
-        alternateModel: null
+        alternateModel: null,
       };
     }
     if (config.effort && effort !== 'default') {
       return {
         reasoningParams: { enabled: true, effort: effort },
-        alternateModel: null
+        alternateModel: null,
       };
     }
     return {
       reasoningParams: { enabled: true },
-      alternateModel: null
+      alternateModel: null,
     };
   }
 
@@ -226,7 +241,7 @@ export function buildReasoningParams(model, userSettings) {
   if (config.effort && effort !== 'default') {
     return {
       reasoningParams: { effort: effort },
-      alternateModel: null
+      alternateModel: null,
     };
   }
 
@@ -271,554 +286,3 @@ export function findModelById(models, id) {
   }
   return null;
 }
-
-export const availableModels = [
-  {
-    category: "Anthropic",
-    logo: "/ai_logos/anthropic.svg",
-    models: [
-      {
-        id: "anthropic/claude-fable-5",
-        name: "Claude Fable 5",
-        description: "State-of-the-art Anthropic Sonnet model for compelx reasoning and agentic tasks.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          effort: {
-            levels: ["low", "medium", "high", "xhigh"],
-            default: "low",
-          },
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-sonnet-5",
-        name: "Claude Sonnet 5",
-        description: "Strongest Anthropic Sonnet model for effecient agentic tasks.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          effort: {
-            levels: ["low", "medium", "high", "xhigh"],
-            default: "low",
-          },
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-opus-4.8",
-        name: "Claude Opus 4.8",
-        description: "Strong Anthropic model for complex reasoning and analysis.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-opus-4.7",
-        name: "Claude Opus 4.7",
-        description: "Capable Anthropic model for complex reasoning and analysis.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-opus-4.6",
-        name: "Claude Opus 4.6",
-        description: "Powerful Anthropic model for advanced reasoning tasks.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-sonnet-4.6",
-        name: "Claude Sonnet 4.6",
-        description: "Balanced Anthropic model with strong reasoning and efficiency.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-sonnet-4.5",
-        name: "Claude Sonnet 4.5",
-        description: "Older Anthropic model with excellent reasoning capabilities.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-      {
-        id: "anthropic/claude-haiku-4.5",
-        name: "Claude Haiku 4.5",
-        description: "Fast and lightweight Anthropic model for quick responses.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        vision: true,
-      },
-    ],
-  },
-  {
-    category: "DeepSeek",
-    logo: "/ai_logos/deepseek.svg",
-    models: [
-      {
-        id: "deepseek/deepseek-v4-pro",
-        name: "DeepSeek V4 Pro",
-        description: "Frontier reasoning model with exceptional STEM capabilities.",
-        tool_use: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        extra_functions: [],
-        extra_parameters: {}
-      },
-      {
-        id: "deepseek/deepseek-v4-flash",
-        name: "DeepSeek V4 Flash",
-        description: "Fast variant of DeepSeek V4 optimized for speed.",
-        tool_use: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-        extra_functions: [],
-        extra_parameters: {}
-      },
-      {
-        id: "deepseek/deepseek-v3.2-speciale",
-        name: "DeepSeek V3.2 Speciale",
-        description: "High-compute SOTA variant designed for complex math & STEM tasks.",
-        tool_use: false,
-        reasoning: {
-          supported: true,
-          toggleable: false,
-        },
-        extra_functions: [],
-        extra_parameters: {}
-      },
-      {
-        id: "deepseek/deepseek-v3.2",
-        name: "DeepSeek V3.2",
-        description: "Advanced general-purpose model designed with efficiency in mind.",
-        tool_use: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true,
-        },
-      },
-    ],
-  },
-  {
-    category: "Google",
-    logo: "/ai_logos/gemini.svg",
-    models: [
-      {
-        id: "google/gemini-3.5-flash",
-        name: "Gemini 3.5 Flash",
-        description: "Preview of frontier-level fast model, distilled from Gemini 3 Pro and optimized for speed.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['minimal', 'low', 'medium', 'high'],
-            default: 'medium'
-          }
-        },
-        vision: true,
-      },
-      {
-        id: "google/gemini-3-flash-preview",
-        name: "Gemini 3 Flash Preview",
-        description: "Preview of frontier-level fast model, distilled from Gemini 3 Pro and optimized for speed.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['minimal', 'low', 'medium', 'high'],
-            default: 'high'
-          }
-        },
-        vision: true,
-      },
-      {
-        id: "google/gemini-2.5-flash",
-        name: "Gemini 2.5 Flash",
-        description: "Low-latency, highly efficient model optimized for speed.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['low', 'medium', 'high'],
-            default: 'medium'
-          }
-        },
-        vision: true,
-      },
-      {
-        id: "google/gemini-2.5-flash-lite-preview-09-2025",
-        name: "Gemini 2.5 Flash Lite",
-        description: "Lightweight variant of Gemini 2.5 Flash optimized for speed.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['low', 'medium', 'high'],
-            default: 'medium'
-          }
-        },
-        vision: true,
-      },
-      {
-        id: "google/gemini-3.1-flash-image-preview",
-        name: "Nano Banana 2 (Image)",
-        description: "Frontier fast image generation model.",
-        tool_use: false,
-        reasoning: {
-          supported: true
-        },
-        vision: true,
-      },
-      {
-        id: "google/gemini-2.5-flash-image",
-        name: "Nano Banana (Image)",
-        description: "Fast image generation model.",
-        tool_use: false,
-        reasoning: {
-          supported: false
-        },
-        vision: true,
-      },
-    ]
-  },
-  {
-    category: "Liquid AI",
-    logo: "/ai_logos/liquid.svg",
-    models: [
-      {
-        id: "liquid/lfm-2-24b-a2b",
-        name: "LFM2 24B A2B",
-        description: "Cheap yet versatile open-weights model.",
-        tool_use: false,
-        vision: false,
-        reasoning: {
-          supported: false,
-        },
-      },
-    ]
-  },
-  {
-    category: "Moonshot AI",
-    logo: "/ai_logos/moonshot.svg",
-    models: [
-      {
-        id: "moonshotai/kimi-k3",
-        name: "Kimi K3",
-        description: "SOTA open-weights model.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: false
-        },
-      },
-      {
-        id: "moonshotai/kimi-k2.7-code",
-        name: "Kimi K2.7 Code",
-        description: "Frontier open-weights coding model.",
-        vision: true,
-        providers: ["moonshotai/int4"],
-        reasoning: {
-          supported: true,
-          toggleable: false
-        },
-      },
-      {
-        id: "moonshotai/kimi-k2.6",
-        name: "Kimi K2.6",
-        description: "open-weights model with exceptional EQ, coding, and agentic abilities.",
-        vision: true,
-        providers: ["moonshotai/int4"],
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "moonshotai/kimi-k2.5",
-        name: "Kimi K2.5",
-        description: "Open-weights model with exceptional EQ, coding, and agentic abilities.",
-        vision: true,
-        providers: ["moonshotai/int4"],
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "moonshotai/kimi-k2-0905",
-        name: "Kimi K2",
-        description: "Older open-weights model with great EQ and coding abilities.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: false,
-          alternateModel: "moonshotai/kimi-k2-thinking"
-        },
-      },
-    ],
-  },
-  {
-    category: "MiniMax",
-    logo: "/ai_logos/minimax.svg",
-    models: [
-      {
-        id: "minimax/minimax-m3",
-        name: "MiniMax M3",
-        description: "Frontier coding model with 1M token context window and enhanced architecture.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-      {
-        id: "minimax/minimax-m2.7",
-        name: "MiniMax M2.7",
-        description: "Open-weights coding model.",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-    ],
-  },
-  {
-    category: "Mistral",
-    logo: "/ai_logos/mistral.svg",
-    models: [
-      {
-        id: "mistralai/mistral-medium-3-5",
-        name: "Mistral Medium 3.5",
-        description: "Open-weights medium Mistral model with multimodality.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-      {
-        id: "mistralai/mistral-small-2603",
-        name: "Mistral Small 4",
-        description: "Open-weights small Mistral model with multimodality.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-    ],
-  },
-  {
-    category: "OpenAI",
-    logo: "/ai_logos/openai.svg",
-    models: [
-      {
-        id: "openai/gpt-5.6-sol",
-        name: "GPT-5.6 Sol",
-        description: "Largest GPT-5.6 model with advanced reasoning and capabilities.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
-            default: 'low'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-5.6-terra",
-        name: "GPT-5.6 Terra",
-        description: "Medium-sized GPT-5.6 model cheaper than GPT-5.5 at the same quality.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-5.6-luna",
-        name: "GPT-5.6 Luna",
-        description: "Smallest GPT-5.6 model for cheap & fast tasks.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-5.4-nano",
-        name: "GPT-5.4 Nano",
-        description: "Compact variant of GPT-5.4 for minimal resource usage.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['none', 'low', 'medium', 'high', 'xhigh'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-5.3-codex",
-        name: "GPT-5.3 Codex",
-        description: "GPT-5.3 specialized for code generation and understanding.",
-        reasoning: {
-          supported: true,
-          toggleable: false,
-          effort: {
-            levels: ['low', 'medium', 'high', 'xhigh'],
-            default: 'medium'
-          }
-        },
-      },
-      {
-        id: "openai/gpt-3.5-turbo-0613",
-        name: "GPT-3.5 Turbo 0613",
-        description: "Old and useless model, but here if you want a blast from the past!",
-        tool_use: false,
-        reasoning: {
-          supported: false,
-        },
-      },
-    ],
-  },
-  {
-    category: "Perplexity",
-    logo: "/ai_logos/perplexity.svg",
-    models: [
-      {
-        id: "perplexity/sonar-deep-research",
-        name: "Sonar Deep Research",
-        description: "Searches and reasons across sources to generate comprehensive reports.",
-        tool_use: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-    ],
-  },
-  {
-    category: "Qwen",
-    logo: "/ai_logos/qwen.svg",
-    models: [
-      {
-        id: "qwen/qwen3.7-plus",
-        name: "Qwen3.7 Plus",
-        description: "Capable Qwen model with multimodality.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-      {
-        id: "qwen/qwen3.5-397b-a17b",
-        name: "Qwen3.5 397B A17B",
-        description: "Cutting-edge open-weight model with multimodality.",
-        vision: true,
-        reasoning: {
-          supported: true,
-          toggleable: true,
-        },
-      },
-      {
-        id: "qwen/qwen3-vl-235b-a22b-instruct",
-        name: "Qwen 3 VL 235B A22B Instruct",
-        description: "Open-weight vision-language model excelling at document understanding and visual reasoning.",
-        vision: true,
-        reasoning: {
-          supported: false
-        },
-      },
-    ],
-  },
-  {
-    category: "Z.ai",
-    logo: "/ai_logos/zai.svg",
-    models: [
-      {
-        id: "z-ai/glm-5.2",
-        name: "GLM 5.2",
-        description: "Frontier open-weight model excelling at coding and math",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "z-ai/glm-5.1",
-        name: "GLM 5.1",
-        description: "Strong open-weight model excelling at coding and math",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "z-ai/glm-5",
-        name: "GLM 5",
-        description: "Frontier open-weight model excelling at coding and math",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "z-ai/glm-4.7",
-        name: "GLM 4.7",
-        description: "High-quality open-weight model excelling at coding and math",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-      {
-        id: "z-ai/glm-4.7-flash",
-        name: "GLM 4.7 Flash",
-        description: "SOTA 30B-class model with excellent agentic capabilities",
-        reasoning: {
-          supported: true,
-          toggleable: true,
-          defaultEnabled: true
-        },
-      },
-    ],
-  },
-];
-
-export default availableModels;

@@ -1,6 +1,9 @@
 <template>
   <div class="chat-section">
     <div class="chat-column">
+      <div v-if="conversationError" class="conversation-error" role="alert">
+        ⚠️ {{ conversationError }}
+      </div>
       <ChatPanel
         ref="chatPanelRef"
         :curr-convo="currConvo"
@@ -27,7 +30,7 @@
         ref="messageFormRef"
         :is-loading="isLoading"
         :selected-model-id="settingsManager.settings.selected_model_id"
-        :available-models="availableModels"
+        :models="hcFullModels"
         :selected-model-name="selectedModelName"
         :settings-manager="settingsManager"
         :conversation-id="currConvo"
@@ -45,13 +48,12 @@
 import { ref, nextTick, onMounted, computed, watch, onBeforeUnmount } from 'vue';
 import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
-import { inject } from "@vercel/analytics"
-import { injectSpeedInsights } from '@vercel/speed-insights';
 import { useDark } from "@vueuse/core";
 import { useRoute, useRouter } from '#app';
 import { useHead } from '#imports';
 
-import { availableModels, findModelById } from '~/composables/availableModels';
+import { findModelById } from '~/composables/availableModels';
+import { hcFullModels } from '~/composables/providers';
 import { useSettings } from '~/composables/useSettings';
 import { useConversation } from '~/composables/useConversation';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
@@ -62,10 +64,6 @@ import ContextCompressionChip from '~/components/ContextCompressionChip.vue';
 // Get the route
 const route = useRoute();
 const router = useRouter();
-
-// Inject Vercel's analytics and performance insights
-inject();
-injectSpeedInsights();
 
 const isDark = useDark();
 
@@ -98,9 +96,14 @@ const {
   createNewConversationWithMessage // Function for creating conversation with first message
 } = useConversation();
 
+// Surfaced when local storage refuses to persist a new conversation.
+const conversationError = ref('');
+
 // Override sendMessage to create conversation and navigate immediately
 async function sendMessage(message, originalMessage = null, attachments = [], searchEnabled = false) {
   if ((!message.trim() && attachments.length === 0) || isLoading.value) return;
+
+  conversationError.value = '';
 
   // Store search enabled state in settings for the conversation
   if (settingsManager) {
@@ -114,12 +117,19 @@ async function sendMessage(message, originalMessage = null, attachments = [], se
     // as we can't pass large base64 data via query params
     await router.push({ path: '/incognito', query: { initialMessage: message, searchEnabled: searchEnabled.toString() } });
   } else {
-    // Create a new conversation with the initial message and attachments
-    const conversationId = await createNewConversationWithMessage(message, attachments);
+    try {
+      // Create a new conversation with the initial message and attachments
+      const conversationId = await createNewConversationWithMessage(message, attachments);
 
-    // Navigate immediately to the new conversation
-    // The [id].vue route will detect this is a new conversation and trigger the AI response
-    await router.push(`/${conversationId}`);
+      // Navigate immediately to the new conversation
+      // The [id].vue route will detect this is a new conversation and trigger the AI response
+      await router.push(`/${conversationId}`);
+    } catch (error) {
+      // Storage failure: keep the user here with their draft intact and
+      // surface the problem instead of navigating to a broken conversation.
+      console.error('Failed to create conversation:', error);
+      conversationError.value = 'Could not save this conversation. Please check available storage space and try again.';
+    }
   }
 }
 
@@ -151,12 +161,12 @@ onMounted(async () => {
       ].filter(Boolean);
 
       const matchedModel = modelCandidates
-        .map(candidate => findModelById(availableModels, candidate))
+        .map(candidate => findModelById(hcFullModels, candidate))
         .find(Boolean);
 
-      const matchedByName = availableModels
-        .flatMap(category => category.models || [])
-        .find(model => model.name.toLowerCase() === normalizedModel.toLowerCase());
+      const matchedByName = hcFullModels.find(
+        model => model.name.toLowerCase() === normalizedModel.toLowerCase(),
+      );
 
       if (matchedModel || matchedByName) {
         settingsManager.settings.selected_model_id = (matchedModel || matchedByName).id;
@@ -189,6 +199,19 @@ useHead({
 </script>
 
 <style scoped>
+/* Storage-failure banner */
+.conversation-error {
+  margin: 12px auto 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
+  font-size: 0.9rem;
+  max-width: var(--chat-width);
+  width: 100%;
+}
+
 /* Full-width scroll container */
 .chat-section {
   display: flex;
@@ -205,7 +228,7 @@ useHead({
   display: flex;
   flex-direction: column;
   flex: 1;
-  max-width: 700px;
+  max-width: var(--chat-width);
   width: 100%;
   margin: 0 auto;
   overflow: visible;    /* or just omit overflow entirely */

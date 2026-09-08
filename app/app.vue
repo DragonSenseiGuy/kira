@@ -7,7 +7,7 @@
 </template>
 
 <script setup>
-import { onMounted, watch } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
 // Import the main CSS file to ensure all styling is loaded
 import './assets/main.css';
 import { runNotepadPipeline } from '~/composables/notepadPipeline';
@@ -16,6 +16,8 @@ import { useAuth } from '~/composables/useAuth';
 import { useCloudSync } from '~/composables/useCloudSync';
 import { syncApiKeyWithAccount } from '~/composables/useApiKeySync';
 import { adoptDeviceForUser } from '~/composables/localAccountCache';
+import { validateSelectedModel } from '~/composables/availableModels';
+import { fetchHcFullModels } from '~/composables/providers';
 
 const settingsManager = useSettings();
 const { user } = useAuth();
@@ -69,7 +71,7 @@ function maybeRunPipeline() {
   }, 250);
 }
 
-onMounted(() => {
+onMounted(async () => {
   // If settings are already loaded by the time we mount, fire immediately.
   if (settingsManager.isLoaded) {
     maybeRunPipeline();
@@ -86,6 +88,28 @@ onMounted(() => {
       { immediate: true },
     );
   }
+
+  // Validate the selected model whenever settings change. The model
+  // catalog itself is the full Hack Club/OpenRouter list (fetched below).
+  const validate = () => validateSelectedModel(settingsManager);
+  validate();
+  const unwatchSettingsLoaded = watch(
+    () => settingsManager.isLoaded,
+    (loaded) => loaded && validate(),
+    { immediate: true },
+  );
+
+  // Load the full model catalog in the background (cached after first run),
+  // then re-validate the selection against it.
+  fetchHcFullModels({ apiKey: settingsManager.settings?.custom_api_key })
+    .then(validate)
+    .catch((error) => {
+      console.error('[models] Failed to load the full catalog:', error);
+    });
+
+  onUnmounted(() => {
+    unwatchSettingsLoaded();
+  });
 
   // Re-evaluate when the user toggles the Notepad on/off or sets a key.
   watch(

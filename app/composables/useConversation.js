@@ -4,6 +4,7 @@ import { useHead } from '#imports';
 import { createConversation as storeCreateConversation } from './storeConversations';
 import { useSettings } from './useSettings';
 import { useMessagesManager } from './messagesManager';
+import { applyPendingSetup } from './pendingChatSetup';
 
 /**
  * Custom composable to manage conversations in a page-based structure
@@ -114,6 +115,14 @@ export function useConversation() {
 
     // Update current conversation to point to the new one
     currConvo.value = conversationId;
+
+    // Materialize anything staged on the new-chat screen (attached projects,
+    // pre-uploaded files) so the very first prompt already has them.
+    try {
+      await applyPendingSetup(conversationId, settingsManager);
+    } catch (e) {
+      console.warn('[conversation] failed to apply staged setup:', e);
+    }
 
     return conversationId;
   }

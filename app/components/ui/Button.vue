@@ -63,7 +63,9 @@ const iconSize = computed(() => (props.size === "sm" ? 14 : props.size === "lg" 
   line-height: 1;
   white-space: nowrap;
   border: none;
-  border-radius: var(--radius-control);
+  /* ChatGPT's controls are pills — the radius tracks the height rather than
+     a fixed corner, so sm/md/lg all read as the same family. */
+  border-radius: var(--radius-full);
   cursor: pointer;
   user-select: none;
   text-decoration: none;
@@ -99,47 +101,48 @@ const iconSize = computed(() => (props.size === "sm" ? 14 : props.size === "lg" 
 
 /* ---------- Sizes ---------- */
 .ui-btn--sm {
-  height: 28px;
-  padding: 0 9px;
-  font-size: 0.78rem;
-  border-radius: var(--radius-chip);
+  height: 30px;
+  padding: 0 12px;
+  font-size: 0.8rem;
 }
 
 .ui-btn--md {
-  height: 32px;
-  padding: 0 12px;
-  font-size: 0.85rem;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.875rem;
 }
 
 .ui-btn--lg {
-  height: 38px;
-  padding: 0 16px;
-  font-size: 0.9rem;
+  height: 44px;
+  padding: 0 20px;
+  font-size: 0.9375rem;
 }
 
 .ui-btn--block {
   width: 100%;
 }
 
-/* ---------- Variants ---------- */
+/* ---------- Variants ----------
+   Primary is the neutral action pill (black on light, white on dark), the
+   way ChatGPT treats its commit buttons. The accent is left for links. */
 .ui-btn--primary {
-  background: var(--accent);
-  color: var(--accent-on);
-  box-shadow: var(--shadow-btn);
+  background: var(--action);
+  color: var(--action-on);
+  box-shadow: none;
 }
 
 .ui-btn--primary:hover:not(:disabled) {
-  background: var(--accent-ink);
+  background: var(--action-hover);
 }
 
 .ui-btn--secondary {
-  background: var(--card);
+  background: transparent;
   color: var(--text-primary);
-  box-shadow: var(--shadow-btn);
+  box-shadow: 0 0 0 1px var(--line-strong);
 }
 
 .ui-btn--secondary:hover:not(:disabled) {
-  background: var(--hover);
+  background: var(--btn-hover);
 }
 
 .ui-btn--ghost {

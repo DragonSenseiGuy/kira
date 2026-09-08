@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app-container" :style="{ '--dock-w': dockWidth + 'px' }">
     <Suspense v-if="sidebarOpen !== null">
       <AppSidebar :curr-convo="route.params.id" :messages="[]" :is-open="sidebarOpen"
         @close-sidebar="sidebarOpen = false" @toggle-sidebar="toggleSidebar"
@@ -8,8 +8,15 @@
         @reload-settings="settingsManager.loadSettings" @open-settings="openSettingsPanel('general')" />
       <!-- Opens to General tab -->
     </Suspense>
-    <ParameterConfigPanel :is-open="parameterConfigPanelOpen" :settings-manager="settingsManager"
-      @close="parameterConfigPanelOpen = false" @save="handleParameterConfigSave" />
+    <ParameterConfigPanel :is-open="openDock === 'parameters'"
+      :settings-manager="settingsManager"
+      @close="closeDock" @save="handleParameterConfigSave" />
+    <WorkspacePanel :is-open="openDock === 'workspace'" :settings-manager="settingsManager"
+      :sidebar-open="sidebarOpen === true"
+      @close="closeDock" @save="handleWorkspacePanelSave"
+      @resize="(w) => (workspaceWidth = w)" @sidebar-close="sidebarOpen = false" />
+    <NetConsentHost />
+    <AppDialogHost />
     <!--
       Restructured layout:
       - app-container: Main flex container with sidebar
@@ -17,13 +24,15 @@
       - NuxtPage: Takes full width with internal max-width constraint (contains page-specific content)
     -->
     <div class="main-container"
-      :class="{ 'sidebar-open': sidebarOpen, 'parameter-config-open': parameterConfigPanelOpen }">
+      :class="{ 'sidebar-open': sidebarOpen, 'dock-open': openDock }">
       <TopBar :is-scrolled-top="isScrolledTop" :toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen"
         :is-incognito="isIncognito" :show-incognito-button="!route.params.id && messages.length === 0" :messages="messages"
-        :parameter-config-open="parameterConfigPanelOpen" :conversation-id="route.params.id"
+        :parameter-config-open="openDock === 'parameters'" :workspace-open="openDock === 'workspace'"
+        :conversation-id="route.params.id"
         :can-export="canExport"
         @toggle-incognito="toggleIncognito"
-        @toggle-parameter-config="parameterConfigPanelOpen = !parameterConfigPanelOpen"
+        @toggle-parameter-config="toggleParameterPanel"
+        @toggle-workspace="toggleWorkspacePanel"
         @export-chat="handleExportChat"
         @open-palette="isPaletteOpen = true" />
 
@@ -31,50 +40,40 @@
       <slot />
     </div>
     <CommandPalette v-model:open="isPaletteOpen" :commands="paletteCommands" />
-    <DialogRoot v-model:open="isSettingsOpen">
-      <DialogPortal>
-        <DialogOverlay class="dialog-overlay" />
-        <DialogContent class="dialog-content-panel">
-          <SettingsPanel :is-open="isSettingsOpen" :initial-tab="settingsInitialTab"
-            @close="isSettingsOpen = false; settingsInitialTab = 'general';"
-            @reload-settings="settingsManager.loadSettings" />
-        </DialogContent>
-      </DialogPortal>
-    </DialogRoot>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, nextTick, onMounted, computed } from 'vue';
 import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
 import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
 import { useDark } from "@vueuse/core";
 import { useHead } from '@unhead/vue';
-import { DialogRoot, DialogContent, DialogPortal, DialogOverlay } from 'reka-ui';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useSettings } from '~/composables/useSettings';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
 import { useGlobalIncognito } from '~/composables/useGlobalIncognito';
+import { useKeybinds } from '~/composables/useKeybinds';
+import { useLayoutRouteWatch } from '~/composables/useLayoutRouteWatch';
+import { useDeveloperMode } from '~/composables/useDeveloperMode';
+import { useDock } from '~/composables/useDock';
 
 import AppSidebar from '~/components/AppSidebar.vue'
-import SettingsPanel from '~/components/SettingsPanel.vue'
-import ParameterConfigPanel from '~/components/ParameterConfigPanel.vue'
+import WorkspacePanel from '~/components/WorkspacePanel.vue'
 import TopBar from '~/components/TopBar.vue'
 import CommandPalette from '~/components/CommandPalette.vue'
-import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts';
-import { SHORTCUTS } from '~/composables/keyboardShortcuts';
+import ParameterConfigPanel from '~/components/ParameterConfigPanel.vue'
+import { KEYBIND_ACTIONS } from '~/utils/keybinds';
+import NetConsentHost from '~/components/NetConsentHost.vue'
+import AppDialogHost from '~/components/AppDialogHost.vue'
 import {
   exportSingleChatToZip,
   triggerDownload,
   generateSingleChatExportFilename,
 } from '~/composables/importExport';
-
-// Inject Vercel's analytics and performance insights
-inject();
-injectSpeedInsights();
 
 const isDark = useDark();
 
@@ -87,16 +86,40 @@ const { getIsScrolledTop } = useGlobalScrollStatus();
 // Use global incognito state
 const { isIncognito, toggleIncognito: globalToggleIncognito } = useGlobalIncognito();
 
-// selectedModelId for potential future use
-const selectedModelId = computed(() => settingsManager.settings.selected_model_id);
-
 const route = useRoute(); // Get current route
 const router = useRouter();
 
 const sidebarOpen = ref(null); // null = indeterminate, will be set in onMounted based on screen width
-const parameterConfigPanelOpen = ref(false);
-const isSettingsOpen = ref(false);
-const settingsInitialTab = ref('general'); // Controls which tab opens in settings panel
+
+// Developer Mode (Settings -> General) gates the model parameter controls.
+const developerMode = useDeveloperMode();
+
+// One value names whichever dock occupies the right-hand edge, and an
+// unavailable dock reads as closed — so turning Developer Mode off while the
+// parameter dock is open closes it by construction, with no watcher to keep
+// in sync. Read `openDock`, never `activeDock`.
+const { openDock, toggleDock, closeDock } = useDock({
+  parameters: () => developerMode.value,
+  workspace: () => true,
+});
+
+const workspaceWidth = ref(0); // px; reported by the Files dock (normal vs expanded)
+const PARAMETER_DOCK_WIDTH = 300; // px; matches .parameter-config-panel
+
+// Width of whichever dock is currently occupying the edge, so --dock-w can
+// never hold a stale workspace width while the parameter dock is open.
+const dockWidth = computed(() => {
+  if (openDock.value === 'parameters') return PARAMETER_DOCK_WIDTH;
+  if (openDock.value === 'workspace') return workspaceWidth.value;
+  return 0;
+});
+
+// Route side effects (workspace scope, staging discard, mobile panel
+// closes) live in a composable so they can be unit-tested.
+useLayoutRouteWatch(route, {
+  sidebarOpen,
+  closeDock,
+});
 
 // Set up dynamic page title
 const title = computed(() => {
@@ -154,12 +177,24 @@ function toggleSidebar() {
 }
 
 function openSettingsPanel(tabKey = 'general') {
-  settingsInitialTab.value = tabKey;
-  isSettingsOpen.value = true;
+  // Settings now live on their own page; deep-link the section.
+  router.push({ path: '/settings', query: tabKey && tabKey !== 'general' ? { tab: tabKey } : {} });
 }
 
-function handleParameterConfigSave(params) {
+function toggleParameterPanel() {
+  toggleDock('parameters');
+}
+
+function toggleWorkspacePanel() {
+  toggleDock('workspace');
+}
+
+function handleParameterConfigSave() {
   // The settings are already saved in the ParameterConfigPanel component.
+}
+
+function handleWorkspacePanelSave(params) {
+  // The settings are already saved in the WorkspacePanel component.
   // Hook kept for any future additional actions (e.g. analytics).
 }
 
@@ -206,7 +241,7 @@ const paletteCommands = computed(() => {
       label: 'New chat',
       icon: 'material-symbols:add-comment-outline',
       keywords: ['start', 'conversation', 'fresh'],
-      hint: hintFor('new-chat'),
+      hint: hintFor('new_chat'),
       run: handleNewConversation,
     },
     {
@@ -214,7 +249,7 @@ const paletteCommands = computed(() => {
       label: isIncognito.value ? 'Leave incognito mode' : 'Start incognito chat',
       icon: 'material-symbols:visibility-off-outline',
       keywords: ['private', 'temporary', 'unsaved'],
-      hint: hintFor('toggle-incognito'),
+      hint: hintFor('toggle_incognito'),
       run: toggleIncognito,
     },
     {
@@ -222,16 +257,17 @@ const paletteCommands = computed(() => {
       label: sidebarOpen.value ? 'Hide sidebar' : 'Show sidebar',
       icon: 'material-symbols:side-navigation',
       keywords: ['chats', 'threads', 'drawer'],
-      hint: hintFor('toggle-sidebar'),
+      hint: hintFor('toggle_sidebar'),
       run: toggleSidebar,
     },
     {
       id: 'toggle-parameters',
-      label: parameterConfigPanelOpen.value ? 'Hide parameters' : 'Show parameters',
+      when: () => developerMode.value,
+      label: openDock.value === 'parameters' ? 'Hide parameters' : 'Show parameters',
       icon: 'material-symbols:tune',
       keywords: ['temperature', 'top_p', 'seed', 'sampling', 'config'],
-      hint: hintFor('toggle-parameters'),
-      run: () => { parameterConfigPanelOpen.value = !parameterConfigPanelOpen.value; },
+      hint: hintFor('toggle_parameters'),
+      run: toggleParameterPanel,
     },
     {
       id: 'toggle-theme',
@@ -273,22 +309,21 @@ const paletteCommands = computed(() => {
       label: 'Keyboard shortcuts',
       icon: 'material-symbols:keyboard-outline',
       keywords: ['keybinds', 'hotkeys', 'bindings'],
-      hint: hintFor('shortcut-help'),
       run: openShortcutHelp,
     },
-  ];
-
-  if (canExport.value) {
-    commands.push({
+    {
       id: 'export-chat',
+      when: () => canExport.value,
       label: 'Export this chat',
       icon: 'material-symbols:download',
       keywords: ['save', 'zip', 'download', 'backup'],
       run: handleExportChat,
-    });
-  }
+    },
+  ];
 
-  return commands;
+  // One list in display order: a command's visibility rule sits on the
+  // command itself rather than in an append block further down.
+  return commands.filter(command => command.when?.() ?? true);
 });
 
 //-- Keyboard shortcuts
@@ -297,24 +332,28 @@ function openShortcutHelp() {
   openSettingsPanel('keybinds');
 }
 
-useKeyboardShortcuts({
-  openPalette: () => { isPaletteOpen.value = true; },
-  toggleSidebar,
-  toggleParameters: () => { parameterConfigPanelOpen.value = !parameterConfigPanelOpen.value; },
-  newChat: handleNewConversation,
-  toggleIncognito,
-  openShortcutHelp,
+useKeybinds({
+  // The palette shortcut toggles: the same keys that opened it close it
+  // again, which is what every other ⌘K palette does.
+  open_palette: () => { isPaletteOpen.value = !isPaletteOpen.value; },
+  toggle_sidebar: toggleSidebar,
+  toggle_parameters: toggleParameterPanel,
+  new_chat: handleNewConversation,
+  toggle_incognito: toggleIncognito,
 });
 
 /**
- * Looks up a registry shortcut's combo, e.g. "mod+alt+n". The palette renders
- * it through UiKbd, so the key caps match every other shortcut hint in the app.
+ * Looks up an action's CURRENT combo, e.g. "mod+alt+n". Reads the user's
+ * bindings first so a rebind in Settings -> Shortcuts is reflected in the
+ * palette immediately, falling back to the shipped default.
  *
- * @param {string} id - A shortcut id from the registry.
+ * @param {string} id - A keybind action id.
  * @returns {string} The combo string, or an empty string if unknown.
  */
 function hintFor(id) {
-  return SHORTCUTS.find(entry => entry.id === id)?.combo ?? '';
+  const bound = settingsManager.settings?.keybinds?.[id];
+  if (bound) return bound;
+  return KEYBIND_ACTIONS.find(entry => entry.id === id)?.default ?? '';
 }
 </script>
 
@@ -359,23 +398,16 @@ function hintFor(id) {
   z-index: 10;
 }
 
-/* Sidebar open shifts main content right by sidebar width (280px) */
+/* Sidebar open shifts main content right by sidebar width (260px) */
 @media (min-width: 950px) {
   .main-container.sidebar-open {
-    margin-left: 280px;
+    margin-left: 260px;
   }
 
-  .main-container.parameter-config-open {
-    margin-right: 300px;
-  }
-
-  .main-container.sidebar-open.parameter-config-open {
-    margin-left: 280px;
-    margin-right: 300px;
+  .main-container.dock-open {
+    margin-right: var(--dock-w, 380px);
   }
 }
-
-/* Top bar styling */
 
 /* Update fade transition timing */
 .fade-enter-active,
@@ -388,129 +420,16 @@ function hintFor(id) {
   opacity: 0;
 }
 
-/* Other display size styles */
-
-@media (max-width: 1024px) {
-  .flag {
-    display: none;
-  }
-}
-
+/*
+  Below 950px both panels overlay the page instead of reflowing it, so the
+  margin rules above never apply — only the transition needs suppressing.
+*/
 @media (max-width: 768px) {
-  #disclaimer {
-    margin-top: -16px;
-    font-size: smaller;
-  }
-
-  .app-container {
-    padding: 0;
-    /* Remove padding that was causing scrollbar */
-  }
-
-  header {
-    padding-top: 0px;
-  }
-
-  /* Ensure proper sidebar behavior on mobile - use overlay instead of transform */
   .main-container {
     transition: none;
-    /* Remove transitions that interfere with positioning */
-    transform: none;
-  }
-
-  .main-container.sidebar-open,
-  .main-container.parameter-config-open,
-  .main-container.sidebar-open.parameter-config-open {
-    transform: none;
-    margin: 0;
   }
 }
 
-/* Mobile-specific styles - use overlay instead of transform for better positioning */
-@media (max-width: 949px) {
-  .main-container {
-    transform: none;
-    /* Remove transforms that interfere with fixed positioning */
-    margin: 0;
-    /* Reset any margin changes */
-  }
-
-  /* Use overlay positioning for mobile panels */
-  .sidebar-open .main-container,
-  .parameter-config-open .main-container {
-    transform: none;
-    margin: 0;
-  }
-}
-
-.app-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  z-index: 1001;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 16px;
-  background: transparent;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Matches UiDialog's overlay/panel treatment so every modal in the app
-   enters the same way — the settings panel is just a wider one. */
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--scrim);
-  backdrop-filter: blur(2px);
-  z-index: 2000;
-  animation: dialogFade var(--duration) var(--ease-out) both;
-}
-
-.dialog-content-panel {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: calc(100% - 2rem);
-  max-width: 56rem;
-  max-height: 90vh;
-  overflow: hidden;
-  border-radius: var(--radius-xl);
-  background: var(--card);
-  padding: 0;
-  text-align: left;
-  box-shadow: var(--shadow-overlay);
-  z-index: 2001;
-  animation: dialogPanelIn var(--duration-enter) var(--ease-out-strong) both;
-}
-
-@keyframes dialogFade {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes dialogPanelIn {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
 </style>
+
+

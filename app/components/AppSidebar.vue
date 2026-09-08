@@ -81,8 +81,27 @@ function closeSidebar() {
   emit("closeSidebar");
 }
 
+// Sections that aren't conversations, listed above the chat history.
+const navItems = [
+  { label: "Projects", icon: "material-symbols:folder-outline-rounded", to: "/projects" },
+  { label: "Notepad", icon: "material-symbols:note-outline", to: "/notepad" },
+];
+
+// NuxtLink handles navigation and the active class; the sidebar only has to
+// get out of the way on mobile once a destination is chosen.
+function closeOnMobile() {
+  if (windowWidth.value < 950) closeSidebar();
+}
+
 function handleNewConversation() {
   router.push("/");
+}
+
+function handleMiddleClickNewChat(e) {
+  if (e.button === 1) {
+    e.preventDefault();
+    window.open('/', '_blank');
+  }
 }
 </script>
 
@@ -110,13 +129,28 @@ function handleNewConversation() {
 
       <UiButton
         id="new-chat-button"
-        variant="primary"
-        icon="material-symbols:add-rounded"
+        variant="ghost"
+        icon="material-symbols:edit-square-outline-rounded"
         block
         @click="handleNewConversation"
+        @auxclick="handleMiddleClickNewChat"
       >
-        New Chat
+        New chat
       </UiButton>
+
+      <!-- Destination nav: the surfaces that aren't conversations. -->
+      <nav class="sidebar-nav" aria-label="Sections">
+        <NuxtLink
+          v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          class="nav-link"
+          @click="closeOnMobile"
+        >
+          <Icon :icon="item.icon" width="18" height="18" />
+          <span>{{ item.label }}</span>
+        </NuxtLink>
+      </nav>
 
       <!-- Search Input -->
       <div class="search-container">
@@ -125,7 +159,7 @@ function handleNewConversation() {
           v-model="searchQuery"
           type="text"
           class="search-input"
-          placeholder="Search your threads..."
+          placeholder="Search chats"
         />
         <UiIconButton
           v-if="searchQuery"
@@ -290,12 +324,14 @@ function handleNewConversation() {
   left: 0;
   top: 0;
   height: 100dvh;
-  width: 280px;
+  width: 260px;
   max-width: 90vw;
   z-index: 1001;
   background: var(--bg-sidebar);
   color: var(--text-primary);
-  border-right: 1px solid var(--border);
+  /* No rule between rail and canvas — the tone step does the separating,
+     which is how ChatGPT keeps the shell quiet. */
+  border-right: none;
   transform: translateX(-100%);
   transition: transform var(--duration-slow) var(--ease-out-strong);
   display: flex;
@@ -310,7 +346,7 @@ function handleNewConversation() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 48px;
+  height: 52px;
   color: var(--text-primary);
   padding: 0 8px;
   position: relative;
@@ -325,39 +361,92 @@ function handleNewConversation() {
   letter-spacing: -0.01em;
 }
 
+/* Rail rows: full-width, left-aligned, pill hover. New chat and search are
+   the same shape as a conversation row so the rail reads as one list. */
 #new-chat-button {
-  margin: 12px 16px;
-  width: calc(100% - 32px);
-  height: 34px;
+  margin: 4px 8px 2px;
+  width: calc(100% - 16px);
+  height: 38px;
+  padding: 0 10px;
   flex-shrink: 0;
+  border-radius: var(--radius-control);
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  justify-content: flex-start;
+}
+
+#new-chat-button :deep(.ui-btn__body) {
+  gap: 10px;
+}
+
+/* Destination nav — same visual weight as #new-chat-button so the block
+   above the chat history reads as one list. */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 8px 8px;
+  flex-shrink: 0;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out-strong);
+}
+
+.nav-link:hover {
+  background: var(--btn-hover);
+}
+
+/* router-link-active covers nested routes (/projects/foo) too. */
+.nav-link.router-link-active {
+  background: var(--btn-hover);
+  font-weight: 600;
 }
 
 /* Search Container */
 .search-container {
-  margin: 0 16px 12px 16px;
+  margin: 0 8px 8px;
   position: relative;
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  border-radius: var(--radius-control);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.search-container:hover {
+  background: var(--btn-hover);
 }
 
 .search-icon {
   position: absolute;
   left: 10px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
-  height: 36px;
-  padding: 0 32px 0 36px;
-  background: var(--bg-input);
+  height: 38px;
+  padding: 0 32px 0 40px;
+  background: transparent;
   border: none;
   border-radius: var(--radius-control);
-  box-shadow: var(--shadow-inset-field), var(--shadow-hairline);
+  box-shadow: none;
   color: var(--text-primary);
-  font-size: 0.85em;
+  font-size: 0.875rem;
   font-family: inherit;
   transition: box-shadow var(--duration) var(--ease-out);
 }
@@ -368,7 +457,7 @@ function handleNewConversation() {
 
 .search-input:focus {
   outline: none;
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--line-strong);
 }
 
 .search-clear {
@@ -379,15 +468,15 @@ function handleNewConversation() {
 .main-content {
   flex: 1 1 0;
   overflow-y: auto;
-  padding: 0 16px;
+  padding: 0 8px;
   margin-bottom: 0;
 }
 
 /* Sidebar Footer */
 .sidebar-footer {
-  padding: 12px 16px 16px;
+  padding: 8px;
   flex-shrink: 0;
-  border-top: 1px solid var(--border);
+  border-top: none;
 }
 
 /* The footer action reads as a row, not a centred button */
@@ -428,8 +517,9 @@ function handleNewConversation() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px 2px 8px;
+  padding: 8px 10px 4px;
   margin-top: 8px;
+  height: 32px;
 }
 
 .group-header:first-child {
@@ -440,7 +530,7 @@ function handleNewConversation() {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.75em;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
@@ -476,14 +566,15 @@ function handleNewConversation() {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-height: 36px;
   text-align: left;
   background: none;
   color: var(--text-primary);
   border: none;
-  border-radius: var(--radius-chip);
-  padding: 6px 8px;
+  border-radius: var(--radius-control);
+  padding: 8px 10px;
   padding-right: 40px;
-  font-size: 0.85em;
+  font-size: 0.875rem;
   font-family: inherit;
   font-weight: 500;
   text-decoration: none;
@@ -502,11 +593,11 @@ function handleNewConversation() {
 
 .pin-icon {
   flex-shrink: 0;
-  color: var(--primary);
+  color: var(--text-muted);
 }
 
 .conversation-button {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .conversation-button:hover {
@@ -514,10 +605,12 @@ function handleNewConversation() {
   color: var(--text-primary);
 }
 
+/* The open thread is marked by a neutral fill, not a coloured one — colour
+   in the rail would be the loudest thing on screen. */
 .conversation-button.active {
-  background: var(--accent-tint);
-  color: var(--accent-ink);
-  font-weight: 600;
+  background: var(--hover-2);
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 /* Rename input */
@@ -526,10 +619,10 @@ function handleNewConversation() {
   background: var(--bg-input);
   color: var(--text-primary);
   border: none;
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
-  border-radius: var(--radius-chip);
-  padding: 5px 8px;
-  font-size: 0.95em;
+  box-shadow: 0 0 0 1px var(--line-strong);
+  border-radius: var(--radius-control);
+  padding: 8px 10px;
+  font-size: 0.875rem;
   font-family: inherit;
   font-weight: 500;
   outline: none;
@@ -537,7 +630,7 @@ function handleNewConversation() {
 }
 
 .rename-input:focus {
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--ink-3);
 }
 
 /* Menu trigger button (3-dot) */
@@ -637,9 +730,11 @@ function handleNewConversation() {
 .api-key-warning {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 12px 16px 16px 16px;
-  padding: 12px;
+  gap: 10px;
+  /* Same 8px gutter as every other rail row, so the notice lines up with
+     the conversation list instead of sitting inset from it. */
+  margin: 8px 8px 12px;
+  padding: 10px 12px;
   background: var(--orange-tint);
   border: none;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 25%, transparent);
@@ -666,12 +761,12 @@ function handleNewConversation() {
   color: var(--warning);
 }
 
+/* The rail is 260px wide; the sentence does not fit on one line there, so it
+   wraps rather than clipping to "Add your API key in setti…". */
 .warning-text {
   font-size: 0.75em;
+  line-height: 1.35;
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 </style>

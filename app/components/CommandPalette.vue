@@ -26,6 +26,7 @@ import { useMessageSearch } from "~/composables/useMessageSearch";
 import { buildPaletteItems, moveActiveIndex, clampActiveIndex } from "~/composables/commandPalette";
 import { snippetSegments } from "~/composables/messageSearch";
 import { highlightSegments } from "~/utils/fuzzyMatch";
+import { relativeTime } from "~/utils/relativeTime";
 
 const props = defineProps({
   open: {
@@ -184,22 +185,6 @@ const ROLE_ICONS = {
 function roleIcon(role) {
   return ROLE_ICONS[role] || "material-symbols:chat-bubble-outline";
 }
-
-/** Compact "2h ago"-style stamp for conversation rows. */
-function relativeTime(value) {
-  if (!value) return "";
-  const then = new Date(value).getTime();
-  if (Number.isNaN(then)) return "";
-
-  const minutes = Math.round((Date.now() - then) / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(then).toLocaleDateString();
-}
 </script>
 
 <template>
@@ -331,11 +316,18 @@ function relativeTime(value) {
   z-index: 3000;
 }
 
+/*
+  Centred with auto margins rather than `left: 50%; translateX(-50%)`:
+  the uEnter keyframes animate `transform` and settle on `transform: none`,
+  which used to wipe the centring translate and leave the palette hanging
+  off to the right of centre.
+*/
 .palette-content {
   position: fixed;
   top: 12vh;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin-inline: auto;
   width: calc(100% - 2rem);
   max-width: 40rem;
   max-height: 70vh;

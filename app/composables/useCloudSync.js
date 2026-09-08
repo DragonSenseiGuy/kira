@@ -89,15 +89,37 @@ export function useCloudSync() {
   }
 
   /**
+   * Deletes the account's copy of a conversation.
+   *
+   * Reports success as a boolean instead of throwing: most callers mirror a
+   * local delete here as a best-effort side effect, but "delete all my data"
+   * has to know whether the account copy really went away before it destroys
+   * the local copy it would need in order to retry.
+   *
    * @param {string} conversationId
+   * @returns {Promise<boolean>} True when the account no longer holds it —
+   *   including when there is no account to delete from. False on failure.
    */
   async function cloudDeleteConversation(conversationId) {
-    if (!canSync()) return;
+    // Nothing to delete when accounts are off or nobody is signed in.
+    if (!canSync()) return true;
 
     try {
-      await api(`/api/conversations/${conversationId}`, { method: "DELETE" });
+      const res = await api(`/api/conversations/${conversationId}`, {
+        method: "DELETE",
+      });
+      // 404 means the server already doesn't have it — same end state.
+      if (!res.ok && res.status !== 404) {
+        console.warn(
+          "[CloudSync] Failed to delete conversation:",
+          `HTTP ${res.status}`,
+        );
+        return false;
+      }
+      return true;
     } catch (error) {
       console.warn("[CloudSync] Failed to delete conversation:", error.message);
+      return false;
     }
   }
 

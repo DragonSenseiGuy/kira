@@ -91,7 +91,7 @@ const displayValue = computed(() =>
   position: absolute;
   height: 100%;
   border-radius: var(--radius-full);
-  background: var(--accent);
+  background: var(--action);
 }
 
 .ui-slider__thumb {
@@ -118,6 +118,6 @@ const displayValue = computed(() =>
 
 .ui-slider__thumb:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--ink-3);
 }
 </style>

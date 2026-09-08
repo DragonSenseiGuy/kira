@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import pkg from './package.json';
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false, // We don't like SSR over here
@@ -83,6 +85,10 @@ export default defineNuxtConfig({
     databaseUrl: '', // NUXT_DATABASE_URL / DATABASE_URL - enables accounts + cloud-synced chats
     encryptionKey: '', // NUXT_ENCRYPTION_KEY - encrypts stored API keys (falls back to sessionSecret)
     // Public config that is exposed to the client
-    public: {}
+    public: {
+      // Live app version, read from package.json at build time — never
+      // hardcode this in the UI.
+      appVersion: pkg.version,
+    }
   }
 })

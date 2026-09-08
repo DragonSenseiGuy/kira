@@ -49,7 +49,7 @@ defineEmits(["update:modelValue"]);
 }
 
 .ui-option.is-checked {
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: 0 0 0 1px var(--ink-3);
 }
 
 .ui-option.is-disabled {
@@ -69,7 +69,7 @@ defineEmits(["update:modelValue"]);
   border-radius: var(--radius-chip);
   background: var(--card);
   box-shadow: 0 0 0 1px var(--line-strong);
-  color: var(--accent-on);
+  color: var(--action-on);
   cursor: inherit;
   transition:
     background-color var(--duration-fast) var(--ease-out),
@@ -77,8 +77,8 @@ defineEmits(["update:modelValue"]);
 }
 
 .ui-option__box[data-state="checked"] {
-  background: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  background: var(--action);
+  box-shadow: 0 0 0 1px var(--action);
 }
 
 .ui-option__tick {

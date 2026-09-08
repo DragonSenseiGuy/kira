@@ -14,16 +14,17 @@
           icon="material-symbols:add-box-outline"
           label="New chat"
           @click="handleNewChat"
+          @auxclick="handleMiddleClickNewChat"
         />
       </UiTooltip>
 
       <UiBadge
-        v-if="(isIncognito && messages && messages.length > 0) || isIncognitoRoute"
+        v-if="(isIncognito && messages && messages.length > 0) || isIncognitoSession"
         tone="neutral"
         icon="mdi:incognito"
         class="incognito-indicator"
       >
-        {{ isIncognitoRoute ? 'Incognito Mode' : 'Incognito mode' }}
+        Incognito mode
       </UiBadge>
 
       <div class="action-toggles">
@@ -44,7 +45,7 @@
         </UiTooltip>
 
         <UiTooltip
-          v-if="showIncognitoButton && !isIncognitoRoute"
+          v-if="showIncognitoButton && !isIncognitoSession"
           :content="isIncognito ? 'Disable incognito mode' : 'Enable incognito mode'"
           side="bottom"
           shortcut="mod+alt+i"
@@ -58,11 +59,24 @@
           />
         </UiTooltip>
 
-        <UiTooltip v-if="!parameterConfigOpen" content="Model parameters" side="bottom" shortcut="mod+alt+b">
+        <UiTooltip
+          v-if="developerMode && !parameterConfigOpen"
+          content="Model parameters"
+          side="bottom"
+          shortcut="mod+alt+b"
+        >
           <UiIconButton
             icon="material-symbols:tune"
             label="Model parameters"
             @click="$emit('toggle-parameter-config')"
+          />
+        </UiTooltip>
+
+        <UiTooltip v-if="!workspaceOpen" content="Workspace files" side="bottom">
+          <UiIconButton
+            icon="material-symbols:folder-open-outline-rounded"
+            label="Workspace files"
+            @click="$emit('toggle-workspace')"
           />
         </UiTooltip>
       </div>
@@ -72,7 +86,14 @@
 
 <script setup>
 import { computed, ref } from 'vue';
-import { useRoute, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
+import { useGlobalIncognito } from "~/composables/useGlobalIncognito";
+import { useDeveloperMode } from '~/composables/useDeveloperMode';
+
+// The model parameters button is Developer Mode surface. Read straight from
+// the setting — it is global, so threading it through as a prop would only
+// add a way for the bar and the dock to disagree.
+const developerMode = useDeveloperMode();
 
 const props = defineProps({
   isScrolledTop: {
@@ -99,6 +120,10 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  workspaceOpen: {
+    type: Boolean,
+    default: false
+  },
   parameterConfigOpen: {
     type: Boolean,
     default: false
@@ -113,9 +138,8 @@ const props = defineProps({
   }
 });
 
-defineEmits(['toggle-incognito', 'toggle-parameter-config', 'export-chat', 'open-palette']);
+defineEmits(['toggle-incognito', 'toggle-parameter-config', 'toggle-workspace', 'export-chat', 'open-palette']);
 
-const route = useRoute();
 const router = useRouter();
 const topBarRef = ref(null);
 
@@ -123,7 +147,16 @@ const handleNewChat = () => {
   router.push('/');
 };
 
-const isIncognitoRoute = computed(() => route.path === '/incognito');
+const handleMiddleClickNewChat = (e) => {
+  if (e.button === 1) {
+    e.preventDefault();
+    window.open('/', '_blank');
+  }
+};
+
+// The incognito screen itself, as opposed to incognito merely armed from
+// the new-chat toggle — the badge and the toggle button read differently there.
+const { isIncognitoSession } = useGlobalIncognito();
 
 const isScrolledTopValue = computed(() => {
   return typeof props.isScrolledTop === 'boolean'
