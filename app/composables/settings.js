@@ -83,6 +83,7 @@ class Settings {
 
       // --- GPT-OSS Specific Settings ---
       gpt_oss_limit_tables: false, // Whether to limit table usage for GPT-OSS models
+      follow_up_suggestions: false, // Suggest follow-up questions under each answer (one extra request per answer)
 
       // --- Developer Mode ---
       // Stored under the historical key so existing installs keep their choice.
@@ -118,6 +119,7 @@ class Settings {
       model_settings: {}, // Default value for model settings
       parameter_config: { ...DEFAULT_PARAMETERS },
       gpt_oss_limit_tables: false, // Default value for GPT-OSS table limiting
+      follow_up_suggestions: false,
       show_debug_options: false, // Default: Developer Mode off
       custom_api_key: '', // Default empty API key (user must provide their own)
     };

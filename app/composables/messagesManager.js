@@ -1,3 +1,4 @@
+import { useFollowUps } from './useFollowUps';
 import { ref, computed, nextTick, onMounted, onUnmounted, toRaw } from 'vue';
 import { useRouter } from 'vue-router';
 import localforage from 'localforage';
@@ -41,6 +42,7 @@ import {
 export function useMessagesManager(chatPanel) {
   // Use the shared settings instance
   const settingsManager = useSettings();
+  const { requestFollowUps, clearFollowUps } = useFollowUps();
 
   // Use global incognito state
   const { isIncognito, setIncognito, toggleIncognito: globalToggleIncognito } = useGlobalIncognito();
@@ -227,6 +229,8 @@ export function useMessagesManager(chatPanel) {
     const { skipUserMessage = false, parentId: explicitParentId = null } = options;
 
     if ((!message.trim() && attachments.length === 0) || isLoading.value) return;
+
+    clearFollowUps();
 
     // Check credentials. Only relayed traffic needs an API key — loopback
     // runtimes (Ollama/LM Studio) are called directly from the browser and
@@ -544,6 +548,16 @@ export function useMessagesManager(chatPanel) {
         await storeMessages(currConvo.value, toRaw(messages.value), new Date());
       }
 
+      // Fire-and-forget: suggest what to ask next (opt-in). Not after an
+      // error or a stopped answer.
+      if (
+        settingsManager.settings?.follow_up_suggestions &&
+        !assistantMsg.error &&
+        !controller.value?.signal?.aborted
+      ) {
+        requestFollowUps(toRaw(visibleMessages.value));
+      }
+
       // Fire-and-forget: auto-compress after the assistant turn completes,
       // in case the assistant response pushed the context over the threshold.
       triggerAutoCompression();
@@ -581,6 +595,7 @@ export function useMessagesManager(chatPanel) {
    * Changes the current conversation
    */
   async function changeConversation(id) {
+    clearFollowUps();
     chatLoading.value = true;
     messages.value = [];
     branchPath.value = [];
@@ -686,6 +701,7 @@ export function useMessagesManager(chatPanel) {
    * Navigates to a different branch
    */
   async function navigateBranch(messageId, direction) {
+    clearFollowUps();
     const info = branchInfo.value.get(messageId);
     if (!info) return;
 
@@ -735,6 +751,7 @@ export function useMessagesManager(chatPanel) {
     await deleteConv(id);
     deleteChatWorkspace(id);
     if (currConvo.value === id) {
+      clearFollowUps();
       currConvo.value = '';
       messages.value = [];
       conversationTitle.value = '';
@@ -746,6 +763,7 @@ export function useMessagesManager(chatPanel) {
    * Starts a new conversation
    */
   async function newConversation() {
+    clearFollowUps();
     currConvo.value = '';
     messages.value = [];
     conversationTitle.value = '';

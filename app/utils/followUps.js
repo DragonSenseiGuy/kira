@@ -1,0 +1,80 @@
+/**
+ * @file followUps.js
+ * @description Prompt building and reply parsing for follow-up suggestions.
+ */
+
+export const MAX_FOLLOW_UPS = 3;
+const MAX_SUGGESTION_LENGTH = 120;
+const MAX_TURN_CHARS = 2000;
+const RECENT_TURNS = 4;
+
+export const FOLLOW_UP_SYSTEM_PROMPT =
+  `You suggest follow-up questions. Given the end of a conversation between a user and an AI assistant, ` +
+  `propose ${MAX_FOLLOW_UPS} short questions or requests the user might send next. ` +
+  `Write them from the user's point of view, in the language of the conversation, each under 80 characters. ` +
+  `Output only a JSON array of ${MAX_FOLLOW_UPS} strings, with no other text.`;
+
+/**
+ * Builds the request messages from the last few visible turns.
+ * @param {Array<{role: string, content: string}>} messages
+ * @returns {Array<{role: string, content: string}>}
+ */
+export function buildFollowUpMessages(messages) {
+  const transcript = (messages || [])
+    .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
+    .slice(-RECENT_TURNS)
+    .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.trim().slice(0, MAX_TURN_CHARS)}`)
+    .join("\n\n");
+  return [
+    { role: "system", content: FOLLOW_UP_SYSTEM_PROMPT },
+    { role: "user", content: `Conversation so far:\n\n${transcript}` },
+  ];
+}
+
+function clean(item) {
+  if (typeof item !== "string") return "";
+  return item
+    .replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "")
+    .replace(/^["'“”]+|["'“”,]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Extracts the suggestions from a model reply: a JSON array when there is
+ * one (optionally inside a code fence or surrounded by prose), otherwise
+ * one suggestion per line.
+ * @param {string} text
+ * @returns {string[]} At most MAX_FOLLOW_UPS distinct suggestions.
+ */
+export function parseFollowUps(text) {
+  if (typeof text !== "string" || !text.trim()) return [];
+
+  let items = null;
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start !== -1 && end > start) {
+    try {
+      const parsed = JSON.parse(text.slice(start, end + 1));
+      if (Array.isArray(parsed)) items = parsed;
+    } catch {
+      // Not JSON; fall back to lines.
+    }
+  }
+  if (!items) {
+    items = text.split("\n").filter((line) => !/^\s*```/.test(line));
+  }
+
+  const seen = new Set();
+  const result = [];
+  for (const item of items) {
+    const suggestion = clean(item);
+    if (!suggestion || suggestion.length > MAX_SUGGESTION_LENGTH) continue;
+    const key = suggestion.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(suggestion);
+    if (result.length === MAX_FOLLOW_UPS) break;
+  }
+  return result;
+}
