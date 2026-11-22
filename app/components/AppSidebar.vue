@@ -1,5 +1,6 @@
 <script setup>
-import { ref, onBeforeUnmount, onMounted, nextTick, computed } from "vue";
+import { ref, onBeforeUnmount, onMounted, nextTick, computed, watch } from "vue";
+import { chatActivity, markChatSeen } from "~/composables/chatActivity";
 import { Icon } from "@iconify/vue";
 import { useRouter, useRoute } from "vue-router";
 import {
@@ -22,6 +23,9 @@ const props = defineProps(["currConvo", "messages", "isDark", "isOpen"]);
 
 const router = useRouter();
 const route = useRoute();
+
+// Opening a chat clears its "new reply" dot.
+watch(() => route.params.id, (id) => markChatSeen(id), { immediate: true });
 
 // Use settings to check for API key
 const settingsManager = useSettings();
@@ -240,6 +244,18 @@ function handleMiddleClickNewChat(e) {
                   :class="{ active: data.id == route.params.id }"
                 >
                   <span class="conversation-title">{{ data.title }}</span>
+                  <span
+                    v-if="chatActivity(data.id) === 'generating'"
+                    class="chat-activity generating"
+                    role="img"
+                    aria-label="Reply in progress"
+                  ></span>
+                  <span
+                    v-else-if="chatActivity(data.id) === 'unread' && data.id != route.params.id"
+                    class="chat-activity unread"
+                    role="img"
+                    aria-label="New reply"
+                  ></span>
                 </NuxtLink>
                 
                 <!-- Dropdown Menu -->
@@ -589,6 +605,32 @@ function handleMiddleClickNewChat(e) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.chat-activity {
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.chat-activity.unread {
+  background: var(--accent);
+}
+
+.chat-activity.generating {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--text-muted);
+  border-top-color: transparent;
+  animation: uSpin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-activity.generating {
+    animation-duration: 2.4s;
+  }
 }
 
 .pin-icon {

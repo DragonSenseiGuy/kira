@@ -16,6 +16,7 @@ import {
 } from './workspaceSession';
 import { PartsBuilder, TimingTracker } from './partsBuilder';
 import { buildApiHistory } from './contextCompressor';
+import { markReplyStarted, markReplyFinished, clearChatActivity } from './chatActivity';
 import {
   maybeAutoCompress,
   refreshCompressionState,
@@ -81,6 +82,7 @@ export function useMessagesManager(chatPanel) {
   // Handle conversation deletion
   const handleConversationDeleted = ({ conversationId }) => {
     clearCompressionState(conversationId);
+    clearChatActivity(conversationId);
     deleteChatWorkspace(conversationId); // privacy-first: files die with the chat
     if (currConvo.value === conversationId && !isIncognito.value) {
       currConvo.value = '';
@@ -329,6 +331,10 @@ export function useMessagesManager(chatPanel) {
     let currentToolCalls = [];
     let hasExecutedTools = false;
 
+    // Shown in the sidebar; the reply keeps going if this page is left.
+    const generatingId = isIncognito.value ? null : currConvo.value || null;
+    markReplyStarted(generatingId);
+
     try {
       // Build conversation history for the API
       // Tool results are now stored in assistant message parts, not as separate messages
@@ -538,6 +544,7 @@ export function useMessagesManager(chatPanel) {
       }
 
       isLoading.value = false;
+      markReplyFinished(generatingId, router.currentRoute.value.params.id === generatingId);
 
       // Store messages if not in incognito mode
       if (!isIncognito.value) {
