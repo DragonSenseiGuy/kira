@@ -160,12 +160,14 @@ async function generateTitleInBackground(conversationId, plainMessages, lastUpda
     }
 
     // Update the conversation with the new title
+    // The request can take a while; a name the user chose meanwhile wins.
+    // Read before the conversation record so nothing is awaited between
+    // reading that record and writing it back (a reply may be saving).
+    const metadata = (await localforage.getItem("conversations_metadata")) || [];
+    if (!canApplyGeneratedTitle(metadata.find(conv => conv.id === conversationId))) return;
+
     const conversation = await localforage.getItem(`conversation_${conversationId}`);
     if (conversation) {
-      const metadata = (await localforage.getItem("conversations_metadata")) || [];
-      // The request can take a while; a name the user chose meanwhile wins.
-      if (!canApplyGeneratedTitle(metadata.find(conv => conv.id === conversationId))) return;
-
       conversation.title = newTitle;
       conversation.lastUpdated = lastUpdated;
       await localforage.setItem(`conversation_${conversationId}`, conversation);
