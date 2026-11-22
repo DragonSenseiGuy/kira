@@ -8,6 +8,7 @@ import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
 import ContextSummaryMarker from './ContextSummaryMarker.vue';
 import MessageEditArea from './MessageEditArea.vue';
+import ImageLightbox from './ImageLightbox.vue';
 import { useContextCompression } from '../composables/useContextCompression';
 import { getFormattedStatsFromExecutedTools } from '../composables/searchViewStats';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
@@ -550,6 +551,13 @@ function submitEdit(messageId, newContent, newAttachments) {
   editingMessageId.value = null;
 }
 
+// Image shown full size, or null.
+const openedImage = ref(null);
+
+function openImage(src, alt) {
+  openedImage.value = { src, alt: alt || '' };
+}
+
 function regenerateMessage(messageId) {
   emit("regenerate-message", messageId);
 }
@@ -698,6 +706,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 <template>
   <div class="chat-wrapper" ref="chatWrapper">
+    <ImageLightbox :image="openedImage" @close="openedImage = null" />
     <div class="chat-container">
       <div v-if="messages.length < 1 && showWelcome" class="welcome-container">
         <h1 v-if="!isIncognito" class="welcome-message">What can I help with?</h1>
@@ -820,11 +829,18 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                               :key="`image-${partIndex}-${imageIndex}`"
                               class="image-container"
                             >
-                              <img
-                                :src="image.url"
-                                :alt="image.revised_prompt || 'Generated image'"
-                                loading="lazy"
-                              />
+                              <button
+                                type="button"
+                                class="image-open"
+                                aria-label="View image full size"
+                                @click="openImage(image.url, image.revised_prompt || 'Generated image')"
+                              >
+                                <img
+                                  :src="image.url"
+                                  :alt="image.revised_prompt || 'Generated image'"
+                                  loading="lazy"
+                                />
+                              </button>
                               <div v-if="image.revised_prompt" class="image-caption">
                                 {{ image.revised_prompt }}
                               </div>
@@ -846,12 +862,19 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                           class="attachment-thumbnail"
                           :class="attachment.type"
                         >
-                          <img
+                          <button
                             v-if="attachment.type === 'image'"
-                            :src="attachment.dataUrl"
-                            :alt="attachment.filename"
-                            loading="lazy"
-                          />
+                            type="button"
+                            class="image-open"
+                            :aria-label="`View ${attachment.filename || 'image'} full size`"
+                            @click="openImage(attachment.dataUrl, attachment.filename)"
+                          >
+                            <img
+                              :src="attachment.dataUrl"
+                              :alt="attachment.filename"
+                              loading="lazy"
+                            />
+                          </button>
                           <div v-else class="pdf-attachment">
                             <Icon icon="material-symbols:picture-as-pdf" width="24" height="24" />
                             <span class="pdf-filename">{{ attachment.filename }}</span>
@@ -1595,6 +1618,20 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 .attachment-thumbnail {
   border-radius: var(--radius-control);
   overflow: hidden;
+}
+
+.image-open {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-control);
+  cursor: zoom-in;
+}
+
+.image-open:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .attachment-thumbnail.image img {
