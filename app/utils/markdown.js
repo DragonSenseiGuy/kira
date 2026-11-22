@@ -22,22 +22,20 @@ function addCodeBlockRenderer(md) {
     // Handle code blocks
     const code = token.content;
     const lang = langName || "text";
-    const langDisplay = lang;
 
     // Escape HTML in code content
     const escapedCode = md.utils.escapeHtml(code);
 
-    // Build HTML using template literals for better readability
-    // For onclick handlers, we need to properly escape the language to prevent XSS and ensure proper execution
-    const escapedLang = langDisplay.replace(/'/g, "\\'").replace(/"/g, '"').replace(/</g, '<').replace(/>/g, '>');
+    // The language comes from the model's reply, so it is only ever placed in
+    // the page escaped; the download button reads it back from data-lang.
     const safeLangClass = md.utils.escapeHtml(lang);
 
     // Add data-needs-highlight attribute for lazy highlighting
     return `<div class="code-block-wrapper" data-lang="${safeLangClass}">
   <div class="code-block-header">
-    <span class="code-language">${langDisplay}</span>
+    <span class="code-language">${safeLangClass}</span>
     <div class="code-actions">
-      <button class="code-action-button" onclick="window.downloadCode(event.currentTarget, '${escapedLang}')" title="Download file">
+      <button class="code-action-button" onclick="window.downloadCode(event.currentTarget)" title="Download file">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
           <path fill="currentColor" d="M12 15.575q-.2 0-.375-.062T11.3 15.3l-3.6-3.6q-.3-.3-.288-.7t.288-.7q.3-.3.713-.312t.712.287L11 12.15V5q0-.425.288-.712T12 4t.713.288T13 5v7.15l1.875-1.875q.3-.3.713-.288t.712.313q.275.3.288.7t-.288.7l-3.6 3.6q-.15.15-.325.213t-.375.062M6 20q-.825 0-1.412-.587T4 18v-2q0-.425.288-.712T5 15t.713.288T6 16v2h12v-2q0-.425.288-.712T19 15t.713.288T20 16v2q0 .825-.587 1.413T18 20z" stroke-width="0.1" stroke="currentColor" />
         </svg>

@@ -74,6 +74,22 @@ describe("downloadCode", () => {
     clickSpy.mockRestore();
   });
 
+  it("reads the language from the code block when none is passed", () => {
+    const { button } = makeCodeBlock("python", "print(1)");
+    button.closest(".code-block-wrapper").dataset.lang = "python";
+    let filename;
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function () { filename = this.download; });
+
+    downloadCode(button);
+    expect(filename).toMatch(/^code-\d+\.py$/);
+
+    button.closest(".code-block-wrapper").dataset.lang = "<img src=x>";
+    downloadCode(button);
+    expect(filename).toMatch(/^code-\d+\.txt$/);
+    clickSpy.mockRestore();
+  });
+
   it("strips surrounding quotes that JSON.stringify would add", () => {
     const { button } = makeCodeBlock("python", "x");
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click")

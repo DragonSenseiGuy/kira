@@ -115,4 +115,36 @@ describe("default md singleton", () => {
     const html = md.render("# title");
     expect(html).toContain("<h1>title</h1>");
   });
+
+  describe("code block language label", () => {
+    const render = (lang) => {
+      const host = document.createElement("div");
+      host.innerHTML = md.render("```" + lang + "\ncode\n```");
+      return host;
+    };
+
+    it("shows markup in the language as text, not as elements", () => {
+      const host = render("<img/src=x/onerror=alert(1)>");
+      expect(host.querySelector("img")).toBeNull();
+      expect(host.querySelector(".code-language").textContent).toBe(
+        "<img/src=x/onerror=alert(1)>",
+      );
+    });
+
+    it("cannot add attributes or script to the download button", () => {
+      for (const lang of ['x"/onmouseover="alert(1)', "x');alert(1);//"]) {
+        const host = render(lang);
+        const buttons = [...host.querySelectorAll(".code-action-button")];
+        expect(buttons).toHaveLength(2);
+        expect(buttons.map((b) => b.getAttributeNames().sort())).toEqual([
+          ["class", "onclick", "title"],
+          ["class", "onclick", "title"],
+        ]);
+        expect(buttons[0].getAttribute("onclick")).toBe(
+          "window.downloadCode(event.currentTarget)",
+        );
+        expect(host.querySelector(".code-block-wrapper").dataset.lang).toBe(lang);
+      }
+    });
+  });
 });
