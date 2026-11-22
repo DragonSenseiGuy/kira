@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode } from '../utils/codeBlockUtils';
+import { isAtBottom as isContainerAtBottom, shouldOfferJump } from '../utils/scrollPosition';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -326,13 +327,15 @@ async function focusMessage(messageId, options = {}) {
   return true;
 }
 
+const showJumpToLatest = ref(false);
+
 const handleScroll = () => {
   const container = cachedScrollContainer || chatWrapper.value;
   if (!container) return;
 
-  const { scrollHeight, scrollTop, clientHeight } = container;
-  isAtBottom.value = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
-  emit('scroll', { isAtTop: scrollTop === 0 });
+  isAtBottom.value = isContainerAtBottom(container);
+  showJumpToLatest.value = shouldOfferJump(container);
+  emit('scroll', { isAtTop: container.scrollTop === 0 });
 };
 
 watch(
@@ -960,10 +963,71 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
         </template>
       </div>
     </div>
+    <div class="jump-to-latest-anchor">
+      <Transition name="jump-fade">
+        <button
+          v-if="showJumpToLatest"
+          type="button"
+          class="jump-to-latest"
+          aria-label="Jump to latest message"
+          title="Jump to latest message"
+          @click="scrollToEnd('smooth')"
+        >
+          <Icon icon="material-symbols:arrow-downward-rounded" width="20" height="20" />
+        </button>
+      </Transition>
+    </div>
   </div>
 </template>
 
 <style>
+/* Zero-height sticky row so the button floats above the composer without
+   taking space in the conversation. */
+.jump-to-latest-anchor {
+  position: sticky;
+  bottom: 150px;
+  height: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.jump-to-latest {
+  pointer-events: auto;
+  transform: translateY(-100%);
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--popover-bg);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--line-strong), var(--popover-shadow);
+  cursor: pointer;
+}
+
+.jump-to-latest:hover {
+  background: var(--bg-tertiary);
+}
+
+.jump-to-latest:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.jump-fade-enter-active,
+.jump-fade-leave-active {
+  transition: opacity var(--duration-fast) ease;
+}
+
+.jump-fade-enter-from,
+.jump-fade-leave-to {
+  opacity: 0;
+}
+
 .chat-wrapper {
   --text-primary-light: var(--text-primary);
   --text-secondary-light: var(--text-secondary);
