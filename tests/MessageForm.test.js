@@ -250,3 +250,65 @@ describe("MessageForm — mobile IME composition", () => {
     wrapper.unmount();
   });
 });
+
+describe("MessageForm — arrow and Tab keys", () => {
+  /** Dispatches a cancelable keydown and reports whether it was prevented. */
+  async function press(wrapper, key, init = {}) {
+    const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
+    wrapper.find("textarea").element.dispatchEvent(event);
+    await flushPromises();
+    return event.defaultPrevented;
+  }
+
+  it("leaves Up, Down and Tab to the browser when there is text and no picker", async () => {
+    const wrapper = mountForm();
+    await type(wrapper, "one\ntwo");
+
+    expect(await press(wrapper, "ArrowUp")).toBe(false);
+    expect(await press(wrapper, "ArrowDown")).toBe(false);
+    expect(await press(wrapper, "Tab")).toBe(false);
+    expect(wrapper.emitted("edit-last-message")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("uses Up, Down and Tab for the @mention picker while it shows matches", async () => {
+    wb.chatFiles.value = [
+      { path: "a.md", size: 1 },
+      { path: "b.md", size: 1 },
+    ];
+    const wrapper = mountForm();
+    await type(wrapper, "@");
+    await flushPromises();
+
+    expect(await press(wrapper, "ArrowDown")).toBe(true);
+    expect(wrapper.findAll(".mention-item")[1].classes()).toContain("active");
+    expect(await press(wrapper, "ArrowUp")).toBe(true);
+    expect(wrapper.findAll(".mention-item")[0].classes()).toContain("active");
+    expect(wrapper.emitted("edit-last-message")).toBeUndefined();
+
+    expect(await press(wrapper, "Tab")).toBe(true);
+    expect(wrapper.find("textarea").element.value).toBe("@a.md ");
+    wrapper.unmount();
+  });
+
+  it("asks to edit the last message on Up in an empty composer", async () => {
+    const wrapper = mountForm();
+
+    expect(await press(wrapper, "ArrowUp")).toBe(true);
+    expect(wrapper.emitted("edit-last-message")).toHaveLength(1);
+
+    expect(await press(wrapper, "ArrowDown")).toBe(false);
+    expect(await press(wrapper, "ArrowUp", { shiftKey: true })).toBe(false);
+    expect(wrapper.emitted("edit-last-message")).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it("does not ask to edit while a reply is streaming", async () => {
+    const wrapper = mountForm();
+    await wrapper.setProps({ isLoading: true });
+
+    expect(await press(wrapper, "ArrowUp")).toBe(false);
+    expect(wrapper.emitted("edit-last-message")).toBeUndefined();
+    wrapper.unmount();
+  });
+});

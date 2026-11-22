@@ -55,6 +55,7 @@ const props = defineProps({
 });
 const emit = defineEmits([
   "send-message",
+  "edit-last-message",
   "abort-controller",
   "typing",
   "empty",
@@ -283,9 +284,33 @@ function onArrowRight(e) {
   setCaret(span.end);
 }
 
-function onTabSelect() {
+function onTabSelect(event) {
   if (mentionOpen.value && mentionItems.value.length) {
+    event.preventDefault();
     pickMention(mentionItems.value[mentionActive.value] || mentionItems.value[0]);
+  }
+}
+
+// The arrow keys only belong to the @mention picker while it is showing
+// matches; otherwise they must keep moving the caret between lines.
+function onArrowDown(event) {
+  if (mentionOpen.value && mentionItems.value.length) {
+    event.preventDefault();
+    mentionMove(1);
+  }
+}
+
+function onArrowUp(event) {
+  if (mentionOpen.value && mentionItems.value.length) {
+    event.preventDefault();
+    mentionMove(-1);
+    return;
+  }
+  // Up in an empty composer opens the last sent message for editing.
+  const plain = !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+  if (plain && !inputMessage.value && !props.isLoading && !event.isComposing) {
+    event.preventDefault();
+    emit("edit-last-message");
   }
 }
 const messageFormRoot = ref(null); // Ref for the root element
@@ -864,14 +889,14 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
           :disabled="isLoading"
           :class="{ 'text-hidden': mirrorVisible }"
           @keydown.enter="handleEnterKey"
-          @keydown.down.prevent="mentionActive >= 0 && mentionMove(1)"
-          @keydown.up.prevent="mentionActive >= 0 && mentionMove(-1)"
+          @keydown.down="onArrowDown"
+          @keydown.up="onArrowUp"
           @keydown.esc="mentionClose"
           @keydown.backspace="onBackspace"
           @keydown.delete="onDeleteKey"
           @keydown.left="onArrowLeft"
           @keydown.right="onArrowRight"
-          @keydown.tab.prevent="onTabSelect"
+          @keydown.tab="onTabSelect"
           @compositionstart="onCompositionStart"
           @compositionend="onCompositionEnd"
           @input="handleInput"

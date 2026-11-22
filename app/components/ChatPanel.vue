@@ -538,16 +538,48 @@ function copyDebugDump(message, event) {
 const editingMessageId = ref(null);
 
 function startEditing(message) {
+  focusBeforeEditing = null;
   editingMessageId.value = message.id;
+}
+
+// Where focus was when editing was opened from the keyboard, so closing the
+// editor can hand it back.
+let focusBeforeEditing = null;
+
+/**
+ * Opens the most recent user message for editing and moves focus into it.
+ * @returns {boolean} Whether there was a message to edit.
+ */
+function editLastUserMessage() {
+  const last = messages.value.findLast((message) => message.role === "user");
+  if (!last) return false;
+  startEditing(last);
+  focusBeforeEditing = document.activeElement;
+  nextTick(() => {
+    const textarea = chatWrapper.value?.querySelector(".edit-textarea");
+    if (!textarea) return;
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    textarea.scrollIntoView?.({ block: "nearest" });
+  });
+  return true;
+}
+
+function restoreFocusAfterEditing() {
+  const target = focusBeforeEditing;
+  focusBeforeEditing = null;
+  if (target?.isConnected) nextTick(() => target.focus());
 }
 
 function cancelEditing() {
   editingMessageId.value = null;
+  restoreFocusAfterEditing();
 }
 
 function submitEdit(messageId, newContent, newAttachments) {
   emit("edit-message", messageId, newContent, newAttachments);
   editingMessageId.value = null;
+  restoreFocusAfterEditing();
 }
 
 function regenerateMessage(messageId) {
@@ -693,7 +725,7 @@ onUnmounted(() => {
   if (highlightTimeout) clearTimeout(highlightTimeout);
 });
 
-defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
+defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper, editLastUserMessage });
 </script>
 
 <template>
