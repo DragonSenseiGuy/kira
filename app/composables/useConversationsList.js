@@ -2,6 +2,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import localforage from "localforage";
 import { emitter } from "./emitter";
 import { deleteConversation as deleteConv } from "./storeConversations";
+import { confirmDialog } from "./useDialogs";
 
 /**
  * Groups conversations by time periods
@@ -159,7 +160,18 @@ export function useConversationsList() {
   }
 
   // Delete conversation
-  async function handleDelete(id) {
+  async function handleDelete(id, title = "") {
+    const name = String(title || "").trim();
+    const ok = await confirmDialog({
+      title: "Delete chat?",
+      message:
+        (name ? `"${name.length > 80 ? name.slice(0, 80) + "…" : name}" will be deleted.` : "This chat will be deleted.") +
+        "\n\nThis cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+
     try {
       await deleteConv(id);
       await updateConversations();
