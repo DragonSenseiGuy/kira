@@ -365,4 +365,15 @@ describe("HTML block speech, fourth review", () => {
   it("keeps a bracketed path segment as part of the address", () => {
     expect(speechTextFromMarkdown("<p>詳しくは https://example.jp/products/［限定版］ を参照。</p>")).toBe("詳しくは を参照。");
   });
+
+  it("keeps a bracketed note that follows an address", () => {
+    expect(speechTextFromMarkdown("<p>http://localhost:3000（開発サーバー）にアクセスしてください。</p>")).toBe("（開発サーバー）にアクセスしてください。");
+    expect(speechTextFromMarkdown("<p>https://example.jp（公式サイト、英語のみ）をご覧ください。</p>")).toBe("（公式サイト、英語のみ）をご覧ください。");
+    expect(speechTextFromMarkdown("<p>https://example.jp/a（公式サイト、英語のみ）をご覧ください。</p>")).toBe("（公式サイト、英語のみ）をご覧ください。");
+  });
+
+  it("removes each of two bracketed addresses that touch", () => {
+    expect(speechTextFromMarkdown("<p>［https://example.jp］［https://example.org］をご覧ください。</p>")).toBe("［］［］をご覧ください。");
+    expect(speechTextFromMarkdown("<p>〘https://example.jp/a〙を参照。</p>")).toBe("〘〙を参照。");
+  });
 });

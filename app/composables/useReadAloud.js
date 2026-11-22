@@ -49,24 +49,43 @@ const HTML_LINE_ENDS = "p, div, li, tr, br, h1, h2, h3, h4, h5, h6, blockquote, 
 // punctuation, and is not the domain part of an email address.
 const URL_END = "\\s<>\"'\ue000\u3000-\u3002\uff01\uff0c\uff1a\uff1b\uff1f";
 const BARE_URL = new RegExp(`(?<![\\w@.\\-/])(?:https?:\\/\\/|www\\.)[^${URL_END}]*[^${URL_END}.,;:!?)\\]]`, "gi");
-const WIDE_BRACKETS = { "〈": "〉", "《": "》", "「": "」", "『": "』", "【": "】", "〔": "〕", "〖": "〗", "（": "）", "［": "］", "｛": "｝" };
+const WIDE_BRACKETS = { "〈": "〉", "《": "》", "「": "」", "『": "』", "【": "】", "〔": "〕", "〖": "〗", "〘": "〙", "〚": "〛", "（": "）", "［": "］", "｛": "｝" };
 const WIDE_CLOSERS = new Set(Object.values(WIDE_BRACKETS));
 
 /**
- * Removes bare web addresses. A full-width bracket pair inside an address
- * belongs to it; a closing bracket with no opener in the address is the
- * prose around it, so the address ends there.
+ * Length of the address at the start of a bare-URL match. A full-width
+ * bracket pair inside the path belongs to the address. The address ends
+ * before a closing bracket with no opener in it, before an opener that is
+ * never closed, and before any bracket that follows the host directly:
+ * those are the prose around the address.
  */
-function stripBareUrls(text) {
-  return text.replace(BARE_URL, (url) => {
-    const open = [];
-    for (let i = 0; i < url.length; i++) {
-      const char = url[i];
-      if (WIDE_BRACKETS[char]) open.push(WIDE_BRACKETS[char]);
-      else if (WIDE_CLOSERS.has(char) && open.pop() !== char) return url.slice(i);
+function addressLength(match) {
+  const pathStart = match.replace(/^https?:\/\//i, (scheme) => " ".repeat(scheme.length)).search(/[/?#]/);
+  const open = [];
+  for (let i = 0; i < match.length; i++) {
+    const char = match[i];
+    if (WIDE_BRACKETS[char]) {
+      if (pathStart < 0 || i < pathStart) return i;
+      open.push({ closer: WIDE_BRACKETS[char], at: i });
+    } else if (WIDE_CLOSERS.has(char) && open.pop()?.closer !== char) {
+      return i;
     }
-    return "";
-  });
+  }
+  return open.length ? open[0].at : match.length;
+}
+
+/** Removes bare web addresses, keeping the prose and brackets around them. */
+function stripBareUrls(text) {
+  const pattern = new RegExp(BARE_URL.source, BARE_URL.flags);
+  let out = "";
+  let cursor = 0;
+  let match;
+  while ((match = pattern.exec(text))) {
+    out += text.slice(cursor, match.index);
+    cursor = match.index + addressLength(match[0]);
+    pattern.lastIndex = cursor;
+  }
+  return out + text.slice(cursor);
 }
 
 // Elements whose content the browser shows or keeps as text, not markup.
