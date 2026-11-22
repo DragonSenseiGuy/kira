@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode } from '../utils/codeBlockUtils';
+import { copyTable, downloadTable } from '../utils/tableActions';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -433,6 +434,8 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.copyCode = copyCode;
     window.downloadCode = downloadCode;
+    window.copyTable = copyTable;
+    window.downloadTable = downloadTable;
   }
 });
 

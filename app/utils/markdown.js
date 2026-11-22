@@ -3,6 +3,7 @@ import markdownItFootnote from "markdown-it-footnote";
 import markdownItTaskLists from "markdown-it-task-lists";
 import markdownItTexmath from "markdown-it-texmath";
 import katex from "katex";
+import { addTableActions } from "./tableActions";
 
 // Shared fence renderer for code blocks (without synchronous highlighting)
 // Highlighting is now done lazily via lazyHighlight.js
@@ -140,6 +141,7 @@ export function createMarkdownInstance(options = {}) {
   }
 
   addCodeBlockRenderer(md);
+  addTableActions(md);
   addExternalLinkTargets(md);
   return md;
 }

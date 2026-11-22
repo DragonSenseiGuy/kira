@@ -1,0 +1,88 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { md } from "../app/utils/markdown.js";
+import { tableRows, rowsToTsv, rowsToCsv, copyTable, downloadTable } from "../app/utils/tableActions.js";
+
+const SOURCE = "| Name | Note |\n| --- | --- |\n| Ada | **first**, `x` |\n| Bob | said \"hi\" |\n";
+
+function render(source = SOURCE) {
+  document.body.innerHTML = `<div class="markdown-content">${md.render(source)}</div>`;
+  return document.body.querySelector(".table-wrapper");
+}
+
+describe("table rendering", () => {
+  it("wraps a Markdown table with copy and CSV actions", () => {
+    const wrapper = render();
+    expect(wrapper.querySelector("table")).toBeTruthy();
+    const labels = [...wrapper.querySelectorAll(".table-action-button span")].map((s) => s.textContent);
+    expect(labels).toEqual(["Copy table", "CSV"]);
+  });
+
+  it("wraps each of several tables separately", () => {
+    render(`${SOURCE}\ntext\n\n${SOURCE}`);
+    expect(document.querySelectorAll(".table-wrapper").length).toBe(2);
+    expect(document.querySelectorAll(".table-wrapper table").length).toBe(2);
+  });
+
+  it("leaves text without a table alone", () => {
+    expect(md.render("just text")).not.toContain("table-wrapper");
+  });
+});
+
+describe("table text", () => {
+  it("reads header and body cells as plain text", () => {
+    expect(tableRows(render().querySelector("table"))).toEqual([
+      ["Name", "Note"],
+      ["Ada", "first, x"],
+      ["Bob", "said “hi”"],
+    ]);
+  });
+
+  it("builds tab-separated text", () => {
+    expect(rowsToTsv([["a", "b\tc"], ["d", "e"]])).toBe("a\tb c\nd\te");
+  });
+
+  it("quotes commas, quotes and line breaks in CSV", () => {
+    expect(rowsToCsv([["a,b", 'say "x"'], ["plain", "two\nlines"]])).toBe('"a,b","say ""x"""\r\nplain,"two\nlines"');
+  });
+
+  it("neutralises formula cells but keeps numbers", () => {
+    expect(rowsToCsv([["=SUM(A1:A2)", "+cmd", "@x", "-5", "+1.5e3", "-12%", "- note"]])).toBe(
+      "'=SUM(A1:A2),'+cmd,'@x,-5,+1.5e3,-12%,'- note",
+    );
+  });
+});
+
+describe("table actions", () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("copies the table as tab-separated text", async () => {
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal("ClipboardItem", undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const wrapper = render();
+    const button = wrapper.querySelector(".table-action-button");
+    await copyTable(button);
+    expect(writeText).toHaveBeenCalledWith("Name\tNote\nAda\tfirst, x\nBob\tsaid “hi”");
+    expect(button.querySelector("span").textContent).toBe("Copied!");
+    expect(wrapper.querySelector("table").textContent).not.toContain("Copied!");
+  });
+
+  it("downloads the table as a CSV file", async () => {
+    let blob;
+    URL.createObjectURL = vi.fn((b) => { blob = b; return "blob:x"; });
+    URL.revokeObjectURL = vi.fn();
+    let name;
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function () { name = this.download; });
+    downloadTable(render().querySelectorAll(".table-action-button")[1]);
+    expect(name).toMatch(/^table-\d+\.csv$/);
+    expect(blob.type).toBe("text/csv;charset=utf-8");
+    expect(await blob.text()).toContain('Name,Note\r\nAda,"first, x"');
+  });
+
+  it("does nothing for a button outside a table", async () => {
+    document.body.innerHTML = "<button id=b><span>x</span></button>";
+    await copyTable(document.getElementById("b"));
+    downloadTable(document.getElementById("b"));
+    expect(document.getElementById("b").textContent).toBe("x");
+  });
+});
