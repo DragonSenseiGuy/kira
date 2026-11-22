@@ -151,6 +151,13 @@ export function createMarkdownInstance(options = {}) {
     md.renderer.rules.image = (tokens, idx) => {
       const src = md.utils.escapeHtml(tokens[idx].attrGet("src") || "");
       const label = md.utils.escapeHtml(tokens[idx].content || "Image");
+      // An image used as a link's label stays that link's label: a second
+      // link inside it would take the click.
+      const opened = tokens.slice(0, idx).reduce(
+        (depth, token) => depth + (token.type === "link_open" ? 1 : token.type === "link_close" ? -1 : 0),
+        0,
+      );
+      if (opened > 0) return label;
       return `<a href="${src}" target="_blank" rel="noopener noreferrer">${label}</a>`;
     };
   } else {

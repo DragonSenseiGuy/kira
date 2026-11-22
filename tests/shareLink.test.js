@@ -147,6 +147,14 @@ describe("untrustedMd", () => {  it("turns images into links instead of loading 
     expect(html).toContain('<a href="https://tracker.example/p.png?x=1&amp;y=2" target="_blank" rel="noopener noreferrer">a &quot;cat&quot;</a>');
   });
 
+  it("keeps an image inside a link as that link's label", () => {
+    const html = untrustedMd.render("[![badge](https://img.example/b.png)](https://dest.example/) then ![solo](https://img.example/s.png)");
+    expect(html).not.toMatch(/<img/i);
+    expect(html.match(/<a /g)).toHaveLength(2);
+    expect(html).toContain('<a href="https://dest.example/" target="_blank" rel="noopener noreferrer">badge</a>');
+    expect(html).toContain('<a href="https://img.example/s.png" target="_blank" rel="noopener noreferrer">solo</a>');
+  });
+
   it("does not create footnote anchors", () => {
     const html = untrustedMd.render("Text[^1]\n\n[^1]: Note");
     expect(html).not.toMatch(/href="#fn/);
