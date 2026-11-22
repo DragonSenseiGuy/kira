@@ -480,8 +480,14 @@ function handleActionClick() {
 // Escape stops the reply, as the stop button does. Capture phase: an open
 // menu or dialog is still in the page then, and keeps Escape for itself.
 function onWindowEscape(event) {
-  if (!props.isLoading || !shouldStopOnEscape(event, textareaRef.value)) return;
+  if (!props.isLoading || !shouldStopOnEscape(event, textareaRef.value, document, messageFormRoot.value)) return;
   event.preventDefault();
+  // A mention list left open by the send cannot get Escape itself (the
+  // composer is disabled meanwhile), so the first Escape closes it.
+  if (mentionOpen.value) {
+    mentionClose();
+    return;
+  }
   emit("abort-controller");
 }
 onMounted(() => window.addEventListener("keydown", onWindowEscape, true));

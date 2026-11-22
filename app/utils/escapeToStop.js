@@ -18,11 +18,14 @@ function isShown(element) {
  * @param {Element|null} [composer] The composer textarea; Escape typed there
  *   still counts, unlike in other text fields.
  * @param {Document} [doc]
+ * @param {Element|null} [composerRoot] The composer's own element; its
+ *   suggestion list is the caller's to close, not a reason to wait.
  * @returns {boolean}
  */
-export function shouldStopOnEscape(event, composer = null, doc = document) {
+export function shouldStopOnEscape(event, composer = null, doc = document, composerRoot = null) {
   if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return false;
   if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return false;
   if (event.target !== composer && isTextEntryTarget(event.target)) return false;
-  return !Array.from(doc.querySelectorAll(OVERLAYS)).some(isShown);
+  const overlays = Array.from(doc.querySelectorAll(OVERLAYS)).filter((el) => !composerRoot?.contains(el));
+  return !overlays.some(isShown);
 }
