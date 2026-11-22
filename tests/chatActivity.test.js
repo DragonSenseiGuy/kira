@@ -27,6 +27,21 @@ describe("chatActivity", () => {
     expect(chatActivity("b")).toBeNull();
   });
 
+  it("marks a reply unread when its chat was left and reopened before it finished", () => {
+    markReplyStarted("left");
+    markChatSeen("elsewhere");
+    markChatSeen("left");
+    markReplyFinished("left", true);
+    expect(chatActivity("left")).toBe("unread");
+    markChatSeen("left");
+    expect(chatActivity("left")).toBe(null);
+
+    // The mark does not leak into that chat's next reply.
+    markReplyStarted("left");
+    markReplyFinished("left", true);
+    expect(chatActivity("left")).toBe(null);
+  });
+
   it("keeps generating while a second reply in the same chat is still running", () => {
     markReplyStarted("c");
     markReplyStarted("c");

@@ -7,6 +7,10 @@ import { reactive } from "vue";
  */
 const state = reactive({ generating: {}, unread: {} });
 
+// Chats the user navigated away from while their reply was generating. Going
+// back does not attach the page to that reply, so it still counts as unseen.
+const left = {};
+
 /** @param {string|null} id */
 export function markReplyStarted(id) {
   if (!id) return;
@@ -22,11 +26,15 @@ export function markReplyFinished(id, isOpen) {
   if (!id || !state.generating[id]) return;
   if (state.generating[id] > 1) state.generating[id] -= 1;
   else delete state.generating[id];
-  if (!isOpen) state.unread[id] = true;
+  if (!isOpen || left[id]) state.unread[id] = true;
+  if (!state.generating[id]) delete left[id];
 }
 
 /** @param {string|null|undefined} id */
 export function markChatSeen(id) {
+  for (const other of Object.keys(state.generating)) {
+    if (other !== id) left[other] = true;
+  }
   if (id) delete state.unread[id];
 }
 
@@ -35,6 +43,7 @@ export function clearChatActivity(id) {
   if (!id) return;
   delete state.generating[id];
   delete state.unread[id];
+  delete left[id];
 }
 
 /**
