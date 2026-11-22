@@ -1503,7 +1503,8 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   opacity: 0.7;
 }
 
-.message-content-footer:hover {
+.message-content-footer:hover,
+.message-content-footer:focus-within {
   opacity: 1 !important;
 }
 
