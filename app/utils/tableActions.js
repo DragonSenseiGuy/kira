@@ -87,17 +87,64 @@ export function rowsToCsv(rows) {
 const escapeHtml = (text) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+const RICH_TAGS = new Set(["A", "IMG", "STRONG", "B", "EM", "I", "CODE", "DEL", "S", "SUB", "SUP", "BR"]);
+const SAFE_LINK = /^(?:https?:|mailto:)/i;
+const SAFE_IMAGE = /^(?:https?:|data:image\/(?:png|jpeg|gif|webp);)/i;
+
+/** Rebuilds a rendered cell's content from a small set of tags and attributes. */
+function richHtml(node) {
+  let html = "";
+  for (const child of node.childNodes) {
+    if (child.nodeType === 3) {
+      html += escapeHtml(child.textContent || "");
+      continue;
+    }
+    if (child.nodeType !== 1 || /^(?:SCRIPT|STYLE|TEMPLATE)$/.test(child.tagName)) continue;
+    if (child.classList?.contains("katex")) {
+      const source = child.querySelector('annotation[encoding="application/x-tex"]');
+      html += escapeHtml(source?.textContent || child.textContent || "");
+      continue;
+    }
+    const tag = child.tagName;
+    if (!RICH_TAGS.has(tag)) {
+      html += richHtml(child);
+    } else if (tag === "BR") {
+      html += "<br>";
+    } else if (tag === "IMG") {
+      const src = child.getAttribute("src") || "";
+      const alt = escapeHtml(child.getAttribute("alt") || "");
+      html += SAFE_IMAGE.test(src) ? `<img src="${escapeHtml(src)}" alt="${alt}">` : alt;
+    } else if (tag === "A") {
+      const href = child.getAttribute("href") || "";
+      const label = richHtml(child);
+      html += SAFE_LINK.test(href) ? `<a href="${escapeHtml(href)}">${label}</a>` : label;
+    } else {
+      const name = tag.toLowerCase();
+      html += `<${name}>${richHtml(child)}</${name}>`;
+    }
+  }
+  return html;
+}
+
 /**
- * Plain HTML table for the rich clipboard format, built from the cell text
- * so pasted cells get the same formula protection as the other formats.
- * @param {string[][]} rows
+ * HTML table for the rich clipboard format. Links, images and basic
+ * formatting are kept from an allowlist; a cell a spreadsheet would run as
+ * a formula is written as prefixed plain text instead.
+ * @param {HTMLTableElement} table
  * @returns {string}
  */
-export function safeTableHtml(rows) {
-  const body = rows
-    .map((row, index) => {
-      const tag = index === 0 ? "th" : "td";
-      return `<tr>${row.map((cell) => `<${tag}>${escapeHtml(asText(cell)).replace(/\n/g, "<br>")}</${tag}>`).join("")}</tr>`;
+export function safeTableHtml(table) {
+  if (!table) return "";
+  const body = Array.from(table.querySelectorAll("tr"))
+    .map((row) => {
+      const cells = Array.from(row.querySelectorAll("th, td")).map((cell) => {
+        const tag = cell.tagName.toLowerCase();
+        const text = cellText(cell);
+        const guarded = asText(text);
+        const content = guarded !== text ? escapeHtml(guarded).replace(/\n/g, "<br>") : richHtml(cell).trim();
+        return `<${tag}>${content}</${tag}>`;
+      });
+      return `<tr>${cells.join("")}</tr>`;
     })
     .join("");
   return `<table>${body}</table>`;
@@ -131,7 +178,7 @@ export async function copyTable(button) {
       await navigator.clipboard.write([
         new ClipboardItem({
           "text/plain": new Blob([text], { type: "text/plain" }),
-          "text/html": new Blob([safeTableHtml(rows)], { type: "text/html" }),
+          "text/html": new Blob([safeTableHtml(table)], { type: "text/html" }),
         }),
       ]);
     } else {

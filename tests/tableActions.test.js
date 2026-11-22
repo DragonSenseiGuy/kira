@@ -72,10 +72,29 @@ describe("review cases", () => {
   it("neutralises formulas in the copied text and HTML", () => {
     const rows = [["name", "calc"], ["a", "=HYPERLINK(\"http://x\")"], ["b", "-3"]];
     expect(rowsToTsv(rows)).toBe("name\tcalc\na\t'=HYPERLINK(\"http://x\")\nb\t-3");
-    const html = safeTableHtml(rows);
-    expect(html).toContain("<td>'=HYPERLINK(&quot;http://x&quot;)</td>");
+    const table = render('| name | calc |\n| --- | --- |\n| a | =HYPERLINK("http://x") |\n| b | **=1+1** |\n').querySelector("table");
+    const html = safeTableHtml(table);
+    expect(html).toMatch(/<td>'=HYPERLINK\([^<]*\)<\/td>/);
+    expect(html).toContain("<td>'=1+1</td>");
     expect(html).toContain("<th>name</th>");
-    expect(safeTableHtml([["<img src=x onerror=1>"]])).toBe("<table><tr><th>&lt;img src=x onerror=1&gt;</th></tr></table>");
+  });
+
+  it("keeps links, images and formatting in the copied HTML", () => {
+    const table = render(
+      "| Source | Chart | Note |\n| --- | --- | --- |\n| [Full report](https://example.com/report) | ![Sales](https://example.com/c.png) | **bold** `x` |\n",
+    ).querySelector("table");
+    const html = safeTableHtml(table);
+    expect(html).toContain('<a href="https://example.com/report">Full report</a>');
+    expect(html).toContain('<img src="https://example.com/c.png" alt="Sales">');
+    expect(html).toContain("<strong>bold</strong> <code>x</code>");
+  });
+
+  it("drops unsafe markup and URL schemes from the copied HTML", () => {
+    const table = document.createElement("table");
+    table.innerHTML =
+      '<tr><td><a href="javascript:alert(1)" onclick="x()">click</a></td><td><img src="file:///etc/passwd" alt="pic" onerror="x()"></td><td><span style="color:red" onmouseover="x()">plain</span><script>bad()</script></td></tr>';
+    const html = safeTableHtml(table);
+    expect(html).toBe("<table><tr><td>click</td><td>pic</td><td>plain</td></tr></table>");
   });
 });
 
