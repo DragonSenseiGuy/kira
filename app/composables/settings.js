@@ -11,7 +11,7 @@ import {
   hasHcFullModels,
 } from './providers';
 import DEFAULT_PARAMETERS from './defaultParameters';
-import { KEYBIND_ACTIONS } from '~/utils/keybinds';
+import { KEYBIND_ACTIONS, withNewActionDefaults } from '~/utils/keybinds';
 import {
   DEFAULT_THRESHOLD_TOKENS,
   DEFAULT_KEEP_RECENT_TOKENS,
@@ -179,6 +179,12 @@ class Settings {
 
         // Then deep merge saved settings over it to apply user's preferences
         this._deepMergeReactive(mergedSettings, savedSettings);
+
+        // A shortcut added since the settings were saved must not take a
+        // combo the user already gave to another action.
+        if (savedSettings.keybinds && typeof savedSettings.keybinds === "object") {
+          mergedSettings.keybinds = withNewActionDefaults(savedSettings.keybinds);
+        }
 
         if (
           mergedSettings.selected_model_id === "moonshotai/kimi-k2-instruct-0905" ||

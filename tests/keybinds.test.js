@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   KEYBIND_ACTIONS,
+  withNewActionDefaults,
   normalizeCombo,
   formatComboParts,
   eventToCombo,
@@ -118,5 +119,24 @@ describe("KEYBIND_ACTIONS defaults", () => {
       expect(normalizeCombo(action.default)).not.toBeNull();
       expect(reservedComboWarning(action.default)).toBeNull();
     }
+  });
+});
+
+describe("withNewActionDefaults", () => {
+  it("gives a newly added action its default", () => {
+    const binds = withNewActionDefaults({ new_chat: "mod+alt+n" });
+    expect(binds.new_chat).toBe("mod+alt+n");
+    expect(binds.copy_last_response).toBe("mod+shift+c");
+  });
+
+  it("leaves a new action unbound when a saved action already uses its combo", () => {
+    const binds = withNewActionDefaults({ new_chat: "Mod+Shift+C" });
+    expect(binds.new_chat).toBe("Mod+Shift+C");
+    expect(binds.copy_last_response).toBe("");
+  });
+
+  it("keeps a saved bind for the action, including an unbound one", () => {
+    expect(withNewActionDefaults({ copy_last_response: "" }).copy_last_response).toBe("");
+    expect(withNewActionDefaults({ copy_last_response: "mod+j" }).copy_last_response).toBe("mod+j");
   });
 });
