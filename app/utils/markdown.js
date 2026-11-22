@@ -1,3 +1,4 @@
+import { sanitizeRenderedHtml } from "./sanitizeHtml";
 import MarkdownIt from "markdown-it";
 import markdownItFootnote from "markdown-it-footnote";
 import markdownItTaskLists from "markdown-it-task-lists";
@@ -139,6 +140,13 @@ export function createMarkdownInstance(options = {}) {
 
   addCodeBlockRenderer(md);
   addExternalLinkTargets(md);
+
+  // Raw HTML is allowed in Markdown, so whatever is rendered is sanitized
+  // before any caller can put it in the page.
+  const render = md.render.bind(md);
+  const renderInline = md.renderInline.bind(md);
+  md.render = (src, env) => sanitizeRenderedHtml(render(src, env));
+  md.renderInline = (src, env) => sanitizeRenderedHtml(renderInline(src, env));
   return md;
 }
 
