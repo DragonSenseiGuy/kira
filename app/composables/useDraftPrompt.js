@@ -63,6 +63,8 @@ export function useDraftPrompt(conversationIdRef, inputRef, options = {}) {
    * Clear the draft for the current conversation.
    */
   async function clearDraft() {
+    // The stored draft belongs to the normal chat; an incognito send leaves it.
+    if (isEphemeral.value) return;
     const key = getKey(conversationIdRef.value);
     await localforage.removeItem(key);
   }
@@ -81,6 +83,9 @@ export function useDraftPrompt(conversationIdRef, inputRef, options = {}) {
   // Entering incognito: a save scheduled just before must not land.
   watch(isEphemeral, (ephemeral) => {
     if (ephemeral) clearTimeout(saveTimeout);
+    // Leaving incognito with an empty composer: bring back the stored draft
+    // that was not restored while private. Live input is never replaced.
+    else if (!inputRef.value) loadDraft();
   });
 
   // Watch input changes and auto-save

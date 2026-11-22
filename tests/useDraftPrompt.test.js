@@ -67,6 +67,56 @@ describe("useDraftPrompt", () => {
     expect(input.value).toBe("typed just before");
   });
 
+  it("keeps the stored normal draft when an incognito message is sent", async () => {
+    store.set("draft:new", "Plan the roadmap");
+    const input = ref("");
+    const { clearDraft } = useDraftPrompt(ref(""), input, { isEphemeral: ref(true) });
+    await settle();
+    input.value = "Private question";
+    await settle();
+    input.value = "";
+    await clearDraft();
+    await settle();
+    expect(store.get("draft:new")).toBe("Plan the roadmap");
+  });
+
+  it("clears the stored draft when a normal message is sent", async () => {
+    store.set("draft:new", "Plan the roadmap");
+    const input = ref("");
+    const { clearDraft } = useDraftPrompt(ref(""), input, { isEphemeral: ref(false) });
+    await settle();
+    await clearDraft();
+    expect(store.has("draft:new")).toBe(false);
+  });
+
+  it("restores the stored draft when incognito is switched off with an empty composer", async () => {
+    store.set("draft:new", "Plan the roadmap");
+    const input = ref("");
+    const ephemeral = ref(true);
+    useDraftPrompt(ref(""), input, { isEphemeral: ephemeral });
+    await settle();
+    expect(input.value).toBe("");
+    ephemeral.value = false;
+    await settle();
+    expect(input.value).toBe("Plan the roadmap");
+    input.value = "Plan the roadmap and budget";
+    await settle();
+    expect(store.get("draft:new")).toBe("Plan the roadmap and budget");
+  });
+
+  it("does not replace text in the composer when incognito is switched off", async () => {
+    store.set("draft:new", "Plan the roadmap");
+    const input = ref("");
+    const ephemeral = ref(true);
+    useDraftPrompt(ref(""), input, { isEphemeral: ephemeral });
+    await settle();
+    input.value = "typed while private";
+    await settle();
+    ephemeral.value = false;
+    await settle();
+    expect(input.value).toBe("typed while private");
+  });
+
   it("uses the incognito state by default", async () => {
     const input = ref("");
     useDraftPrompt(ref("c2"), input);
