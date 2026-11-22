@@ -7,9 +7,10 @@ const KEY = "kira:pinned-collapsed";
  * @param {Storage} [storage]
  * @returns {boolean}
  */
-export function loadPinnedExpanded(storage = globalThis.localStorage) {
+export function loadPinnedExpanded(storage) {
   try {
-    return storage.getItem(KEY) !== "1";
+    // Reading `localStorage` itself can throw when the browser blocks storage.
+    return (storage ?? globalThis.localStorage).getItem(KEY) !== "1";
   } catch {
     return true;
   }
@@ -21,10 +22,11 @@ export function loadPinnedExpanded(storage = globalThis.localStorage) {
  * @param {boolean} expanded
  * @param {Storage} [storage]
  */
-export function savePinnedExpanded(expanded, storage = globalThis.localStorage) {
+export function savePinnedExpanded(expanded, storage) {
   try {
-    if (expanded) storage.removeItem(KEY);
-    else storage.setItem(KEY, "1");
+    const store = storage ?? globalThis.localStorage;
+    if (expanded) store.removeItem(KEY);
+    else store.setItem(KEY, "1");
   } catch {
     // Private browsing or a full store: the choice just lasts for this visit.
   }

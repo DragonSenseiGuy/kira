@@ -36,6 +36,21 @@ describe("pinned section state", () => {
     expect(storage.size()).toBe(0);
   });
 
+  it("stays open when the browser refuses access to localStorage itself", () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      get() { throw new Error("SecurityError"); },
+    });
+    try {
+      expect(loadPinnedExpanded()).toBe(true);
+      expect(() => savePinnedExpanded(false)).not.toThrow();
+    } finally {
+      if (original) Object.defineProperty(globalThis, "localStorage", original);
+      else delete globalThis.localStorage;
+    }
+  });
+
   it("stays open and does not throw when storage is unavailable", () => {
     expect(loadPinnedExpanded(broken)).toBe(true);
     expect(() => savePinnedExpanded(false, broken)).not.toThrow();
