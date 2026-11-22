@@ -32,6 +32,8 @@ function serializeMessage(msg) {
 
   // Add reasoning properties for assistant messages
   if (msg.role === "assistant") {
+    // Kept so a failed reply still offers "Try again" after a reload.
+    if (msg.error) baseMessage.error = true;
     baseMessage.reasoning = msg.reasoning;
     baseMessage.reasoningStartTime = msg.reasoningStartTime;
     baseMessage.reasoningEndTime = msg.reasoningEndTime;
