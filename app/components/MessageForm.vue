@@ -19,6 +19,7 @@ import { useAttachments } from "~/composables/useAttachments";
 import DEFAULT_PARAMETERS from '~/composables/defaultParameters';
 import { useDraftPrompt } from "~/composables/useDraftPrompt";
 import { useWorkspaceBrowser } from "~/composables/useWorkspaceBrowser";
+import { useDictation } from "~/composables/useDictation";
 import {
   buildKnownPaths,
   backspaceTarget,
@@ -511,6 +512,7 @@ async function submitMessage() {
   // Resolve mentions: unescape literal \@ sequences, then ATTACH the
   // contents of every referenced workspace file. Read failures are skipped
   // — their @path stays in the text so the model can retry via its tools.
+  dictation.stop();
   const { cleanText, mentions } = resolveMentions(inputMessage.value, knownPaths.value);
   let outgoing = cleanText;
   if (mentions.length && wb.available.value) {
@@ -560,6 +562,16 @@ watch(inputMessage, async () => {
     }
   }
 });
+
+// --- Voice dictation ---
+const dictation = useDictation({
+  getText: () => inputMessage.value,
+  setText: (text) => {
+    inputMessage.value = text;
+  },
+});
+const isDictating = dictation.listening;
+const dictationError = dictation.error;
 
 // --- Exposed Methods ---
 
@@ -801,6 +813,18 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
       @dragleave="handleDragLeave"
       @drop="handleDrop"
     >
+      <div v-if="dictationError" class="attachment-error u-enter" role="alert">
+        <Icon icon="material-symbols:error-outline" width="16" height="16" />
+        <span>{{ dictationError }}</span>
+        <UiIconButton
+          icon="material-symbols:close"
+          label="Dismiss error"
+          size="sm"
+          class="dismiss-error"
+          @click="dictationError = ''"
+        />
+      </div>
+
       <!-- Attachment error message -->
       <div v-if="attachmentError" class="attachment-error u-enter" role="alert">
         <Icon icon="material-symbols:error-outline" width="16" height="16" />
@@ -1047,6 +1071,17 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
           />
 
           <UiIconButton
+            v-if="dictation.supported"
+            class="dictation-btn"
+            :class="{ 'is-listening': isDictating }"
+            :icon="isDictating ? 'material-symbols:mic' : 'material-symbols:mic-outline'"
+            :label="isDictating ? 'Stop dictation' : 'Dictate message'"
+            :active="isDictating"
+            togglable
+            @click="dictation.toggle"
+          />
+
+          <UiIconButton
             class="send-btn"
             variant="solid"
             :icon="isLoading ? 'material-symbols:stop-rounded' : 'material-symbols:arrow-upward-rounded'"
@@ -1200,6 +1235,12 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
 
 .feature-button {
   flex-shrink: 0;
+}
+
+.dictation-btn.is-listening {
+  background: var(--error-bg);
+  color: var(--error-text);
+  box-shadow: 0 0 0 1px var(--error-border);
 }
 
 .input-actions {
