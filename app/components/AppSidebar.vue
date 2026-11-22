@@ -56,12 +56,20 @@ const {
 // Double-click and F2 start a rename without the menu, so nothing else moves
 // focus into the field (`autofocus` only applies on page load) or back out.
 const renameInput = ref(null);
+let renameEndedByKey = false;
+function onRenameKeydown(event, id) {
+  renameEndedByKey = event.key === "Enter" || event.key === "Escape";
+  handleRenameKeydown(event, id);
+}
 watch(renamingId, async (id, previous) => {
   await nextTick();
   if (!id) {
     // Enter or Escape removed the field that had focus; hand it back to the
-    // chat so the keyboard stays where it was.
-    if (previous && document.activeElement === document.body) {
+    // chat so the keyboard stays where it was. Not after a blur: focus has
+    // gone elsewhere by choice, and the sidebar may be closing.
+    const byKey = renameEndedByKey;
+    renameEndedByKey = false;
+    if (byKey && previous && document.activeElement === document.body) {
       document.querySelector(`.conversation-button[href="/${previous}"]`)?.focus();
     }
     return;
@@ -246,7 +254,7 @@ function handleMiddleClickNewChat(e) {
                   v-if="renamingId === data.id"
                   v-model="newTitle"
                   class="rename-input"
-                  @keydown="handleRenameKeydown($event, data.id)"
+                  @keydown="onRenameKeydown($event, data.id)"
                   @blur="saveRename(data.id)"
                   ref="renameInput"
                   autofocus
