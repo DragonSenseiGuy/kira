@@ -384,4 +384,8 @@ describe("HTML block speech, fourth review", () => {
   it("keeps a note with a space in it that follows an address", () => {
     expect(speechTextFromMarkdown("<p>詳しくは https://example.jp/docs（PDF 版）を参照。</p>")).toBe("詳しくは （PDF 版）を参照。");
   });
+
+  it("does not pair a bracket in an address with a later note's closer", () => {
+    expect(speechTextFromMarkdown("<p>検索結果: https://example.jp/search?q=製品（限定 を確認（要ログイン）。</p>")).toBe("検索結果: を確認（要ログイン）。");
+  });
 });

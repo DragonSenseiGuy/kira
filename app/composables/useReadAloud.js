@@ -76,8 +76,14 @@ function addressLength(match, rest) {
   // other than a space, or when the note closes later in the sentence
   // ("（PDF 版）"). Otherwise it is a literal character of the address.
   const spaced = rest === "" || /^\s/.test(rest);
-  const sentence = rest.split(/[。.!?！？\n]/, 1)[0];
-  return !spaced || sentence.includes(open[0].closer) ? open[0].at : match.length;
+  if (!spaced) return open[0].at;
+  // Brackets that open later in the sentence close before this one does.
+  let depth = 0;
+  for (const char of rest.split(/[。.!?！？\n]/, 1)[0]) {
+    if (WIDE_BRACKETS[char]) depth++;
+    else if (WIDE_CLOSERS.has(char) && depth-- === 0) return char === open[0].closer ? open[0].at : match.length;
+  }
+  return match.length;
 }
 
 /** Removes bare web addresses, keeping the prose and brackets around them. */
