@@ -1,15 +1,11 @@
 /**
  * Tests for Mermaid diagrams in the code-block preview
- * (app/utils/codeBlockUtils.js). Mermaid itself needs a real browser to
- * lay a diagram out, so it is replaced here.
+ * (app/utils/codeBlockUtils.js). The diagram source is model output, so
+ * Mermaid must run inside the sandboxed frame, not in the app page.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
-
-const render = vi.fn();
-vi.mock("mermaid", () => ({ default: { initialize: vi.fn(), render } }));
-
-import { isPreviewableLang, togglePreview } from "../app/utils/codeBlockUtils.js";
+import { describe, it, expect, beforeEach } from "vitest";
+import { isPreviewableLang, buildMermaidDocument, togglePreview } from "../app/utils/codeBlockUtils.js";
 import { md } from "../app/utils/markdown.js";
 
 function renderBlock(code) {
@@ -23,7 +19,26 @@ function renderBlock(code) {
 
 beforeEach(() => {
   document.body.innerHTML = "";
-  render.mockReset();
+});
+
+describe("buildMermaidDocument", () => {
+  it("loads the renderer by URL and embeds the source as a string", () => {
+    const page = buildMermaidDocument("graph TD; A-->B", "https://kira.test/_nuxt/mermaid.min.js");
+    expect(page).toContain('<script src="https://kira.test/_nuxt/mermaid.min.js"');
+    expect(page).toContain('mermaid.render("diagram-svg","graph TD; A-->B")');
+    expect(page).toContain('securityLevel:"strict"');
+  });
+
+  it("cannot be closed early by the source", () => {
+    const page = buildMermaidDocument('graph TD; A["</script><script>alert(1)</script>"]', "/m.js");
+    expect(page).not.toContain("<script>alert(1)");
+    expect(page.match(/<\/script>/g)).toHaveLength(2);
+    expect(page).toContain("\\u003c/script>");
+  });
+
+  it("escapes the script URL", () => {
+    expect(buildMermaidDocument("x", '/m.js?a=1&b="2"')).toContain('src="/m.js?a=1&amp;b=&quot;2&quot;"');
+  });
 });
 
 describe("Mermaid preview", () => {
@@ -32,48 +47,22 @@ describe("Mermaid preview", () => {
     expect(renderBlock("graph TD; A-->B").button).toBeDefined();
   });
 
-  it("shows the drawn diagram in the sandboxed frame", async () => {
-    render.mockResolvedValue({ svg: '<svg id="drawn"></svg>' });
+  it("draws the diagram inside the sandboxed frame, not in the page", () => {
     const { wrapper, button } = renderBlock("graph TD; A-->B");
-    await togglePreview(button);
+    togglePreview(button);
 
-    expect(render).toHaveBeenCalledWith(expect.any(String), "graph TD; A-->B\n");
     const frame = wrapper.querySelector("iframe.code-preview-frame");
     expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
-    expect(frame.getAttribute("srcdoc")).toContain('<svg id="drawn"></svg>');
+    expect(frame.getAttribute("srcdoc")).toContain('mermaid.render("diagram-svg","graph TD; A-->B\\n")');
+    expect(document.querySelector("#diagram-svg, #ddiagram-svg")).toBeNull();
     expect(wrapper.querySelector("pre").hidden).toBe(true);
     expect(button.textContent.trim()).toBe("Code");
   });
 
-  it("shows the error, escaped, when the diagram is not valid", async () => {
-    render.mockRejectedValue(new Error("Parse error near <b>"));
-    const { wrapper, button } = renderBlock("not a diagram");
-    await togglePreview(button);
-
-    const page = wrapper.querySelector("iframe").getAttribute("srcdoc");
-    expect(page).toContain("This diagram could not be drawn.");
-    expect(page).toContain("Parse error near &lt;b>");
-  });
-
-  it("stays on the code when toggled back before the diagram is drawn", async () => {
-    let finish;
-    render.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+  it("goes back to the code on a second click", () => {
     const { wrapper, button } = renderBlock("graph TD; A-->B");
-    const pending = togglePreview(button);
-    await togglePreview(button);
-    finish({ svg: "<svg></svg>" });
-    await pending;
-
-    expect(wrapper.querySelector("iframe")).toBeNull();
-    expect(wrapper.querySelector("pre").hidden).toBe(false);
-    expect(button.getAttribute("aria-pressed")).toBe("false");
-  });
-
-  it("goes back to the code on a second click", async () => {
-    render.mockResolvedValue({ svg: "<svg></svg>" });
-    const { wrapper, button } = renderBlock("graph TD; A-->B");
-    await togglePreview(button);
-    await togglePreview(button);
+    togglePreview(button);
+    togglePreview(button);
     expect(wrapper.querySelector("iframe")).toBeNull();
     expect(button.textContent.trim()).toBe("Preview");
   });
