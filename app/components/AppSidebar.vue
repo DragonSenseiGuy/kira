@@ -11,6 +11,7 @@ import {
 import { useConversationsList } from "~/composables/useConversationsList";
 import { useSettings } from "~/composables/useSettings";
 import { useAuth } from "~/composables/useAuth";
+import { loadPinnedExpanded, savePinnedExpanded } from "~/utils/pinnedSection";
 
 const emit = defineEmits([
   "reloadSettings",
@@ -58,10 +59,11 @@ const windowWidth = ref(
 );
 
 // Collapsible pinned section state
-const isPinnedExpanded = ref(true);
+const isPinnedExpanded = ref(loadPinnedExpanded());
 
 function togglePinnedExpanded() {
   isPinnedExpanded.value = !isPinnedExpanded.value;
+  savePinnedExpanded(isPinnedExpanded.value);
 }
 
 function handleResize() {
@@ -206,7 +208,8 @@ function handleMiddleClickNewChat(e) {
               <UiIconButton
                 v-if="group.key === 'pinned'"
                 icon="material-symbols:keyboard-arrow-down-rounded"
-                label="Toggle pinned section"
+                :label="isPinnedExpanded ? 'Collapse pinned chats' : 'Expand pinned chats'"
+                :aria-expanded="String(isPinnedExpanded)"
                 size="sm"
                 class="collapse-btn"
                 :class="{ 'is-collapsed': !isPinnedExpanded }"
