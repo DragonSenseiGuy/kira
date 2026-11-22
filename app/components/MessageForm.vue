@@ -990,7 +990,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
               @click="openFilePicker"
             >
               <Icon icon="material-symbols:attach-file" width="20" height="20" />
-              <span>Attach {{ supportsVision ? 'image or PDF' : 'PDF' }}</span>
+              <span>Attach {{ supportsVision ? 'image, PDF, or text file' : 'PDF or text file' }}</span>
             </button>
           </PopoverContent>
         </PopoverRoot>
