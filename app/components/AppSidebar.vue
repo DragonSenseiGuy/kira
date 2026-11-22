@@ -224,7 +224,7 @@ function handleMiddleClickNewChat(e) {
                 {{ group.label }}
               </span>
               <UiIconButton
-                v-if="COLLAPSIBLE_GROUPS.includes(group.key)"
+                v-if="COLLAPSIBLE_GROUPS.includes(group.key) && !(group.key === 'archived' && isSearching)"
                 icon="material-symbols:keyboard-arrow-down-rounded"
                 :label="`Toggle ${group.key} section`"
                 size="sm"
