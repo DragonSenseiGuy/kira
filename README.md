@@ -15,6 +15,7 @@ Kira does **not** sell user information. Chats stay on your device by default; i
 - Incognito mode to prevent chat history or memory from being saved
 - Opt-in notepad that remembers user details/preferences/opinions across chats
 - Conversation branching with message editing/regenerating
+- Quote part of a reply: select text in an answer and click Quote to reply to it
 - Context compression system
 - Programmable keybinds
 

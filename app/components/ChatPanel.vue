@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode } from '../utils/codeBlockUtils';
+import { quotableSelection } from '../utils/quoteReply';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -52,7 +53,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(["send-message", "set-message", "scroll", "edit-message", "regenerate-message", "navigate-branch"]);
+const emit = defineEmits(["send-message", "set-message", "quote-message", "scroll", "edit-message", "regenerate-message", "navigate-branch"]);
 
 // Helper function to calculate message stats
 function calculateMessageStats(message) {
@@ -326,12 +327,37 @@ async function focusMessage(messageId, options = {}) {
   return true;
 }
 
+// "Quote" button shown next to text selected in an assistant message.
+const quoteButton = reactive({ visible: false, top: 0, left: 0, text: "" });
+
+function updateQuoteButton() {
+  const selection = typeof window !== "undefined" ? window.getSelection() : null;
+  const text = quotableSelection(selection);
+  if (!text) {
+    quoteButton.visible = false;
+    return;
+  }
+  const rect = selection.getRangeAt(0).getBoundingClientRect();
+  quoteButton.text = text;
+  // Above the selection, or below it when there is no room above.
+  quoteButton.top = rect.top > 56 ? rect.top - 40 : rect.bottom + 8;
+  quoteButton.left = Math.min(Math.max(rect.left + rect.width / 2, 48), window.innerWidth - 48);
+  quoteButton.visible = true;
+}
+
+function quoteSelection() {
+  emit("quote-message", quoteButton.text);
+  quoteButton.visible = false;
+  window.getSelection()?.removeAllRanges();
+}
+
 const handleScroll = () => {
   const container = cachedScrollContainer || chatWrapper.value;
   if (!container) return;
 
   const { scrollHeight, scrollTop, clientHeight } = container;
   isAtBottom.value = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+  if (quoteButton.visible) updateQuoteButton();
   emit('scroll', { isAtTop: scrollTop === 0 });
 };
 
@@ -428,6 +454,7 @@ onMounted(() => {
 
   // Trigger initial scroll check
   handleScroll();
+  document.addEventListener('selectionchange', updateQuoteButton);
 
   // Make functions available globally (only in browser)
   if (typeof window !== 'undefined') {
@@ -440,6 +467,7 @@ onUnmounted(() => {
   // Clean up scroll listener from cached container or document fallback
   const scrollTarget = cachedScrollContainer || document;
   scrollTarget.removeEventListener('scroll', handleScroll);
+  document.removeEventListener('selectionchange', updateQuoteButton);
 });
 
 // Render message content with markdown and trigger lazy highlighting.
@@ -698,6 +726,17 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 <template>
   <div class="chat-wrapper" ref="chatWrapper">
+    <button
+      v-if="quoteButton.visible"
+      type="button"
+      class="quote-selection-button"
+      :style="{ top: `${quoteButton.top}px`, left: `${quoteButton.left}px` }"
+      @mousedown.prevent
+      @click="quoteSelection"
+    >
+      <Icon icon="material-symbols:format-quote-rounded" width="16" height="16" />
+      <span>Quote</span>
+    </button>
     <div class="chat-container">
       <div v-if="messages.length < 1 && showWelcome" class="welcome-container">
         <h1 v-if="!isIncognito" class="welcome-message">What can I help with?</h1>
@@ -964,6 +1003,33 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 </template>
 
 <style>
+.quote-selection-button {
+  position: fixed;
+  z-index: 30;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--popover-bg);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--line-strong), var(--popover-shadow);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.quote-selection-button:hover {
+  background: var(--bg-tertiary);
+}
+
+.quote-selection-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .chat-wrapper {
   --text-primary-light: var(--text-primary);
   --text-secondary-light: var(--text-secondary);

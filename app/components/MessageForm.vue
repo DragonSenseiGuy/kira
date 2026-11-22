@@ -1,4 +1,5 @@
 <script setup>
+import { insertQuote } from "~/utils/quoteReply";
 import { ref, computed, watch, nextTick, toRaw } from "vue";
 import { Icon } from "@iconify/vue";
 import {
@@ -571,6 +572,21 @@ function setMessage(text) {
   inputMessage.value = text;
 }
 
+/**
+ * Adds selected message text to the draft as a quote and puts the caret
+ * after it, ready for the reply.
+ * @param {string} text - The text selected in a message.
+ */
+function quoteText(text) {
+  inputMessage.value = insertQuote(inputMessage.value, text);
+  nextTick(() => {
+    const el = textareaRef.value;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  });
+}
+
 
 /**
  * Toggles the reasoning state and updates the settings.
@@ -778,7 +794,7 @@ useKeybinds({
 });
 
 // Expose the setMessage function to be called from the parent component
-defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $el: messageFormRoot });
+defineExpose({ setMessage, quoteText, toggleReasoning, setReasoningEffort, toggleSearch, $el: messageFormRoot });
 </script>
 
 <template>
