@@ -40,17 +40,18 @@ function clean(item) {
     .trim();
 }
 
-const REQUEST_VERB =
-  /^(?:show|explain|tell|give|compare|write|summari[sz]e|list|describe|walk|help|create|make|draft|suggest|find|translate|rewrite|generate|provide|outline|break|share|add|convert|expand|elaborate|simplify|turn)\b/i;
+// The model addressing the reader about the list, not a suggestion.
+const SIGN_OFF =
+  /^(?:let me know|feel free|i hope|hope (?:this|these|that)|happy to|i can|i'm|i am|if you|tell me (?:which|what you|if you)|pick (?:one|any)|choose (?:one|any)|select (?:one|any)|just ask|ask me)\b/i;
 
 /**
  * Whether an unnumbered line in a list reads as a suggestion the model
- * forgot to number: a question, or a request that opens with a verb.
- * Headings and sign-offs are neither.
+ * forgot to number: a question, or a full sentence that is not a sign-off.
+ * A heading has no closing full stop. Works in any language.
  */
 function isUnmarkedSuggestion(line) {
   if (/[?？]$/.test(line)) return true;
-  return REQUEST_VERB.test(line) && !/[:：]$/.test(line);
+  return /[.。]$/.test(line) && !/(?:\.\.\.|…)$/.test(line) && !SIGN_OFF.test(line);
 }
 
 const LIST_MARKER = /^\s*(?:[-*•]|\d+[.)])\s+/;

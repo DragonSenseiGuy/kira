@@ -207,4 +207,16 @@ describe("parseFollowUps list commentary", () => {
     expect(parseFollowUps("1. A?\n2. B?\nPick one to continue.")).toEqual(["A?", "B?"]);
     expect(parseFollowUps("1. A?\nWhat about C?\n2. B?\n3. D?")).toEqual(["A?", "B?", "D?"]);
   });
+
+  it("keeps an unnumbered request in any language and drops sign-offs", () => {
+    expect(parseFollowUps("1. ¿Cómo inicio sesión?\n2. ¿Cómo cierro sesión?\nMuestra un ejemplo práctico.")).toEqual([
+      "¿Cómo inicio sesión?",
+      "¿Cómo cierro sesión?",
+      "Muestra un ejemplo práctico.",
+    ]);
+    expect(parseFollowUps("1. A?\n2. B?\nPlease show an example.")).toEqual(["A?", "B?", "Please show an example."]);
+    expect(parseFollowUps("1. A?\n2. B?\nTell me which one you’d like to explore!")).toEqual(["A?", "B?"]);
+    expect(parseFollowUps("1. A?\n2. B?\nTell me which one you would like to explore.")).toEqual(["A?", "B?"]);
+    expect(parseFollowUps("1. A?\n2. B?\nTell me more about tokens.")).toEqual(["A?", "B?", "Tell me more about tokens."]);
+  });
 });
