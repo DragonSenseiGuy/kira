@@ -26,7 +26,7 @@ describe("speechTextFromMarkdown review cases", () => {
     const text = speechTextFromMarkdown(
       "<table><tr><td>Name</td><td>Ada</td></tr><tr><td>Role</td><td>Engineer</td></tr></table>\n\n<div>Before<script>alert(1)</script><style>p{}</style><pre>x = 1</pre> after</div>",
     );
-    expect(text).toBe("Name Ada\nRole Engineer\nBefore after");
+    expect(text).toBe("Name Ada\nRole Engineer\nBefore\nafter");
   });
 
   it("speaks bare email addresses but not bare URLs or hrefs", () => {
@@ -276,5 +276,32 @@ describe("speechTextFromMarkdown matches the rendered message", () => {
 
   it("keeps backslashes inside inline code", () => {
     expect(speechTextFromMarkdown("Run `grep -E '\\[' file.txt` now.")).toBe("Run grep -E '\\[' file.txt now.");
+  });
+});
+
+describe("HTML block speech review cases", () => {
+  it("reads inline commands but not preformatted code", () => {
+    expect(speechTextFromMarkdown("<p>Run <code>npm test</code> first.</p>")).toBe("Run npm test first.");
+    expect(speechTextFromMarkdown("<div>Before<pre><code>x = 1</code></pre>After</div>")).toBe("Before\nAfter");
+  });
+
+  it("reads only the summary of a closed disclosure", () => {
+    expect(speechTextFromMarkdown("<details><summary>Answer</summary>Paris</details>")).toBe("Answer");
+    expect(speechTextFromMarkdown("<details open><summary>Answer</summary>Paris</details>")).toBe("Answer\nParis");
+  });
+
+  it("skips elements marked hidden", () => {
+    expect(speechTextFromMarkdown("<p>Shown <span hidden>secret</span>text</p>")).toBe("Shown text");
+  });
+
+  it("skips bare URLs but keeps emails and link labels", () => {
+    expect(speechTextFromMarkdown("<p>See https://example.com/docs for more.</p>")).toBe("See for more.");
+    expect(speechTextFromMarkdown('<p>Mail me@example.com or read <a href="https://example.com">the docs</a>.</p>')).toBe(
+      "Mail me@example.com or read the docs.",
+    );
+  });
+
+  it("does not fuse words across nested blocks", () => {
+    expect(speechTextFromMarkdown("<div>Intro<p>Body</p><ul><li>One</li><li>Two</li></ul></div>")).toBe("Intro\nBody\nOne\nTwo");
   });
 });

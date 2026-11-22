@@ -42,8 +42,10 @@ function inlineSpeech(children) {
   return text;
 }
 
-const HTML_SILENT = "script, style, template, pre, code, svg, math, head, noscript, iframe, object, textarea, select";
+const HTML_SILENT = "[hidden], script, style, template, pre, svg, math, head, noscript, iframe, object, textarea, select";
 const HTML_LINE_ENDS = "p, div, li, tr, br, h1, h2, h3, h4, h5, h6, blockquote, section, article, summary, details, dt, dd, caption, figcaption, hr";
+
+const BARE_URL = /(?:\bhttps?:\/\/|\bwww\.)[^\s<>"']*[^\s<>"'.,;:!?)\]]/gi;
 
 /**
  * Visible prose of a raw HTML block. The markup is parsed into a detached
@@ -53,10 +55,19 @@ function htmlBlockSpeech(html) {
   if (typeof DOMParser === "undefined") return "";
   const doc = new DOMParser().parseFromString(html, "text/html");
   if (!doc.body) return "";
-  doc.body.querySelectorAll(HTML_SILENT).forEach((el) => el.remove());
+  doc.body.querySelectorAll(HTML_SILENT).forEach((el) => el.replaceWith(el.tagName === "PRE" ? "\n" : ""));
+  // A closed disclosure shows only its summary.
+  doc.body.querySelectorAll("details:not([open])").forEach((details) => {
+    const summary = Array.from(details.children).find((el) => el.tagName === "SUMMARY");
+    details.replaceChildren(...(summary ? [summary] : []));
+  });
   doc.body.querySelectorAll("td, th").forEach((el) => el.append(" "));
-  doc.body.querySelectorAll(HTML_LINE_ENDS).forEach((el) => el.append("\n"));
-  return doc.body.textContent || "";
+  doc.body.querySelectorAll(HTML_LINE_ENDS).forEach((el) => {
+    el.before("\n");
+    el.append("\n");
+  });
+  // Bare web addresses are skipped, as they are in Markdown text.
+  return (doc.body.textContent || "").replace(BARE_URL, "");
 }
 
 export function speechTextFromMarkdown(markdown) {
