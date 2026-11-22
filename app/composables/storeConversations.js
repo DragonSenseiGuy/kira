@@ -3,6 +3,7 @@ import { emitter } from "~/composables/emitter";
 import { migrateMessages } from "./branchManager";
 import { requestCompletion, extractCompletionText } from "~/composables/apiClient";
 import { getBackgroundTarget } from "~/composables/backgroundCredentials";
+import { isLocalBaseUrl } from "~/composables/providers";
 import { deleteChatSummary } from "./chatSummarizer";
 import { deleteContextSummary } from "./contextCompressor";
 import { useCloudSync } from "~/composables/useCloudSync";
@@ -109,7 +110,9 @@ async function generateTitleInBackground(conversationId, plainMessages, lastUpda
 
   try {
     const target = await getBackgroundTarget();
-    if (!target.model || !target.customApiKey) {
+    // Local runtimes (Ollama, LM Studio) need no key.
+    const keyless = isLocalBaseUrl(target.upstreamBaseUrl);
+    if (!target.model || (!target.customApiKey && !keyless)) {
       console.warn("No usable model/key for title generation, skipping");
       return;
     }
