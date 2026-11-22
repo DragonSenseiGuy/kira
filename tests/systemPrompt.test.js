@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import { generateSystemPrompt } from "../app/composables/systemPrompt.js";
+import { RESPONSE_STYLES, responseStyleInstruction } from "../app/utils/responseStyles.js";
 
 const SANDBOX_TOOLS = ["run_javascript", "write_file", "read_file", "list_files"];
 
@@ -54,6 +55,31 @@ describe("generateSystemPrompt", () => {
     const prompt = await generateSystemPrompt([], { custom_instructions: "ALWAYS ANSWER IN FRENCH" }, false, true);
     expect(prompt).toContain("Important User Instructions");
     expect(prompt.trimEnd().endsWith("ALWAYS ANSWER IN FRENCH")).toBe(true);
+  });
+  it("adds no style section by default or for an unknown style", async () => {
+    for (const response_style of [undefined, null, "default", "pirate"]) {
+      expect(await generateSystemPrompt([], { response_style }, false, true)).not.toContain("### Response Style");
+    }
+  });
+
+  it("adds the chosen response style", async () => {
+    for (const style of RESPONSE_STYLES.filter((s) => s.value !== "default")) {
+      const prompt = await generateSystemPrompt([], { response_style: style.value }, false, true);
+      expect(prompt).toContain(`### Response Style\n${style.instruction}`);
+    }
+  });
+
+  it("keeps custom instructions after the response style", async () => {
+    const prompt = await generateSystemPrompt([], { response_style: "concise", custom_instructions: "ANSWER IN FRENCH" }, false, true);
+    expect(prompt.indexOf("### Response Style")).toBeGreaterThan(-1);
+    expect(prompt.indexOf("### Response Style")).toBeLessThan(prompt.indexOf("Important User Instructions"));
+    expect(prompt.trimEnd().endsWith("ANSWER IN FRENCH")).toBe(true);
+  });
+
+  it("offers Default first and gives every other style an instruction", () => {
+    expect(RESPONSE_STYLES[0]).toMatchObject({ value: "default", instruction: "" });
+    expect(RESPONSE_STYLES.slice(1).every((s) => s.label && s.instruction.length > 20)).toBe(true);
+    expect(responseStyleInstruction("concise")).toBe(RESPONSE_STYLES[1].instruction);
   });
 });
 

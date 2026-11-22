@@ -6,6 +6,7 @@
  */
 
 import { findFullModelById } from "~/composables/providers";
+import { responseStyleInstruction } from "~/utils/responseStyles";
 import {
   loadNotepad,
   getNotepadSection,
@@ -138,6 +139,7 @@ const TABLE_LIMITATION_GUIDELINES = `### Table Usage Guidelines
  * @param {string} [settings.user_name] - The user's name.
  * @param {string} [settings.occupation] - The user's occupation.
  * @param {string} [settings.custom_instructions] - Custom instructions from the user.
+ * @param {string} [settings.response_style] - Writing style preset (see utils/responseStyles).
  * @param {string} [settings.selected_model_id] - The selected model ID.
  * @param {boolean} [settings.gpt_oss_limit_tables] - Whether to limit table usage for GPT-OSS models.
  * @param {boolean} [isIncognito=false] - Whether incognito mode is enabled.
@@ -156,6 +158,7 @@ export async function generateSystemPrompt(
     user_name,
     occupation,
     custom_instructions,
+    response_style,
     notepad_enabled,
     selected_model_id,
     gpt_oss_limit_tables,
@@ -253,6 +256,12 @@ export async function generateSystemPrompt(
 You have access to these tools: **${toolNames.join(", ")}**. Use them when they can help you fulfill the user's request.`;
 
     promptSections.push(toolsSection);
+  }
+
+  // **Response Style** — before custom instructions, which still win.
+  const styleInstruction = responseStyleInstruction(response_style);
+  if (styleInstruction) {
+    promptSections.push(`### Response Style\n${styleInstruction}`);
   }
 
   // **Custom Instructions Section (Highest Priority for the model)**

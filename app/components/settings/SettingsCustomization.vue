@@ -42,6 +42,19 @@
         </div>
       </div>
 
+      <div class="stx-item stacked">
+        <div class="stx-info">
+          <h3>Response style</h3>
+          <p>How Kira writes its replies. Custom instructions below take priority over the style.</p>
+        </div>
+        <UiSegmented
+          :model-value="settings.response_style || DEFAULT_RESPONSE_STYLE"
+          :options="RESPONSE_STYLES"
+          aria-label="Response style"
+          @update:model-value="setStyle"
+        />
+      </div>
+
       <div class="stx-item stacked" style="border-bottom: none">
         <div class="stx-info">
           <h3>Custom instructions</h3>
@@ -59,16 +72,22 @@
     </div>
 
     <div class="stx-note">
-      Your name, occupation, and custom instructions are added to the system prompt for every chat. Leave a field blank to omit it.
+      Your name, occupation, response style, and custom instructions are added to the system prompt for every chat. Leave a field blank to omit it.
     </div>
   </div>
 </template>
 
 <script setup>
 import { useSettings } from '~/composables/useSettings';
+import { RESPONSE_STYLES, DEFAULT_RESPONSE_STYLE } from '~/utils/responseStyles';
 
 const settingsManager = useSettings();
 const settings = settingsManager.settings;
+
+function setStyle(value) {
+  settings.response_style = value;
+  save();
+}
 
 function save() {
   settingsManager.saveSettings();

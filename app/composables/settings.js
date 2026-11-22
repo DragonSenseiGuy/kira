@@ -44,6 +44,7 @@ class Settings {
       user_name: null, // User's name
       occupation: null, // User's occupation
       custom_instructions: null, // Custom instructions for Kira
+      response_style: null, // Writing style preset: concise | explanatory | formal (null = default)
 
       // --- Memory Settings ---
       notepad_enabled: false, // Whether the Notepad memory system is enabled
