@@ -13,6 +13,42 @@ function attachmentNames(message) {
     .filter(Boolean);
 }
 
+/** Text of a turn: an assistant reply's text parts in order, as shown in chat. */
+function turnText(message) {
+  const parts = Array.isArray(message.parts)
+    ? message.parts.filter((part) => part?.type === "content" && typeof part.content === "string" && part.content.trim())
+    : [];
+  const pieces = parts.length
+    ? parts.map((part) => part.content)
+    : [typeof message.content === "string" ? message.content : ""];
+  // Surrounding blank lines go; indentation of the first line stays.
+  return pieces
+    .map((piece) => closeOpenFence(piece.replace(/^(?:[ \t]*\r?\n)+/, "").replace(/\s+$/, "")))
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/**
+ * Closes a code fence left open (for example by a stopped reply), so it
+ * cannot swallow the turns after it.
+ */
+function closeOpenFence(text) {
+  let open = null;
+  for (const line of text.split("\n")) {
+    const match = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (!match) continue;
+    const [, marker, rest] = match;
+    if (!open) {
+      // An opening backtick fence cannot have a backtick in its info string.
+      if (marker[0] === "`" && rest.includes("`")) continue;
+      open = marker;
+    } else if (marker[0] === open[0] && marker.length >= open.length && !rest.trim()) {
+      open = null;
+    }
+  }
+  return open ? `${text}\n${open}` : text;
+}
+
 /**
  * Markdown for the branch of a conversation that is currently shown.
  * Tool results and reasoning are left out; attachments are listed by name.
@@ -26,7 +62,7 @@ export function conversationToMarkdown(conversation) {
 
   for (const message of visible) {
     if (message.role !== "user" && message.role !== "assistant") continue;
-    const text = typeof message.content === "string" ? message.content.trim() : "";
+    const text = turnText(message);
     const files = message.role === "user" ? attachmentNames(message) : [];
     if (!text && files.length === 0) continue;
 

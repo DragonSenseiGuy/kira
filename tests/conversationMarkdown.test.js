@@ -57,6 +57,48 @@ describe("conversationToMarkdown", () => {
   });
 });
 
+describe("conversationToMarkdown review cases", () => {
+  it("closes a fence left open by a stopped reply", () => {
+    const md = conversationToMarkdown({
+      title: "T",
+      messages: [user("1", null, "code?"), bot("2", "1", "Here:\n\n````js\nconst a = 1;\n```\nmore"), user("3", "2", "next")],
+    });
+    expect(md).toContain("const a = 1;\n```\nmore\n````\n\n## You\n\nnext\n");
+  });
+
+  it("leaves closed fences alone, including tilde fences", () => {
+    const content = "~~~\n```\n~~~\n\n```py\nx\n```";
+    const md = conversationToMarkdown({ title: "T", messages: [user("1", null, "q"), bot("2", "1", content)] });
+    expect(md).toBe(`# T\n\n## You\n\nq\n\n## Kira\n\n${content}\n`);
+  });
+
+  it("separates text written before and after a tool call", () => {
+    const md = conversationToMarkdown({
+      title: "T",
+      messages: [
+        user("1", null, "look it up"),
+        bot("2", "1", "Let me check.## Results\nDone", {
+          reasoning: "hidden thoughts",
+          parts: [
+            { type: "reasoning", content: "hidden thoughts" },
+            { type: "content", content: "Let me check." },
+            { type: "tool_group", tools: [{ name: "search", result: "RAW" }] },
+            { type: "content", content: "## Results\nDone" },
+          ],
+        }),
+      ],
+    });
+    expect(md).toContain("## Kira\n\nLet me check.\n\n## Results\nDone\n");
+    expect(md).not.toContain("hidden thoughts");
+    expect(md).not.toContain("RAW");
+  });
+
+  it("keeps the indentation of a reply that starts with indented code", () => {
+    const md = conversationToMarkdown({ title: "T", messages: [user("1", null, "q"), bot("2", "1", "\n    indented code\n\ntext\n")] });
+    expect(md).toContain("## Kira\n\n    indented code\n\ntext\n");
+  });
+});
+
 describe("markdownFileName", () => {
   it("removes characters that are not allowed in file names", () => {
     expect(markdownFileName('a/b\\c: d*?"<>|')).toBe("a b c d.md");
