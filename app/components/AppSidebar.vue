@@ -10,6 +10,7 @@ import {
 } from "reka-ui";
 import { useConversationsList } from "~/composables/useConversationsList";
 import { useSettings } from "~/composables/useSettings";
+import { sidebarArrowTarget } from "~/utils/sidebarKeys";
 import { useAuth } from "~/composables/useAuth";
 
 const emit = defineEmits([
@@ -103,6 +104,42 @@ function handleMiddleClickNewChat(e) {
     window.open('/', '_blank');
   }
 }
+//-- Keyboard: search field and chat list
+
+const searchInput = ref(null);
+
+function chatLinks() {
+  return [...document.querySelectorAll(".conversation-list .conversation-button")];
+}
+
+function moveSidebarFocus(event) {
+  const target = sidebarArrowTarget(event.key, event.target, searchInput.value, chatLinks());
+  if (!target) return;
+  event.preventDefault();
+  target.focus();
+}
+
+function handleSearchKeydown(event) {
+  if (event.isComposing) return;
+  if (event.key === "Escape" && searchQuery.value) {
+    event.preventDefault();
+    event.stopPropagation();
+    clearSearch();
+  } else if (event.key === "Enter" && searchQuery.value.trim()) {
+    // Open the top result.
+    const first = chatLinks()[0];
+    if (first) {
+      event.preventDefault();
+      first.click();
+    }
+  } else {
+    moveSidebarFocus(event);
+  }
+}
+
+function handleListKeydown(event) {
+  if (event.target.matches?.(".conversation-button")) moveSidebarFocus(event);
+}
 </script>
 
 <template>
@@ -158,8 +195,10 @@ function handleMiddleClickNewChat(e) {
         <input
           v-model="searchQuery"
           type="text"
+          ref="searchInput"
           class="search-input"
           placeholder="Search chats"
+          @keydown="handleSearchKeydown"
         />
         <UiIconButton
           v-if="searchQuery"
@@ -189,7 +228,7 @@ function handleMiddleClickNewChat(e) {
         />
 
         <!-- Grouped conversation list -->
-        <div v-else class="conversation-list">
+        <div v-else class="conversation-list" @keydown="handleListKeydown">
           <template v-for="(group, index) in groupedConversations" :key="group.key">
             <!-- Group Header -->
             <div class="group-header">
