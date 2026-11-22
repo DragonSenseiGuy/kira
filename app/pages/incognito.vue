@@ -25,7 +25,6 @@
         @typing="isTyping = true"
         @empty="isTyping = false"
         @send-message="sendMessage"
-        @edit-last-message="chatPanelRef?.editLastUserMessage()"
         @abort-controller="controller.abort()"
       />
     </div>
