@@ -316,11 +316,15 @@ const paletteCommands = computed(() => {
     },
     {
       id: 'print-chat',
-      when: () => !!route.params.id || route.path === '/incognito',
+      when: () => route.path === '/incognito' || (!!route.params.id && !route.path.startsWith('/projects')),
       label: 'Print or save as PDF',
       icon: 'material-symbols:print-outline',
       keywords: ['pdf', 'paper', 'printer', 'export'],
-      run: () => window.print(),
+      run: async () => {
+        // Let the palette close before the browser captures the page.
+        await nextTick();
+        window.print();
+      },
     },
     {
       id: 'export-chat',
