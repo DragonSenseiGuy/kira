@@ -164,9 +164,9 @@ export function calculateBranchPath(messages, targetMessageId) {
         const roots = getRootMessages(messages);
         if (roots.length > 1) {
             const rootIndex = roots.findIndex(r => r.id === firstMessage.id);
-            if (rootIndex > 0) {
-                path.push(rootIndex);
-            }
+            // Index 0 is recorded too: with several roots the reader takes the
+            // first entry as the root, so leaving it out shifts every later entry.
+            path.push(Math.max(rootIndex, 0));
         }
     }
 

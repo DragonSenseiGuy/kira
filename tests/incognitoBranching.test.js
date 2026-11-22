@@ -107,6 +107,27 @@ describe("branching in incognito", () => {
     ]);
   });
 
+  it("stays on the original question when its reply is regenerated after an edit", async () => {
+    const manager = useMessagesManager(ref(null));
+    await ask(manager, "first");
+    const first = manager.visibleMessages.value[0];
+    await manager.editUserMessage(first.id, "first, edited");
+    await manager.navigateBranch(manager.visibleMessages.value[0].id, -1);
+    expect(visible(manager)[0]).toEqual(["user", "first"]);
+
+    await manager.regenerateAssistantMessage(manager.visibleMessages.value.at(-1).id);
+    expect(visible(manager)).toEqual([
+      ["user", "first"],
+      ["assistant", "reply"],
+    ]);
+
+    await ask(manager, "follow up");
+    expect(visible(manager).filter(([role]) => role === "user")).toEqual([
+      ["user", "first"],
+      ["user", "follow up"],
+    ]);
+  });
+
   it("writes nothing to storage", async () => {
     const manager = useMessagesManager(ref(null));
     await ask(manager, "first");
