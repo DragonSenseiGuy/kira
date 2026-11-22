@@ -174,8 +174,9 @@ class Settings {
     try {
       const savedSettings = await localforage.getItem("settings");
       if (savedSettings != null) {
-        // Start with a fresh deep copy of default settings
-        const mergedSettings = { ...this.defaultSettings };
+        // Start with a fresh deep copy of default settings, so merging the
+        // saved values in never writes them into the defaults themselves.
+        const mergedSettings = this._deepMergeReactive({}, this.defaultSettings);
 
         // Then deep merge saved settings over it to apply user's preferences
         this._deepMergeReactive(mergedSettings, savedSettings);
