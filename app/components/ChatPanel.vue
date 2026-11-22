@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode } from '../utils/codeBlockUtils';
+import { clipboardHtml, copyRichText } from '../utils/richCopy';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -506,8 +507,14 @@ function getMessageCopyText(message) {
 function copyMessage(message, event) {
   const button = event.currentTarget;
   const textToCopy = getMessageCopyText(message);
+  // A reply also goes on the clipboard as formatted text; a question is
+  // plain text already.
+  const rendered = message.role === 'assistant'
+    ? button.closest('.message-content-footer')?.parentElement?.querySelectorAll('.part-content > .markdown-content')
+    : null;
+  const html = rendered ? clipboardHtml([...rendered]) : '';
 
-  navigator.clipboard.writeText(textToCopy).then(() => {
+  copyRichText(textToCopy, html).then(() => {
     // Visual feedback - temporarily change button to success state
     button.classList.add('copied');
 
