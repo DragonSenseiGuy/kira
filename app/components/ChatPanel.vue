@@ -538,6 +538,13 @@ function copyDebugDump(message, event) {
 // --- Branching Logic ---
 const editingMessageId = ref(null);
 
+// Long user messages the reader has opened with "Show more".
+const expandedMessages = reactive(new Set());
+function setExpanded(messageId, expanded) {
+  if (expanded) expandedMessages.add(messageId);
+  else expandedMessages.delete(messageId);
+}
+
 function startEditing(message) {
   editingMessageId.value = message.id;
 }
@@ -860,7 +867,12 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                         </div>
                       </div>
                       <!-- Message text -->
-                      <CollapsibleText v-if="editingMessageId !== message.id" :text="message.content" />
+                      <CollapsibleText
+                        v-if="editingMessageId !== message.id"
+                        :text="message.content"
+                        :expanded="expandedMessages.has(message.id)"
+                        @update:expanded="setExpanded(message.id, $event)"
+                      />
                       <!-- Edit area -->
                       <div v-else class="edit-area">
                         <MessageEditArea

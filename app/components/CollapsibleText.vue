@@ -5,10 +5,12 @@ import { isLongMessage, COLLAPSED_LINES } from "../utils/longMessage";
 const props = defineProps({
   text: { type: String, default: "" },
 });
+// Held by the parent, so the choice outlives this component (it is
+// replaced by the editor while a message is being edited).
+const expanded = defineModel("expanded", { type: Boolean, default: false });
 
 const textEl = ref(null);
 const isLong = ref(false);
-const expanded = ref(false);
 let observer = null;
 
 // The text's real height at the bubble's current width decides whether it
