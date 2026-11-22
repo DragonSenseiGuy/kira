@@ -1,6 +1,7 @@
 @import "./base.css";
 @import "./code-blocks.css";
 @import "./settings-sections.css";
+@import "./print.css";
 @import "katex/dist/katex.min.css";
 
 #app {

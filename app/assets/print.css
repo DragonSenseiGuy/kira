@@ -1,0 +1,65 @@
+/* Printing a chat (or saving it as a PDF) puts the conversation on the page
+   and nothing else: the app is a fixed-height shell with one scrolling
+   column, which would otherwise print as a single clipped screen. */
+@media print {
+  html,
+  body,
+  #__nuxt,
+  #app,
+  .app-container,
+  .main-container,
+  .chat-section,
+  .chat-column {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    background: #fff !important;
+  }
+
+  /* Everything that is app chrome rather than conversation. */
+  .app-container > :not(.main-container),
+  .top-bar,
+  .input-section,
+  .context-compression-chip,
+  .deep-link-warning,
+  .message-content-footer,
+  .code-actions {
+    display: none !important;
+  }
+
+  /* Hover-revealed and animated content must not print half-faded. */
+  .message,
+  .message * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Long code scrolls sideways on screen; on paper it has to wrap. */
+  pre,
+  pre code {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  pre,
+  table,
+  img,
+  .katex-display {
+    break-inside: avoid;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: underline;
+  }
+}
