@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onBeforeUnmount, onMounted, nextTick, computed } from "vue";
+import { ref, onBeforeUnmount, onMounted, nextTick, computed, watch } from "vue";
 import { Icon } from "@iconify/vue";
 import { useRouter, useRoute } from "vue-router";
 import {
@@ -52,6 +52,19 @@ const {
   handleRenameKeydown,
   clearSearch,
 } = useConversationsList();
+
+// Double-click and F2 start a rename without the menu, so nothing else moves
+// focus into the field; `autofocus` only applies on page load.
+const renameInput = ref(null);
+watch(renamingId, async (id) => {
+  if (!id) return;
+  await nextTick();
+  const input = [renameInput.value].flat().find(Boolean);
+  if (input && document.activeElement !== input) {
+    input.focus();
+    input.select();
+  }
+});
 
 const windowWidth = ref(
   typeof window !== "undefined" ? window.innerWidth : 1200,
@@ -238,6 +251,8 @@ function handleMiddleClickNewChat(e) {
                   class="conversation-button"
                   :to="`/${data.id}`"
                   :class="{ active: data.id == route.params.id }"
+                  @dblclick.prevent="startRename(data.id, data.title)"
+                  @keydown.f2.prevent="startRename(data.id, data.title)"
                 >
                   <span class="conversation-title">{{ data.title }}</span>
                 </NuxtLink>
