@@ -40,6 +40,28 @@ function clean(item) {
     .trim();
 }
 
+const LIST_MARKER = /^\s*(?:[-*•]|\d+[.)])\s+/;
+
+/**
+ * Finds the first JSON array of strings in a reply, ignoring brackets in
+ * any prose around it.
+ * @param {string} text
+ * @returns {string[]|null}
+ */
+function findJsonArray(text) {
+  for (let start = text.indexOf("["); start !== -1; start = text.indexOf("[", start + 1)) {
+    for (let end = text.lastIndexOf("]"); end > start; end = text.lastIndexOf("]", end - 1)) {
+      try {
+        const parsed = JSON.parse(text.slice(start, end + 1));
+        if (Array.isArray(parsed) && parsed.some((item) => typeof item === "string")) return parsed;
+      } catch {
+        // Not JSON at this span; try a shorter one.
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Extracts the suggestions from a model reply: a JSON array when there is
  * one (optionally inside a code fence or surrounded by prose), otherwise
@@ -50,19 +72,12 @@ function clean(item) {
 export function parseFollowUps(text) {
   if (typeof text !== "string" || !text.trim()) return [];
 
-  let items = null;
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
-  if (start !== -1 && end > start) {
-    try {
-      const parsed = JSON.parse(text.slice(start, end + 1));
-      if (Array.isArray(parsed)) items = parsed;
-    } catch {
-      // Not JSON; fall back to lines.
-    }
-  }
+  let items = findJsonArray(text);
   if (!items) {
-    items = text.split("\n").filter((line) => !/^\s*```/.test(line));
+    const lines = text.split("\n").filter((line) => line.trim() && !/^\s*```/.test(line));
+    // When the reply is a list, an introduction above it is not a suggestion.
+    const listed = lines.filter((line) => LIST_MARKER.test(line));
+    items = listed.length >= 2 ? listed : lines;
   }
 
   const seen = new Set();

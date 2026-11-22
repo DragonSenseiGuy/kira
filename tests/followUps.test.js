@@ -61,7 +61,8 @@ describe("useFollowUps", () => {
     await requestFollowUps(chat, { getTarget, complete });
     expect(suggestions.value).toEqual(["One?", "Two?"]);
     expect(forMessageId.value).toBe("a1");
-    expect(complete.mock.calls[0][0]).toMatchObject({ model: "m", upstreamBaseUrl: "http://localhost:11434/v1" });
+    expect(complete.mock.calls[0][0]).toMatchObject({ model: "m", directBaseUrl: "http://localhost:11434/v1" });
+    expect(complete.mock.calls[0][0].upstreamBaseUrl).toBeUndefined();
   });
 
   it("asks nothing after an error, an empty answer or a user turn", async () => {
@@ -91,6 +92,45 @@ describe("useFollowUps", () => {
     await requestFollowUps(chat, { getTarget, complete: async () => { throw new Error("boom"); } });
     expect(suggestions.value).toEqual([]);
     warn.mockRestore();
+  });
+});
+
+describe("request routing with the real target resolver", () => {
+  const messages = [
+    { id: "u1", role: "user", content: "hi" },
+    { id: "a1", role: "assistant", content: "hello" },
+  ];
+  const settingsFor = (baseUrl) => ({
+    selected_model_id: "p1::m1",
+    custom_providers: [{ id: "p1", name: "P", baseUrl, apiKey: "k", models: [{ id: "m1", name: "M" }] }],
+  });
+  const run = async (baseUrl) => {
+    const { getBackgroundTarget } = await import("../app/composables/backgroundCredentials.js");
+    const complete = vi.fn(async () => ({ choices: [{ message: { content: '["a?","b?","c?"]' } }] }));
+    await useFollowUps().requestFollowUps(messages, { getTarget: () => getBackgroundTarget(settingsFor(baseUrl)), complete });
+    return complete.mock.calls[0][0];
+  };
+
+  it("calls a keyed loopback provider directly from the browser", async () => {
+    const payload = await run("http://localhost:1234/v1");
+    expect(payload).toMatchObject({ model: "m1", customApiKey: "k", directBaseUrl: "http://localhost:1234/v1" });
+    expect(payload.upstreamBaseUrl).toBeUndefined();
+  });
+
+  it("relays a remote custom provider", async () => {
+    const payload = await run("https://api.example.com/v1");
+    expect(payload).toMatchObject({ model: "m1", customApiKey: "k", upstreamBaseUrl: "https://api.example.com/v1" });
+    expect(payload.directBaseUrl).toBeUndefined();
+  });
+});
+
+describe("parseFollowUps with chatty models", () => {
+  it("finds the array when the surrounding prose has brackets", () => {
+    expect(parseFollowUps('Sure [see below]:\n["One?", "Two?", "Three?"]\nHope that helps [end]')).toEqual(["One?", "Two?", "Three?"]);
+  });
+
+  it("does not count an introduction above a list as a suggestion", () => {
+    expect(parseFollowUps("Here are some ideas:\n1. One?\n2. Two?\n3. Three?")).toEqual(["One?", "Two?", "Three?"]);
   });
 });
 

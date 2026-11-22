@@ -11,11 +11,19 @@
 import { ref } from "vue";
 import { requestCompletion, extractCompletionText } from "~/composables/apiClient";
 import { getBackgroundTarget } from "~/composables/backgroundCredentials";
+import { isLocalBaseUrl } from "~/composables/providers";
 import { buildFollowUpMessages, parseFollowUps } from "~/utils/followUps";
 
 const suggestions = ref([]);
 const forMessageId = ref(null);
 let controller = null;
+
+// A loopback provider (Ollama, LM Studio) is called from the browser; the
+// relay refuses loopback upstreams. Everything else goes through the relay.
+function routeFor(baseUrl) {
+  if (!baseUrl) return {};
+  return isLocalBaseUrl(baseUrl) ? { directBaseUrl: baseUrl } : { upstreamBaseUrl: baseUrl };
+}
 
 function clearFollowUps() {
   controller?.abort();
@@ -51,7 +59,7 @@ async function requestFollowUps(messages, deps = {}) {
         messages: buildFollowUpMessages(messages),
         model: target.model,
         ...(target.customApiKey ? { customApiKey: target.customApiKey } : {}),
-        ...(target.upstreamBaseUrl ? { upstreamBaseUrl: target.upstreamBaseUrl } : {}),
+        ...routeFor(target.upstreamBaseUrl),
       },
       { signal: own.signal },
     );
