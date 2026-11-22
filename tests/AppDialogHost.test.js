@@ -9,7 +9,7 @@
  * unmount + settle so cases stay isolated.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import {
   alertDialog,
@@ -66,6 +66,24 @@ describe("AppDialogHost", () => {
     const cancelBtn = wrapper.findAll("button").find((b) => b.text() === "Stay");
     await cancelBtn.trigger("click");
     await expect(p).resolves.toBe(false);
+    wrapper.unmount();
+  });
+
+  it("does not confirm when Enter is pressed on the cancel button", async () => {
+    const wrapper = mount(AppDialogHost, { attachTo: document.body });
+    const result = confirmDialog({ title: "Delete?", danger: true });
+    await flushPromises();
+
+    const settled = vi.fn();
+    result.then(settled);
+    // The browser turns Enter on a focused button into a click; the key
+    // itself must not reach the panel's confirm-on-Enter handler.
+    await wrapper.find(".dlg-btn.ghost").trigger("keydown", { key: "Enter" });
+    await flushPromises();
+    expect(settled).not.toHaveBeenCalled();
+
+    await wrapper.find(".dlg-btn.ghost").trigger("click");
+    expect(await result).toBe(false);
     wrapper.unmount();
   });
 
