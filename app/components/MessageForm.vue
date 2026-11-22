@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick, toRaw } from "vue";
+import { ref, computed, watch, nextTick, toRaw, onMounted, onBeforeUnmount } from "vue";
 import { Icon } from "@iconify/vue";
 import {
   DropdownMenuRoot,
@@ -12,6 +12,7 @@ import {
 } from "reka-ui";
 import { useWindowSize, useMagicKeys } from "@vueuse/core";
 import { useKeybinds } from "~/composables/useKeybinds";
+import { shouldFocusComposerOnKey } from "~/utils/typeToFocus";
 import Logo from "./Logo.vue";
 import ModelSelectorPopover from "./ModelSelectorPopover.vue";
 import BottomSheetModelSelector from "./BottomSheetModelSelector.vue";
@@ -776,6 +777,16 @@ useKeybinds({
     textareaRef.value?.focus();
   },
 });
+
+// Typing anywhere on the page goes to the composer: focus moves on keydown,
+// so the browser inserts that same character into the textarea.
+function onWindowKeydown(event) {
+  const textarea = textareaRef.value;
+  if (!textarea || textarea.disabled) return;
+  if (shouldFocusComposerOnKey(event)) textarea.focus();
+}
+onMounted(() => window.addEventListener("keydown", onWindowKeydown));
+onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
 
 // Expose the setMessage function to be called from the parent component
 defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $el: messageFormRoot });
