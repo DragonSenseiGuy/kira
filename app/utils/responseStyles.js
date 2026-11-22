@@ -35,3 +35,13 @@ export const RESPONSE_STYLES = [
 export function responseStyleInstruction(value) {
   return RESPONSE_STYLES.find((style) => style.value === value)?.instruction || "";
 }
+
+/**
+ * Settings the system prompt may use. An incognito chat leaves out the
+ * user's profile and custom instructions but keeps the writing style,
+ * which says nothing about the user.
+ */
+export function promptSettings(settings, isIncognito) {
+  if (!isIncognito) return settings;
+  return { response_style: settings?.response_style };
+}

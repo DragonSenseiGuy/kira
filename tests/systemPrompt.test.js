@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import { generateSystemPrompt } from "../app/composables/systemPrompt.js";
-import { RESPONSE_STYLES, responseStyleInstruction } from "../app/utils/responseStyles.js";
+import { RESPONSE_STYLES, responseStyleInstruction, promptSettings } from "../app/utils/responseStyles.js";
 
 const SANDBOX_TOOLS = ["run_javascript", "write_file", "read_file", "list_files"];
 
@@ -83,4 +83,25 @@ describe("generateSystemPrompt", () => {
   });
 });
 
+describe("promptSettings", () => {
+  const settings = {
+    user_name: "Zelda",
+    occupation: "Cartographer",
+    custom_instructions: "Call me captain",
+    global_memory_enabled: true,
+    response_style: "concise",
+  };
 
+  it("passes the settings through for a normal chat", () => {
+    expect(promptSettings(settings, false)).toBe(settings);
+  });
+
+  it("keeps only the response style in incognito", async () => {
+    expect(promptSettings(settings, true)).toEqual({ response_style: "concise" });
+    const prompt = await generateSystemPrompt([], promptSettings(settings, true), true);
+    expect(prompt).toContain("### Response Style");
+    expect(prompt).not.toContain("Zelda");
+    expect(prompt).not.toContain("Cartographer");
+    expect(prompt).not.toContain("captain");
+  });
+});

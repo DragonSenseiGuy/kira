@@ -16,6 +16,7 @@ import {
 import { formatMessageForAPICached } from "~/composables/messageFormat";
 import { findFullModelById } from "~/composables/providers";
 import { generateSystemPrompt } from "~/composables/systemPrompt";
+import { promptSettings } from "~/utils/responseStyles";
 import { toolManager } from "~/composables/toolsManager";
 import { postChatCompletion } from "~/composables/apiClient";
 import { resolveChatTarget } from "~/composables/providers";
@@ -237,7 +238,7 @@ export async function* handleIncomingMessage(
     // Generate system prompt based on settings and used tools
     const systemPrompt = await generateSystemPrompt(
       enabledToolNames,
-      isIncognito ? {} : settings,
+      promptSettings(settings, isIncognito),
       isIncognito,
       modelHasToolUse,
     );
