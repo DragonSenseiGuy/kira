@@ -91,6 +91,23 @@ const RICH_TAGS = new Set(["A", "IMG", "STRONG", "B", "EM", "I", "CODE", "DEL", 
 const SAFE_LINK = /^(?:https?:|mailto:)/i;
 const SAFE_IMAGE = /^(?:https?:|data:image\/(?:png|jpeg|gif|webp);)/i;
 
+/** An attribute's URL made absolute, as the pasted copy has no base to resolve it against. */
+function absoluteUrl(element, name) {
+  const value = (element.getAttribute(name) || "").trim();
+  if (!value) return "";
+  try {
+    return new URL(value, element.baseURI).href;
+  } catch {
+    return "";
+  }
+}
+
+/** The text a piece of rebuilt markup shows, read without loading anything in it. */
+function shownText(html) {
+  if (typeof DOMParser === "undefined") return "";
+  return (new DOMParser().parseFromString(html, "text/html").body?.textContent || "").trim();
+}
+
 /** Rebuilds a rendered cell's content from a small set of tags and attributes. */
 function richHtml(node) {
   let html = "";
@@ -111,11 +128,11 @@ function richHtml(node) {
     } else if (tag === "BR") {
       html += "<br>";
     } else if (tag === "IMG") {
-      const src = child.getAttribute("src") || "";
+      const src = absoluteUrl(child, "src");
       const alt = escapeHtml(child.getAttribute("alt") || "");
       html += SAFE_IMAGE.test(src) ? `<img src="${escapeHtml(src)}" alt="${alt}">` : alt;
     } else if (tag === "A") {
-      const href = child.getAttribute("href") || "";
+      const href = absoluteUrl(child, "href");
       const label = richHtml(child);
       html += SAFE_LINK.test(href) ? `<a href="${escapeHtml(href)}">${label}</a>` : label;
     } else {
@@ -141,7 +158,11 @@ export function safeTableHtml(table) {
         const tag = cell.tagName.toLowerCase();
         const text = cellText(cell);
         const guarded = asText(text);
-        const content = guarded !== text ? escapeHtml(guarded).replace(/\n/g, "<br>") : richHtml(cell).trim();
+        let content = guarded !== text ? escapeHtml(guarded).replace(/\n/g, "<br>") : richHtml(cell).trim();
+        // The rebuilt markup can show text the plain cell does not, such as
+        // the alt text standing in for a rejected image.
+        const shown = shownText(content);
+        if (guarded === text && asText(shown) !== shown) content = escapeHtml(asText(shown));
         return `<${tag}>${content}</${tag}>`;
       });
       return `<tr>${cells.join("")}</tr>`;

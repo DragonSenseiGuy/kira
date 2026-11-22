@@ -89,6 +89,17 @@ describe("review cases", () => {
     expect(html).toContain("<strong>bold</strong> <code>x</code>");
   });
 
+  it("resolves relative links and images and guards alt text standing in for an image", () => {
+    document.body.innerHTML =
+      '<table><tr><td><a href="/settings">Settings</a></td><td><img src="pic.png" alt="p"></td>' +
+      '<td><img src="javascript:x" alt="=1+1"></td></tr></table>';
+    const html = safeTableHtml(document.querySelector("table"));
+    const base = document.baseURI;
+    expect(html).toContain(`<a href="${new URL("/settings", base).href}">Settings</a>`);
+    expect(html).toContain(`<img src="${new URL("pic.png", base).href}" alt="p">`);
+    expect(html).toContain("<td>'=1+1</td>");
+  });
+
   it("drops unsafe markup and URL schemes from the copied HTML", () => {
     const table = document.createElement("table");
     table.innerHTML =
