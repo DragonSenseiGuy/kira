@@ -880,7 +880,6 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
           @focus="isFocused = true"
           @blur="isFocused = false"
           placeholder="Ask anything"
-          aria-label="Message"
           class="chat-textarea"
           rows="1"
         ></textarea>
