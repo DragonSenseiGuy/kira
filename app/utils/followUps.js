@@ -63,12 +63,11 @@ function findJsonArray(text) {
 }
 
 /**
- * Reads a reply that is nothing but a JSON array, optionally in a code fence.
+ * Reads a reply that is a JSON array on its own or in a code fence.
  * @param {string} text
  * @returns {Array|null}
  */
-function wholeJsonArray(text) {
-  const body = text.trim().replace(/^```[\w-]*\s*\n?/, "").replace(/\n?```\s*$/, "").trim();
+function asJsonArray(body) {
   if (!body.startsWith("[")) return null;
   try {
     const parsed = JSON.parse(body);
@@ -78,9 +77,20 @@ function wholeJsonArray(text) {
   }
 }
 
+function wholeJsonArray(text) {
+  const whole = asJsonArray(text.trim());
+  if (whole) return whole;
+  // A fenced array is the answer whatever is written around the fence.
+  for (const fence of text.matchAll(/```[\w-]*[ \t]*\n([\s\S]*?)\n?```/g)) {
+    const fenced = asJsonArray(fence[1].trim());
+    if (fenced) return fenced;
+  }
+  return null;
+}
+
 /**
- * Extracts the suggestions from a model reply. In order: a reply that is
- * only a JSON array, a numbered or bulleted list, a JSON array inside
+ * Extracts the suggestions from a model reply. In order: a JSON array that
+ * is the whole reply or fenced, a numbered or bulleted list, a JSON array inside
  * prose, and finally one suggestion per line.
  * @param {string} text
  * @returns {string[]} At most MAX_FOLLOW_UPS distinct suggestions.
@@ -93,9 +103,9 @@ export function parseFollowUps(text) {
     const lines = text.split("\n").filter((line) => line.trim() && !/^\s*```/.test(line));
     const firstListed = lines.findIndex((line) => LIST_MARKER.test(line));
     if (lines.filter((line) => LIST_MARKER.test(line)).length >= 2) {
-      // A list: the introduction above it is not a suggestion, but a line
-      // the model forgot to number is.
-      items = lines.slice(firstListed);
+      // A list: headings and sign-offs around the items are not suggestions,
+      // but a question the model forgot to number is.
+      items = lines.slice(firstListed).filter((line) => LIST_MARKER.test(line) || /[?？]\s*$/.test(line));
     } else {
       items = findJsonArray(text) || lines;
     }

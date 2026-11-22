@@ -174,3 +174,15 @@ describe("parseFollowUps review cases", () => {
     ]);
   });
 });
+
+describe("parseFollowUps list commentary", () => {
+  it("skips a heading between items and a trailing sign-off", () => {
+    const reply = "1. How do I authenticate?\nTwo more ideas:\n2. How do I refresh the token?\n3. How do I revoke it?\nLet me know which one you like!";
+    expect(parseFollowUps(reply)).toEqual(["How do I authenticate?", "How do I refresh the token?", "How do I revoke it?"]);
+  });
+
+  it("uses a fenced array even between numbered commentary", () => {
+    const reply = '1. Suggested questions:\n```json\n["How do I authenticate?", "How do I revoke a token?"]\n```\n2. Pick one to continue.';
+    expect(parseFollowUps(reply)).toEqual(["How do I authenticate?", "How do I revoke a token?"]);
+  });
+});
