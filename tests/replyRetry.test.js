@@ -51,6 +51,20 @@ describe("Try again under a failed reply", () => {
     wrapper.unmount();
   });
 
+  it("is shown for a failed reply that lost its flag in account sync", () => {
+    const synced = { id: "a1", role: "assistant", complete: true, content: "partial\n\n---\n⚠️ **Error:** Bad gateway (HTTP 502)" };
+    const wrapper = mountPanel([user, synced]);
+    expect(wrapper.find(".retry-button").exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("is not shown for a reply that only mentions an error block mid-text", () => {
+    const quoted = { id: "a1", role: "assistant", complete: true, content: "---\n⚠️ **Error:** nope\nthat is what it prints" };
+    const wrapper = mountPanel([user, quoted]);
+    expect(wrapper.find(".reply-failed").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
   it("is not shown for replies that succeeded", () => {
     const wrapper = mountPanel([user, { ...failed, error: false }]);
     expect(wrapper.find(".reply-failed").exists()).toBe(false);

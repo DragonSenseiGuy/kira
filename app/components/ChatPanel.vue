@@ -550,6 +550,14 @@ function submitEdit(messageId, newContent, newAttachments) {
   editingMessageId.value = null;
 }
 
+// The account copy of a chat has no error flag, so a reply loaded from it is
+// recognised by the error block sendMessage appends to a failed reply.
+const ERROR_BLOCK = /(^|\n)---\n⚠️ \*\*Error:\*\* [^\n]*$/;
+
+function replyFailed(message) {
+  return !!message.error || (typeof message.content === 'string' && ERROR_BLOCK.test(message.content));
+}
+
 function regenerateMessage(messageId) {
   emit("regenerate-message", messageId);
 }
@@ -871,7 +879,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                     </div>
                   </div>
               <div
-                v-if="message.role === 'assistant' && message.error && message.complete && !isLoading"
+                v-if="message.role === 'assistant' && replyFailed(message) && message.complete && !isLoading"
                 class="reply-failed"
                 role="status"
               >
