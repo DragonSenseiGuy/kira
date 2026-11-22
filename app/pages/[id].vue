@@ -12,6 +12,7 @@
         :is-dark="isDark"
         :is-incognito="isIncognito"
         @set-message="text => messageFormRef?.setMessage(text)"
+        @send-message="text => sendMessage(text)"
         @scroll="handleChatScroll"
         @edit-message="editUserMessage"
         @regenerate-message="regenerateAssistantMessage"
