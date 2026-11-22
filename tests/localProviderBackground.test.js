@@ -95,3 +95,17 @@ describe("getBackgroundTarget", () => {
     expect(target.directBaseUrl).toBeUndefined();
   });
 });
+
+describe("canApplyGeneratedTitle", () => {
+  it("lets a generated title replace the placeholder", async () => {
+    const { canApplyGeneratedTitle } = await import("../app/composables/storeConversations.js");
+    expect(canApplyGeneratedTitle({ id: "c1", title: "Untitled" })).toBe(true);
+    expect(canApplyGeneratedTitle({ id: "c1" })).toBe(true);
+    expect(canApplyGeneratedTitle(undefined)).toBe(true);
+  });
+
+  it("keeps a name the user chose while the title was being generated", async () => {
+    const { canApplyGeneratedTitle } = await import("../app/composables/storeConversations.js");
+    expect(canApplyGeneratedTitle({ id: "c1", title: "My trip plan" })).toBe(false);
+  });
+});
