@@ -7,7 +7,7 @@ Kira does **not** sell user information. Chats stay on your device by default; i
 
 - Data is stored locally on your device, with optional account sync
 - Full Markdown & LaTeX Support
-- Document & image upload support
+- Document, image, and text/code file upload support
 - Image generation support
 - Sandboxed local projects & workspaces with code execution
 - Personalizable with name, occupation, and custom instructions

@@ -14,7 +14,11 @@
           :alt="attachment.filename"
         />
         <div v-else class="edit-pdf-item">
-          <Icon icon="material-symbols:picture-as-pdf" width="20" height="20" />
+          <Icon
+            :icon="attachment.type === 'text' ? 'material-symbols:description-outline' : 'material-symbols:picture-as-pdf'"
+            width="20"
+            height="20"
+          />
           <span class="edit-pdf-filename">{{ attachment.filename }}</span>
         </div>
         <button class="remove-attachment-btn" @click="removeAttachment(index)" title="Remove attachment">
