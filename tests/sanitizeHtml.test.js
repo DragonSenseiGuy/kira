@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-// The sanitizer needs a spec-compliant HTML parser; happy-dom is not one.
 import { describe, it, expect } from "vitest";
 import { md } from "../app/utils/markdown";
 import {

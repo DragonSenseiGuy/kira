@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+// Written against happy-dom's innerText and Blob; the default environment is jsdom.
 /**
  * @file notepad.test.js
  * @description Unit tests for the notepad core module: validation,

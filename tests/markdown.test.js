@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-// The sanitizer needs a spec-compliant HTML parser; happy-dom is not one.
 /**
  * Tests for app/utils/markdown.js
  */
