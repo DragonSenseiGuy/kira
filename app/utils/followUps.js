@@ -40,13 +40,17 @@ function clean(item) {
     .trim();
 }
 
+const REQUEST_VERB =
+  /^(?:show|explain|tell|give|compare|write|summari[sz]e|list|describe|walk|help|create|make|draft|suggest|find|translate|rewrite|generate|provide|outline|break|share|add|convert|expand|elaborate|simplify|turn)\b/i;
+
 /**
- * Whether an unnumbered line in a list is the model talking about the list
- * (a heading or a sign-off) rather than a suggestion it forgot to number.
+ * Whether an unnumbered line in a list reads as a suggestion the model
+ * forgot to number: a question, or a request that opens with a verb.
+ * Headings and sign-offs are neither.
  */
-function isCommentary(line) {
-  if (/[?？]$/.test(line)) return false;
-  return /[:：!！…]$/.test(line) || /^(?:let me know|feel free|i hope|hope|here are|here's|these|those|happy to|i can|i'm|i am|if you)\b/i.test(line);
+function isUnmarkedSuggestion(line) {
+  if (/[?？]$/.test(line)) return true;
+  return REQUEST_VERB.test(line) && !/[:：]$/.test(line);
 }
 
 const LIST_MARKER = /^\s*(?:[-*•]|\d+[.)])\s+/;
@@ -114,7 +118,13 @@ export function parseFollowUps(text) {
     if (lines.filter((line) => LIST_MARKER.test(line)).length >= 2) {
       // A list: headings and sign-offs around the items are not suggestions,
       // but a question the model forgot to number is.
-      items = lines.slice(firstListed).filter((line) => LIST_MARKER.test(line) || !isCommentary(clean(line)));
+      // Numbered items come first, so an unnumbered line only fills a slot
+      // they leave free.
+      const listed = lines.slice(firstListed);
+      items = [
+        ...listed.filter((line) => LIST_MARKER.test(line)),
+        ...listed.filter((line) => !LIST_MARKER.test(line) && isUnmarkedSuggestion(clean(line))),
+      ];
     } else {
       items = findJsonArray(text) || lines;
     }

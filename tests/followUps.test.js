@@ -199,4 +199,12 @@ describe("parseFollowUps list commentary", () => {
     ]);
     expect(parseFollowUps("1. A?\nTwo more ideas:\n2. B?\nLet me know if you want more.")).toEqual(["A?", "B?"]);
   });
+
+  it("gives numbered items the slots before unnumbered lines", () => {
+    expect(
+      parseFollowUps("1. How do I authenticate?\nOther ideas\n2. How do I revoke a token?\n3. How do I refresh a token?"),
+    ).toEqual(["How do I authenticate?", "How do I revoke a token?", "How do I refresh a token?"]);
+    expect(parseFollowUps("1. A?\n2. B?\nPick one to continue.")).toEqual(["A?", "B?"]);
+    expect(parseFollowUps("1. A?\nWhat about C?\n2. B?\n3. D?")).toEqual(["A?", "B?", "D?"]);
+  });
 });
