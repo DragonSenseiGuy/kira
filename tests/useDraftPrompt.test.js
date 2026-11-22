@@ -13,6 +13,7 @@ vi.mock("../app/composables/useGlobalIncognito", () => ({
   useGlobalIncognito: () => ({ isIncognito: { value: false } }),
 }));
 
+import localforage from "localforage";
 import { useDraftPrompt } from "../app/composables/useDraftPrompt.js";
 
 const settle = async () => {
@@ -115,6 +116,26 @@ describe("useDraftPrompt", () => {
     ephemeral.value = false;
     await settle();
     expect(input.value).toBe("typed while private");
+  });
+
+  it("keeps text typed while the stored draft is still being read", async () => {
+    store.set("draft:new", "Plan the roadmap");
+    const input = ref("");
+    const ephemeral = ref(true);
+    useDraftPrompt(ref(""), input, { isEphemeral: ephemeral });
+    await settle();
+
+    let release;
+    localforage.getItem.mockImplementationOnce(
+      (key) => new Promise((resolve) => { release = () => resolve(store.get(key) ?? null); }),
+    );
+    ephemeral.value = false;
+    await nextTick();
+    input.value = "Review the budget";
+    release();
+    await settle();
+    expect(input.value).toBe("Review the budget");
+    expect(store.get("draft:new")).toBe("Review the budget");
   });
 
   it("uses the incognito state by default", async () => {

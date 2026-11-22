@@ -85,8 +85,24 @@ export function useDraftPrompt(conversationIdRef, inputRef, options = {}) {
     if (ephemeral) clearTimeout(saveTimeout);
     // Leaving incognito with an empty composer: bring back the stored draft
     // that was not restored while private. Live input is never replaced.
-    else if (!inputRef.value) loadDraft();
+    else if (!inputRef.value) restoreAfterIncognito();
   });
+
+  /**
+   * Restores the stored draft once incognito ends, unless the user typed,
+   * switched chat or went private again while it was being read.
+   */
+  async function restoreAfterIncognito() {
+    const conversationId = conversationIdRef.value;
+    const saved = await localforage.getItem(getKey(conversationId));
+    if (typeof saved !== 'string' || !saved) return;
+    if (inputRef.value || isEphemeral.value || conversationIdRef.value !== conversationId) return;
+    isRestoring = true;
+    inputRef.value = saved;
+    requestAnimationFrame(() => {
+      isRestoring = false;
+    });
+  }
 
   // Watch input changes and auto-save
   watch(inputRef, debouncedSave);
