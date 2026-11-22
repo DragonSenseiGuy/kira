@@ -507,9 +507,9 @@ function getMessageCopyText(message) {
 function copyMessage(message, event) {
   const button = event.currentTarget;
   const textToCopy = getMessageCopyText(message);
-  // A reply also goes on the clipboard as formatted text; a question is
-  // plain text already.
-  const rendered = message.role === 'assistant'
+  // A finished reply also goes on the clipboard as formatted text. A question
+  // is plain text already, and a reply still streaming is only partly rendered.
+  const rendered = message.role === 'assistant' && message.complete
     ? button.closest('.message-content-footer')?.parentElement?.querySelectorAll('.part-content > .markdown-content')
     : null;
   const html = rendered ? clipboardHtml([...rendered]) : '';
