@@ -8,6 +8,7 @@ import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
 import ContextSummaryMarker from './ContextSummaryMarker.vue';
 import MessageEditArea from './MessageEditArea.vue';
+import { motionSafeScroll } from '../utils/motion';
 import { useContextCompression } from '../composables/useContextCompression';
 import { getFormattedStatsFromExecutedTools } from '../composables/searchViewStats';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
@@ -281,7 +282,7 @@ function findScrollContainer() {
 const scrollToEnd = (behavior = "instant") => {
   const container = cachedScrollContainer || chatWrapper.value;
   if (container) {
-    container.scrollTo({ top: container.scrollHeight, behavior });
+    container.scrollTo({ top: container.scrollHeight, behavior: motionSafeScroll(behavior) });
   }
 };
 
@@ -315,7 +316,7 @@ async function focusMessage(messageId, options = {}) {
     return focusMessage(messageId, { retries: retries - 1 });
   }
 
-  element.scrollIntoView({ behavior: "smooth", block: "center" });
+  element.scrollIntoView({ behavior: motionSafeScroll("smooth"), block: "center" });
 
   highlightedMessageId.value = messageId;
   if (highlightTimeout) clearTimeout(highlightTimeout);
