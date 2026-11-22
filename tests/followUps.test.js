@@ -148,3 +148,29 @@ describe("wiring", () => {
     expect(source.match(/clearFollowUps\(\);/g).length).toBeGreaterThanOrEqual(5);
   });
 });
+
+describe("parseFollowUps review cases", () => {
+  it("keeps numbered questions that contain an inline array", () => {
+    const reply = '1. How do I validate ["read", "write"]?\n2. What happens if I access roles[0]?\n3. Can you show a test?';
+    expect(parseFollowUps(reply)).toEqual([
+      'How do I validate ["read", "write"]?',
+      "What happens if I access roles[0]?",
+      "Can you show a test?",
+    ]);
+  });
+
+  it("returns nothing for an empty or string-free array", () => {
+    expect(parseFollowUps("[]")).toEqual([]);
+    expect(parseFollowUps("```json\n[]\n```")).toEqual([]);
+    expect(parseFollowUps("[1, null, {}]")).toEqual([]);
+  });
+
+  it("keeps an unmarked question inside a list", () => {
+    const reply = "Here are some ideas:\n1. How does the API work?\n2. Can you show an example?\nWhat errors can it return?";
+    expect(parseFollowUps(reply)).toEqual([
+      "How does the API work?",
+      "Can you show an example?",
+      "What errors can it return?",
+    ]);
+  });
+});

@@ -63,21 +63,42 @@ function findJsonArray(text) {
 }
 
 /**
- * Extracts the suggestions from a model reply: a JSON array when there is
- * one (optionally inside a code fence or surrounded by prose), otherwise
- * one suggestion per line.
+ * Reads a reply that is nothing but a JSON array, optionally in a code fence.
+ * @param {string} text
+ * @returns {Array|null}
+ */
+function wholeJsonArray(text) {
+  const body = text.trim().replace(/^```[\w-]*\s*\n?/, "").replace(/\n?```\s*$/, "").trim();
+  if (!body.startsWith("[")) return null;
+  try {
+    const parsed = JSON.parse(body);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extracts the suggestions from a model reply. In order: a reply that is
+ * only a JSON array, a numbered or bulleted list, a JSON array inside
+ * prose, and finally one suggestion per line.
  * @param {string} text
  * @returns {string[]} At most MAX_FOLLOW_UPS distinct suggestions.
  */
 export function parseFollowUps(text) {
   if (typeof text !== "string" || !text.trim()) return [];
 
-  let items = findJsonArray(text);
+  let items = wholeJsonArray(text);
   if (!items) {
     const lines = text.split("\n").filter((line) => line.trim() && !/^\s*```/.test(line));
-    // When the reply is a list, an introduction above it is not a suggestion.
-    const listed = lines.filter((line) => LIST_MARKER.test(line));
-    items = listed.length >= 2 ? listed : lines;
+    const firstListed = lines.findIndex((line) => LIST_MARKER.test(line));
+    if (lines.filter((line) => LIST_MARKER.test(line)).length >= 2) {
+      // A list: the introduction above it is not a suggestion, but a line
+      // the model forgot to number is.
+      items = lines.slice(firstListed);
+    } else {
+      items = findJsonArray(text) || lines;
+    }
   }
 
   const seen = new Set();
