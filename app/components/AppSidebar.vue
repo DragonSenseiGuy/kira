@@ -10,6 +10,8 @@ import {
 } from "reka-ui";
 import { useConversationsList } from "~/composables/useConversationsList";
 import { useSettings } from "~/composables/useSettings";
+import { useKeybinds } from "~/composables/useKeybinds";
+import { adjacentChatId } from "~/utils/chatNavigation";
 import { useAuth } from "~/composables/useAuth";
 
 const emit = defineEmits([
@@ -103,6 +105,15 @@ function handleMiddleClickNewChat(e) {
     window.open('/', '_blank');
   }
 }
+function openAdjacentChat(step) {
+  const id = adjacentChatId(groupedConversations.value, route.params.id, step, isPinnedExpanded.value);
+  if (id) router.push(`/${id}`);
+}
+
+useKeybinds({
+  previous_chat: () => openAdjacentChat(-1),
+  next_chat: () => openAdjacentChat(1),
+});
 </script>
 
 <template>

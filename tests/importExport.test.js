@@ -349,6 +349,8 @@ describe("exportAllToZip", () => {
         toggle_sidebar: "mod+b",
         toggle_parameters: "mod+alt+b",
         toggle_incognito: "mod+alt+i",
+        previous_chat: "mod+alt+arrowup",
+        next_chat: "mod+alt+arrowdown",
       },
       model_settings: {},
       parameter_config: { temperature: 1.0, top_p: 0.95, seed: null, max_tokens: 16384, grounding: false },
