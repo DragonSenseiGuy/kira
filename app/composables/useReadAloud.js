@@ -47,8 +47,24 @@ const HTML_LINE_ENDS = "p, div, li, tr, br, h1, h2, h3, h4, h5, h6, blockquote, 
 
 // A web address in running text. It ends at whitespace or full-width
 // punctuation, and is not the domain part of an email address.
-const URL_END = "\\s<>\"'\ue000\u3000-\u3002\uff0c\uff1b\uff1a\uff01\uff1f\u300c-\u300f\uff08\uff09\u3010\u3011";
+const URL_END = "\\s<>\"'\ue000\u3000-\u3002\u3008-\u3011\u3014-\u301b\uff01\uff08\uff09\uff0c\uff1a\uff1b\uff1f\uff3b\uff3d\uff5b\uff5d";
 const BARE_URL = new RegExp(`(?<![\\w@.\\-/])(?:https?:\\/\\/|www\\.)[^${URL_END}]*[^${URL_END}.,;:!?)\\]]`, "gi");
+
+// Elements whose content the browser shows or keeps as text, not markup.
+const RAW_TEXT_ELEMENT = /<(textarea|title|script|style|xmp|noscript|iframe)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi;
+
+/**
+ * Number of disclosures a line's inline HTML puts on screen. A tag shown
+ * as literal text (inside a `<textarea>`, say) is not one.
+ */
+function inlineDetailsCount(children) {
+  const html = (children || [])
+    .map((child) => (child.type === "html_inline" ? child.content : ""))
+    .join("")
+    .replace(RAW_TEXT_ELEMENT, "");
+  if (!/<details[\s>]/i.test(html) || typeof DOMParser === "undefined") return 0;
+  return new DOMParser().parseFromString(html, "text/html").body?.querySelectorAll("details").length || 0;
+}
 
 /**
  * Visible prose of a raw HTML block. The markup is parsed into a detached
@@ -70,17 +86,17 @@ function htmlBlockSpeech(html, nextDetailsState) {
     const summary = Array.from(details.children).find((el) => el.tagName === "SUMMARY");
     details.replaceChildren(...(summary ? [summary] : []));
   });
+  doc.body.querySelectorAll("td, th").forEach((el) => el.append(" "));
+  doc.body.querySelectorAll(HTML_LINE_ENDS).forEach((el) => {
+    el.before("\n");
+    el.append("\n");
+  });
   // Link labels are set aside so they are kept even when they look like an
   // address; see the address removal below.
   const labels = [];
   doc.body.querySelectorAll("a").forEach((a) => {
     labels.push(a.textContent);
     a.replaceWith(`\ue000${labels.length - 1}\ue001`);
-  });
-  doc.body.querySelectorAll("td, th").forEach((el) => el.append(" "));
-  doc.body.querySelectorAll(HTML_LINE_ENDS).forEach((el) => {
-    el.before("\n");
-    el.append("\n");
   });
   // Bare web addresses are skipped, as they are in Markdown text. Matching
   // the joined text catches an address split by inline formatting.
@@ -115,9 +131,7 @@ export function speechTextFromMarkdown(markdown, options = {}) {
     } else if (token.type === "inline") {
       // A disclosure written inline (in a table cell, say) is on screen too,
       // so it takes its place in the list of on-screen states.
-      for (const child of token.children || []) {
-        if (child.type === "html_inline" && /^<details[\s>]/i.test(child.content)) detailsIndex++;
-      }
+      detailsIndex += inlineDetailsCount(token.children);
       const text = inlineSpeech(token.children);
       if (row) row.push(text);
       else lines.push(text);

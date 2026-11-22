@@ -345,4 +345,20 @@ describe("HTML block speech, fourth review", () => {
       "Open www.example.com now",
     );
   });
+
+  it("stops an address at a closing full-width bracket", () => {
+    expect(speechTextFromMarkdown("<p>詳しくは［https://example.jp］をご覧ください。</p>")).toBe("詳しくは［］をご覧ください。");
+    expect(speechTextFromMarkdown("<p>《https://example.cn》可以参考</p>")).toBe("《》可以参考");
+  });
+
+  it("keeps line breaks inside a link label", () => {
+    expect(speechTextFromMarkdown('<p><a href="https://example.com">Installation<br>Guide</a></p>')).toBe("Installation\nGuide");
+  });
+
+  it("does not count a disclosure tag shown as literal text", () => {
+    const source =
+      "Example: <textarea><details></details></textarea>\n\n<details><summary>Answer</summary>Paris</details>";
+    expect(speechTextFromMarkdown(source, { detailsOpen: [true] })).toContain("Paris");
+    expect(speechTextFromMarkdown(source, { detailsOpen: [false] })).not.toContain("Paris");
+  });
 });
