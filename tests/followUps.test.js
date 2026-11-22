@@ -236,4 +236,9 @@ describe("parseFollowUps list commentary", () => {
       "Tell me what files you need to debug this.",
     ]);
   });
+
+  it("drops an offer that names a topic or asks what the reader needs", () => {
+    expect(parseFollowUps("1. A?\n2. B?\nTell me which topic you’d like to explore.")).toEqual(["A?", "B?"]);
+    expect(parseFollowUps("1. A?\n2. B?\nTell me if you need more examples.")).toEqual(["A?", "B?"]);
+  });
 });
