@@ -3,6 +3,7 @@
  * @description Turns one conversation into a Markdown document.
  */
 
+import MarkdownIt from "markdown-it";
 import { getMessagesForBranchPath } from "~/composables/branchManager";
 
 const FALLBACK_TITLE = "Untitled chat";
@@ -28,25 +29,19 @@ function turnText(message) {
     .join("\n\n");
 }
 
+const fenceParser = new MarkdownIt();
+
 /**
  * Closes a code fence left open (for example by a stopped reply), so it
  * cannot swallow the turns after it.
  */
 function closeOpenFence(text) {
-  let open = null;
-  for (const line of text.split("\n")) {
-    const match = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
-    if (!match) continue;
-    const [, marker, rest] = match;
-    if (!open) {
-      // An opening backtick fence cannot have a backtick in its info string.
-      if (marker[0] === "`" && rest.includes("`")) continue;
-      open = marker;
-    } else if (marker[0] === open[0] && marker.length >= open.length && !rest.trim()) {
-      open = null;
-    }
-  }
-  return open ? `${text}\n${open}` : text;
+  // A heading placed after the text shows whether a fence is still open:
+  // the Markdown parser then reads it as code instead of a heading.
+  const probe = "kira-export-fence-probe";
+  const tokens = fenceParser.parse(`${text}\n\n## ${probe}`, {});
+  const open = tokens.find((token) => token.type === "fence" && token.content.includes(probe));
+  return open ? `${text}\n${open.markup}` : text;
 }
 
 /**
