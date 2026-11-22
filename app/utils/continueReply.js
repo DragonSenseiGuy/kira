@@ -16,3 +16,15 @@ export function continuableMessageId(messages, isLoading) {
   if (last.role !== "assistant" || !last.complete || !last.truncated || last.error) return null;
   return last.id;
 }
+
+// The account copy of a chat does not store the flag, so a newer copy pulled
+// from the account takes it over from the messages already on this device.
+export function keepTruncated(remoteMessages, localMessages) {
+  const truncated = new Set(
+    (localMessages || []).filter((m) => m.truncated).map((m) => m.id),
+  );
+  if (!truncated.size) return remoteMessages;
+  return remoteMessages.map((m) =>
+    m.role === "assistant" && truncated.has(m.id) ? { ...m, truncated: true } : m,
+  );
+}

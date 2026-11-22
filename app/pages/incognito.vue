@@ -12,7 +12,7 @@
         :is-dark="isDark"
         :is-incognito="isIncognito"
         @set-message="text => messageFormRef?.setMessage(text)"
-        @send-message="text => sendMessage(text)"
+        @send-message="text => sendMessage(text, null, [], settingsManager.settings?.search_enabled ?? false)"
         @scroll="handleChatScroll"
       />
       <MessageForm
