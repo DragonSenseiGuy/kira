@@ -8,16 +8,16 @@
     <div class="stx-card">
       <div class="stx-item">
         <div class="stx-info">
-          <h3>Dark Mode</h3>
-          <p>Toggle between light and dark themes</p>
+          <h3>Theme</h3>
+          <p>System follows your device's light or dark setting</p>
         </div>
-        <SwitchRoot
-          class="switch-root stx-switch-root"
-          :model-value="isDark"
-          @update:model-value="toggleDark()"
-        >
-          <SwitchThumb class="switch-thumb stx-switch-thumb" />
-        </SwitchRoot>
+        <UiSegmented
+          class="theme-choice"
+          :model-value="themeChoice"
+          :options="themeOptions"
+          aria-label="Theme"
+          @update:model-value="themeChoice = $event"
+        />
       </div>
 
       <div class="stx-item">
@@ -55,16 +55,27 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { SwitchRoot, SwitchThumb } from 'reka-ui';
-import { useDark, useToggle } from '@vueuse/core';
+import { useStorage } from '@vueuse/core';
+import UiSegmented from '~/components/ui/Segmented.vue';
 import { useSettings } from '~/composables/useSettings';
 
 const settingsManager = useSettings();
 const settings = settingsManager.settings;
 
-const isDark = useDark();
-const toggleDark = useToggle(isDark);
+// Same key and values as the useDark() calls on the pages, which pick the
+// change up from storage: "auto" follows the device, the others pin a theme.
+const storedTheme = useStorage('vueuse-color-scheme', 'auto');
+const themeOptions = [
+  { value: 'auto', label: 'System', icon: 'material-symbols:computer-outline-rounded' },
+  { value: 'light', label: 'Light', icon: 'material-symbols:light-mode-outline-rounded' },
+  { value: 'dark', label: 'Dark', icon: 'material-symbols:dark-mode-outline-rounded' },
+];
+const themeChoice = computed({
+  get: () => (themeOptions.some((option) => option.value === storedTheme.value) ? storedTheme.value : 'auto'),
+  set: (value) => { storedTheme.value = value; },
+});
 
 function set(key, value) {
   settings[key] = value;
