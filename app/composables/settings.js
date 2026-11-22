@@ -47,6 +47,7 @@ class Settings {
 
       // --- Memory Settings ---
       notepad_enabled: false, // Whether the Notepad memory system is enabled
+      notify_on_reply: false, // Desktop notification when a reply finishes in the background
 
       // --- Context Compression Settings ---
       context_compression_enabled: true, // Auto-compress older context past the threshold
@@ -99,6 +100,7 @@ class Settings {
     this.defaultSettings = {
       version: 5,
       notepad_enabled: false, // Whether the Notepad memory system is enabled
+      notify_on_reply: false, // Desktop notification when a reply finishes in the background
       context_compression_enabled: true, // Auto-compress older context past the threshold
       context_compression_threshold_tokens: DEFAULT_THRESHOLD_TOKENS, // Compress once effective context exceeds this
       context_compression_keep_recent_tokens: DEFAULT_KEEP_RECENT_TOKENS, // How much recent context always stays verbatim

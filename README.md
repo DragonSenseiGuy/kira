@@ -17,6 +17,7 @@ Kira does **not** sell user information. Chats stay on your device by default; i
 - Conversation branching with message editing/regenerating
 - Context compression system
 - Programmable keybinds
+- Optional desktop notification when a reply finishes in the background
 
 ## Todo
 
