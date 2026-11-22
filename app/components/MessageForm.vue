@@ -569,6 +569,14 @@ watch(inputMessage, async () => {
  */
 function setMessage(text) {
   inputMessage.value = text;
+  // Leave the caret after the inserted text, so it can be sent with Enter or
+  // added to without first clicking into the field.
+  nextTick(() => {
+    const el = textareaRef.value;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  });
 }
 
 

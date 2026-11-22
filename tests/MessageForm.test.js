@@ -250,3 +250,30 @@ describe("MessageForm — mobile IME composition", () => {
     wrapper.unmount();
   });
 });
+
+describe("MessageForm — setMessage", () => {
+  it("fills the composer and leaves the caret after the text", async () => {
+    const wrapper = mount(MessageForm, {
+      props: {
+        isLoading: false,
+        selectedModelId: "",
+        models: [],
+        settingsManager: { settings: {}, saveSettings: vi.fn() },
+        selectedModelName: "Test Model",
+        conversationId: "",
+      },
+      attachTo: document.body,
+    });
+    const textarea = wrapper.find("textarea").element;
+    expect(document.activeElement).not.toBe(textarea);
+
+    wrapper.vm.setMessage("Are black holes real?");
+    await flushPromises();
+
+    expect(textarea.value).toBe("Are black holes real?");
+    expect(document.activeElement).toBe(textarea);
+    expect(textarea.selectionStart).toBe(21);
+    expect(textarea.selectionEnd).toBe(21);
+    wrapper.unmount();
+  });
+});
