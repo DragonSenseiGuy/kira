@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, watch, nextTick, toRaw } from "vue";
+import { isImeKey } from '~/utils/ime';
 import { Icon } from "@iconify/vue";
 import {
   DropdownMenuRoot,
@@ -483,6 +484,8 @@ function handleActionClick() {
  * @param {KeyboardEvent} event
  */
 function handleEnterKey(event) {
+  // Enter that confirms an input-method candidate is not a send.
+  if (isImeKey(event)) return;
   // @mention picker intercepts Enter to select the highlighted file.
   if (mentionOpen.value && mentionItems.value.length && !event.shiftKey) {
     event.preventDefault();

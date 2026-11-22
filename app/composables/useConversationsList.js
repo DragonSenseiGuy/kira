@@ -1,6 +1,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import localforage from "localforage";
 import { emitter } from "./emitter";
+import { isImeKey } from "~/utils/ime";
 import { deleteConversation as deleteConv } from "./storeConversations";
 
 /**
@@ -204,6 +205,7 @@ export function useConversationsList() {
   }
 
   function handleRenameKeydown(event, id) {
+    if (isImeKey(event)) return;
     if (event.key === "Enter") {
       saveRename(id);
     } else if (event.key === "Escape") {
