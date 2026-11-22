@@ -114,3 +114,44 @@ describe("copyCode", () => {
     expect(() => copyCode(loneButton)).not.toThrow();
   });
 });
+
+describe("copyCode feedback", () => {
+  function withClipboard(clipboard, run) {
+    const original = Object.getOwnPropertyDescriptor(globalThis.navigator, "clipboard");
+    Object.defineProperty(globalThis.navigator, "clipboard", { configurable: true, value: clipboard });
+    return Promise.resolve(run()).finally(() => {
+      if (original) Object.defineProperty(globalThis.navigator, "clipboard", original);
+      else delete globalThis.navigator.clipboard;
+    });
+  }
+
+  it("says Copied! when the clipboard accepts the text", () =>
+    withClipboard({ writeText: vi.fn(() => Promise.resolve()) }, async () => {
+      const { button } = makeCodeBlock("js", "x");
+      await copyCode(button);
+      expect(button.querySelector("span").textContent).toBe("Copied!");
+    }));
+
+  it("says Copy failed when the clipboard refuses", () =>
+    withClipboard({ writeText: vi.fn(() => Promise.reject(new Error("denied"))) }, async () => {
+      const { button } = makeCodeBlock("js", "x");
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      await copyCode(button);
+      expect(button.querySelector("span").textContent).toBe("Copy failed");
+      expect(button.classList.contains("copied")).toBe(false);
+      log.mockRestore();
+    }));
+
+  it("says Copy failed when there is no clipboard at all, then restores the label", () =>
+    withClipboard(undefined, async () => {
+      vi.useFakeTimers();
+      const { button } = makeCodeBlock("js", "x");
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      await copyCode(button);
+      expect(button.querySelector("span").textContent).toBe("Copy failed");
+      vi.advanceTimersByTime(2000);
+      expect(button.querySelector("span").textContent).toBe("Copy");
+      log.mockRestore();
+      vi.useRealTimers();
+    }));
+});
