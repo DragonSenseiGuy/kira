@@ -54,11 +54,18 @@ const {
 } = useConversationsList();
 
 // Double-click and F2 start a rename without the menu, so nothing else moves
-// focus into the field; `autofocus` only applies on page load.
+// focus into the field (`autofocus` only applies on page load) or back out.
 const renameInput = ref(null);
-watch(renamingId, async (id) => {
-  if (!id) return;
+watch(renamingId, async (id, previous) => {
   await nextTick();
+  if (!id) {
+    // Enter or Escape removed the field that had focus; hand it back to the
+    // chat so the keyboard stays where it was.
+    if (previous && document.activeElement === document.body) {
+      document.querySelector(`.conversation-button[href="/${previous}"]`)?.focus();
+    }
+    return;
+  }
   const input = [renameInput.value].flat().find(Boolean);
   if (input && document.activeElement !== input) {
     input.focus();
