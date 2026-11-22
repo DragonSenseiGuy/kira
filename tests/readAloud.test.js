@@ -380,4 +380,8 @@ describe("HTML block speech, fourth review", () => {
   it("removes an address whose query holds an unpaired bracket", () => {
     expect(speechTextFromMarkdown("<p>検索結果: https://example.jp/search?q=製品（限定 を確認してください。</p>")).toBe("検索結果: を確認してください。");
   });
+
+  it("keeps a note with a space in it that follows an address", () => {
+    expect(speechTextFromMarkdown("<p>詳しくは https://example.jp/docs（PDF 版）を参照。</p>")).toBe("詳しくは （PDF 版）を参照。");
+  });
 });
