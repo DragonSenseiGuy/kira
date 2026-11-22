@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { useDark } from "@vueuse/core";
@@ -64,5 +64,23 @@ describe("theme setting", () => {
     await nextTick();
     expect(localStorage.getItem(KEY)).toBe("auto");
     wrapper.unmount();
+  });
+
+  it("still applies the pick when storage cannot be written", async () => {
+    const wrapper = mountSettings();
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("blocked", "QuotaExceededError");
+    });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await wrapper.findAll(".theme-choice [role='radio']").find((o) => o.text() === "Dark").trigger("click");
+      await nextTick();
+      expect(document.documentElement.classList.contains("dark")).toBe(true);
+      expect(selected(wrapper)).toBe("Dark");
+    } finally {
+      setItem.mockRestore();
+      errors.mockRestore();
+      wrapper.unmount();
+    }
   });
 });
