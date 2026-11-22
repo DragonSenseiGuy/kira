@@ -40,6 +40,7 @@ const hasApiKey = computed(() => !!settingsManager.settings.custom_api_key);
 const {
   metadata,
   searchQuery,
+  contentMatches,
   renamingId,
   newTitle,
   groupedConversations,
@@ -240,6 +241,9 @@ function handleMiddleClickNewChat(e) {
                   :class="{ active: data.id == route.params.id }"
                 >
                   <span class="conversation-title">{{ data.title }}</span>
+                  <span v-if="contentMatches.get(data.id)" class="conversation-snippet">
+                    {{ contentMatches.get(data.id).before }}<mark>{{ contentMatches.get(data.id).match }}</mark>{{ contentMatches.get(data.id).after }}
+                  </span>
                 </NuxtLink>
                 
                 <!-- Dropdown Menu -->
@@ -589,6 +593,27 @@ function handleMiddleClickNewChat(e) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.conversation-button:has(.conversation-snippet) {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.conversation-snippet {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.conversation-snippet mark {
+  background: none;
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .pin-icon {

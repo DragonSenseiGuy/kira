@@ -1,6 +1,7 @@
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import localforage from "localforage";
 import { emitter } from "./emitter";
+import { findSnippet } from "../utils/chatSearch";
 import { deleteConversation as deleteConv } from "./storeConversations";
 
 /**
@@ -87,6 +88,8 @@ export function useConversationsList() {
 
   onBeforeUnmount(() => {
     emitter.off("updateConversations", updateConversations);
+    clearTimeout(searchTimer);
+    searchRun++;
   });
 
   // Computed: Filter conversations by search query
@@ -96,8 +99,36 @@ export function useConversationsList() {
     }
     const query = searchQuery.value.toLowerCase().trim();
     return metadata.value.filter(conv =>
-      conv.title?.toLowerCase().includes(query)
+      conv.title?.toLowerCase().includes(query) || contentMatches.value.has(conv.id)
     );
+  });
+
+  // Chats whose text contains the query, with the snippet to show under the
+  // title. Filled in a moment after typing stops; title matches show at once.
+  const contentMatches = ref(new Map());
+  let searchRun = 0;
+  let searchTimer = null;
+
+  async function searchContent(query, run) {
+    const matches = new Map();
+    for (const conv of metadata.value) {
+      const stored = await localforage.getItem(`conversation_${conv.id}`);
+      if (run !== searchRun) return;
+      const snippet = findSnippet(stored?.messages, query);
+      if (snippet) matches.set(conv.id, snippet);
+    }
+    contentMatches.value = matches;
+  }
+
+  watch([searchQuery, metadata], () => {
+    clearTimeout(searchTimer);
+    const run = ++searchRun;
+    const query = searchQuery.value.trim();
+    if (!query) {
+      contentMatches.value = new Map();
+      return;
+    }
+    searchTimer = setTimeout(() => searchContent(query, run), 200);
   });
 
   // Computed: Group conversations by time and pinned status
@@ -220,6 +251,7 @@ export function useConversationsList() {
     // State
     metadata,
     searchQuery,
+    contentMatches,
     renamingId,
     newTitle,
 
