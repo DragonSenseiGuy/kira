@@ -73,4 +73,23 @@ describe("findSnippet", () => {
     expect(snippet.match).toBe("trip");
     expect(snippet.before).toBe("İstanbul ");
   });
+
+  it("finds an exact search for a word with a dotted capital I", () => {
+    const snippet = findSnippet([{ role: "user", content: "İstanbul trip plan" }], "İstanbul");
+    expect(snippet.match).toBe("İstanbul");
+  });
+
+  it("ignores extra whitespace in the query", () => {
+    expect(findSnippet(messages, "bake   sourdough\n bread").match).toBe("bake sourdough bread");
+  });
+
+  it("finds a phrase copied from a rendered reply with inline Markdown", () => {
+    const reply = [{ role: "assistant", content: "Use the **quick sort** and `merge` steps ~~slowly~~." }];
+    expect(findSnippet(reply, "quick sort and merge steps slowly")).toEqual({
+      before: "Use the ",
+      match: "quick sort and merge steps slowly",
+      after: ".",
+    });
+    expect(findSnippet(reply, "**quick sort**").match).toBe("quick sort");
+  });
 });

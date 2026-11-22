@@ -20,19 +20,33 @@ export function messageText(message) {
   return "";
 }
 
+// Text as it is compared and shown: whitespace runs become one space, and the
+// Markdown marks for bold, italics, strikethrough and code are dropped, since
+// the rendered reply a phrase is copied from does not show them.
+function plain(text) {
+  return text.replace(/\*+|`+|~~/g, "").replace(/\s+/g, " ");
+}
+
+// Lowercase without changing the length, so offsets found in the folded text
+// are valid in the original. ("İ" lowercases to two characters; it is kept.)
+function fold(text) {
+  let folded = "";
+  for (const char of text) {
+    const lower = char.toLowerCase();
+    folded += lower.length === char.length ? lower : char;
+  }
+  return folded;
+}
+
 // The first place the query appears in a chat, with a little text either side,
 // or null when it does not appear. The match is case-insensitive.
 export function findSnippet(messages, query) {
-  const needle = (query || "").trim().toLowerCase();
+  const needle = fold(plain(query || "").trim());
   if (!needle) return null;
 
   for (const message of messages || []) {
-    const text = messageText(message).replace(/\s+/g, " ");
-    // Lowercasing can change a string's length (e.g. "İ"), which would shift
-    // the offsets; such a message is searched as written instead.
-    const lower = text.toLowerCase();
-    const haystack = lower.length === text.length ? lower : text;
-    const at = haystack.indexOf(needle);
+    const text = plain(messageText(message));
+    const at = fold(text).indexOf(needle);
     if (at === -1) continue;
 
     const start = Math.max(0, at - CONTEXT_BEFORE);
