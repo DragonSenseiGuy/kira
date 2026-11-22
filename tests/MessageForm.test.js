@@ -308,6 +308,14 @@ describe("writing the next message while a reply is streaming", () => {
     wrapper.unmount();
   });
 
+  it("lets Tab leave the textarea so Stop can be reached from the keyboard", async () => {
+    const wrapper = mountForm({ isLoading: true });
+    const event = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    wrapper.find("textarea").element.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    wrapper.unmount();
+  });
+
   it("keeps the main button as Stop while streaming", async () => {
     const wrapper = mountForm({ isLoading: true });
     await type(wrapper, "next question");

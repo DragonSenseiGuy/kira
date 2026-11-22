@@ -283,8 +283,9 @@ function onArrowRight(e) {
   setCaret(span.end);
 }
 
-function onTabSelect() {
+function onTabSelect(event) {
   if (mentionOpen.value && mentionItems.value.length) {
+    event.preventDefault();
     pickMention(mentionItems.value[mentionActive.value] || mentionItems.value[0]);
   }
 }
@@ -881,7 +882,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
           @keydown.delete="onDeleteKey"
           @keydown.left="onArrowLeft"
           @keydown.right="onArrowRight"
-          @keydown.tab.prevent="onTabSelect"
+          @keydown.tab="onTabSelect"
           @compositionstart="onCompositionStart"
           @compositionend="onCompositionEnd"
           @input="handleInput"
