@@ -205,6 +205,53 @@ export async function storeMessages(
 
 }
 
+/**
+ * Title for a copy: "Copy of X", or "Copy of X (2)" and so on when taken.
+ * @param {string} title
+ * @param {string[]} takenTitles
+ * @returns {string}
+ */
+export function copyTitle(title, takenTitles) {
+  const base = `Copy of ${(title || "").trim() || "Untitled"}`;
+  const taken = new Set(takenTitles);
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base} (${n})`)) n++;
+  return `${base} (${n})`;
+}
+
+/**
+ * Copies a conversation, with all its branches, into a new one that can be
+ * continued separately. Messages get new ids so the two never share state.
+ * @param {string} conversationId
+ * @returns {Promise<string|null>} Id of the copy, or null if the original is gone.
+ */
+export async function duplicateConversation(conversationId) {
+  const original = await loadConversation(conversationId);
+  if (!original) return null;
+
+  const newIds = new Map((original.messages || []).map((msg) => [msg.id, crypto.randomUUID()]));
+  const messages = JSON.parse(JSON.stringify(original.messages || [])).map((msg) => ({
+    ...msg,
+    id: newIds.get(msg.id),
+    parentId: msg.parentId == null ? null : (newIds.get(msg.parentId) ?? null),
+  }));
+
+  const metadata = (await localforage.getItem("conversations_metadata")) || [];
+  const title = copyTitle(original.title, metadata.map((conv) => conv.title));
+  const copyId = crypto.randomUUID();
+  const now = new Date();
+  const branchPath = [...(original.branchPath || [])];
+
+  await localforage.setItem(`conversation_${copyId}`, { title, lastUpdated: now, messages, branchPath });
+  metadata.push({ id: copyId, title, lastUpdated: now, createdAt: now });
+  await localforage.setItem("conversations_metadata", metadata);
+  emitter.emit("updateConversations");
+
+  useCloudSync().cloudCreateConversation(copyId, { title, messages, branchPath });
+  return copyId;
+}
+
 export async function deleteConversation(conversationId) {
   // Remove full conversation data
   await localforage.removeItem(`conversation_${conversationId}`);

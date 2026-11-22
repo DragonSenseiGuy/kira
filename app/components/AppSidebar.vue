@@ -34,6 +34,10 @@ async function handleSignOut() {
   await logout();
   router.push("/login");
 }
+async function duplicateAndOpen(id) {
+  const copyId = await handleDuplicate(id);
+  if (copyId) router.push(`/${copyId}`);
+}
 const hasApiKey = computed(() => !!settingsManager.settings.custom_api_key);
 
 // Use the conversations list composable
@@ -46,6 +50,7 @@ const {
   isSearching,
   togglePin,
   handleDelete,
+  handleDuplicate,
   startRename,
   cancelRename,
   saveRename,
@@ -259,6 +264,10 @@ function handleMiddleClickNewChat(e) {
                     <DropdownMenuItem class="conversation-menu-item" @select="startRename(data.id, data.title)">
                       <Icon icon="material-symbols:edit-outline" width="16" height="16" />
                       <span>Rename</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem class="conversation-menu-item" @select="duplicateAndOpen(data.id)">
+                      <Icon icon="material-symbols:content-copy-outline-rounded" width="16" height="16" />
+                      <span>Duplicate</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem class="conversation-menu-item delete-item" @select="handleDelete(data.id)">
                       <Icon icon="material-symbols:delete" width="16" height="16" />
