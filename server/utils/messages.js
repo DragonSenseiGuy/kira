@@ -63,9 +63,8 @@ export async function replaceMessages(client, conversationId, messages) {
       msg.tool_call_id || null,
       msg.name || null,
       i,
-      typeof msg.modelName === "string" && msg.modelName
-        ? msg.modelName.slice(0, 255)
-        : null,
+      // NUL is stripped: Postgres rejects it in text, which would fail the whole sync.
+      (typeof msg.modelName === "string" && msg.modelName.replace(/\0/g, "").slice(0, 255)) || null,
     ]);
   }
 }

@@ -81,6 +81,8 @@ describe("model name in account sync", () => {
     expect((await insertedParams({ id: "a1", role: "assistant", content: "yo" })).model_name).toBeNull();
     expect((await insertedParams({ id: "a1", role: "assistant", content: "yo", modelName: { a: 1 } })).model_name).toBeNull();
     expect((await insertedParams({ id: "a1", role: "assistant", content: "yo", modelName: "m".repeat(400) })).model_name).toHaveLength(255);
+    expect((await insertedParams({ id: "a1", role: "assistant", content: "yo", modelName: "GPT\u0000-5" })).model_name).toBe("GPT-5");
+    expect((await insertedParams({ id: "a1", role: "assistant", content: "yo", modelName: "\u0000" })).model_name).toBeNull();
   });
 
   it("reads the model name back for assistant rows", () => {
