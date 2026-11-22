@@ -208,3 +208,20 @@ describe("context compression with text attachments", () => {
     expect(prompt).toContain("the quarterly notes");
   });
 });
+
+describe("summary prompt with several large text attachments", () => {
+  it("includes every file, not just the first 8,000 characters", () => {
+    const message = {
+      role: "user",
+      content: "Review these",
+      attachments: [
+        { type: "text", filename: "script.py", dataUrl: textDataUrl("x = 1\n".repeat(1750) + "SCRIPT_END") },
+        { type: "text", filename: "config.toml", dataUrl: textDataUrl("CONFIG_MARKER = true") },
+      ],
+    };
+    const prompt = formatMessageForSummaryPrompt(message);
+    expect(prompt).toContain("SCRIPT_END");
+    expect(prompt).toContain("config.toml");
+    expect(prompt).toContain("CONFIG_MARKER");
+  });
+});

@@ -618,10 +618,11 @@ export function formatMessageForSummaryPrompt(msg) {
   }
 
   // Text-file attachments: once summarised, the original turn (and the
-  // file with it) is no longer replayed, so the summariser must see them.
+  // file with it) is no longer replayed, so the summariser must see every
+  // file as the model did. Each block is already capped when it is built.
   const attachedText = textAttachmentsToText(msg.attachments);
   if (attachedText) {
-    parts.push(attachedText.substring(0, MAX_MESSAGE_CHARS));
+    parts.push(attachedText);
   }
 
   // Reasoning
