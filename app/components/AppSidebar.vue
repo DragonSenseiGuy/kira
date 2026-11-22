@@ -11,6 +11,7 @@ import {
 import { useConversationsList } from "~/composables/useConversationsList";
 import { useSettings } from "~/composables/useSettings";
 import { useAuth } from "~/composables/useAuth";
+import { matchParts } from "~/utils/matchParts";
 
 const emit = defineEmits([
   "reloadSettings",
@@ -239,7 +240,10 @@ function handleMiddleClickNewChat(e) {
                   :to="`/${data.id}`"
                   :class="{ active: data.id == route.params.id }"
                 >
-                  <span class="conversation-title">{{ data.title }}</span>
+                  <span class="conversation-title"><template
+                    v-for="(part, partIndex) in matchParts(data.title, searchQuery)"
+                    :key="partIndex"
+                  ><mark v-if="part.match" class="title-match">{{ part.text }}</mark><template v-else>{{ part.text }}</template></template></span>
                 </NuxtLink>
                 
                 <!-- Dropdown Menu -->
@@ -589,6 +593,12 @@ function handleMiddleClickNewChat(e) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.title-match {
+  background: none;
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .pin-icon {
