@@ -117,7 +117,9 @@ export function createMarkdownInstance(options = {}) {
     highlight: null,
   });
 
-  if (enableFootnotes) {
+  // Footnotes link within the page by fragment, which a page that keeps
+  // its content in the fragment cannot afford.
+  if (enableFootnotes && !untrusted) {
     md.use(markdownItFootnote);
   }
 
@@ -143,7 +145,17 @@ export function createMarkdownInstance(options = {}) {
 
   // The code-block toolbar builds HTML with inline handlers, so untrusted
   // text keeps markdown-it's plain, fully escaped code blocks.
-  if (!untrusted) addCodeBlockRenderer(md);
+  if (untrusted) {
+    // Loading an image tells its host that the text was opened, so images
+    // become links the reader can choose to follow.
+    md.renderer.rules.image = (tokens, idx) => {
+      const src = md.utils.escapeHtml(tokens[idx].attrGet("src") || "");
+      const label = md.utils.escapeHtml(tokens[idx].content || "Image");
+      return `<a href="${src}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+    };
+  } else {
+    addCodeBlockRenderer(md);
+  }
   addExternalLinkTargets(md);
   return md;
 }

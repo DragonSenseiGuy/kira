@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, shallowRef, watch } from "vue";
 import { useDark } from "@vueuse/core";
 import { untrustedMd } from "~/utils/markdown";
 import { decodeShare } from "~/utils/shareLink";
@@ -10,7 +10,17 @@ definePageMeta({ layout: false });
 useDark();
 
 const route = useRoute();
-const shared = computed(() => decodeShare(route.hash));
+// Read once: a link inside the chat that points within the page changes the
+// fragment, and that must not replace the chat with an error. Only another
+// valid share link does.
+const shared = shallowRef(decodeShare(route.hash));
+watch(
+  () => route.hash,
+  (hash) => {
+    const next = decodeShare(hash);
+    if (next) shared.value = next;
+  },
+);
 const title = computed(() => shared.value?.title || "Shared chat");
 
 useHead({ title: () => `${title.value} · Kira` });

@@ -99,6 +99,11 @@ describe("encodeShare / decodeShare", () => {
     expect(decodeShare(pack({ t: "t".repeat(500), m: [["u", "x"]] })).title).toHaveLength(200);
   });
 
+  it("rejects more turns than a page should render", () => {
+    expect(decodeShare(pack({ m: Array.from({ length: 2000 }, () => ["u", "x"]) }))).not.toBeNull();
+    expect(decodeShare(pack({ m: Array.from({ length: 2001 }, () => ["u", "x"]) }))).toBeNull();
+  });
+
   it("does not unpack more than the size limit", () => {
     expect(decodeShare(pack({ m: [["u", "a".repeat(3_000_000)]] }))).toBeNull();
   });
@@ -123,7 +128,31 @@ describe("buildShareLink", () => {
   });
 });
 
-describe("untrustedMd", () => {
+describe("buildShareLink limits", () => {
+  it("refuses a repetitive chat that fits the link but not the unpack limit", () => {
+    const messages = chain({ role: "user", content: "a".repeat(2_500_000) });
+    expect(encodeShare(shareSnapshot({ messages })).length).toBeLessThan(MAX_LINK_LENGTH);
+    expect(buildShareLink({ messages }, "https://k")).toEqual({ ok: false, reason: "too-long" });
+  });
+
+  it("refuses a chat with more turns than a link may hold", () => {
+    const messages = chain(...Array.from({ length: 2001 }, () => ({ role: "user", content: "x" })));
+    expect(buildShareLink({ messages }, "https://k")).toEqual({ ok: false, reason: "too-long" });
+  });
+});
+
+describe("untrustedMd", () => {  it("turns images into links instead of loading them", () => {
+    const html = untrustedMd.render('![a "cat"](https://tracker.example/p.png?x=1&y=2)');
+    expect(html).not.toMatch(/<img/i);
+    expect(html).toContain('<a href="https://tracker.example/p.png?x=1&amp;y=2" target="_blank" rel="noopener noreferrer">a &quot;cat&quot;</a>');
+  });
+
+  it("does not create footnote anchors", () => {
+    const html = untrustedMd.render("Text[^1]\n\n[^1]: Note");
+    expect(html).not.toMatch(/href="#fn/);
+  });
+
+
   it("shows raw HTML as text and keeps unsafe links inert", () => {
     const html = untrustedMd.render('<img src=x onerror=alert(1)>\n\n<script>alert(1)</script>\n\n[x](javascript:alert(1))\n\n```"><script>\ncode\n```');
     expect(html).not.toMatch(/<img|<script|href="javascript:|onclick/i);

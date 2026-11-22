@@ -38,7 +38,27 @@ async function handleSignOut() {
   router.push("/login");
 }
 async function copyShareLink(id) {
-  const link = buildShareLink(await loadConversation(id), window.location.origin);
+  const building = loadConversation(id).then((conversation) => buildShareLink(conversation, window.location.origin));
+  let copied = true;
+  try {
+    if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+      // Safari only allows a clipboard write started during the click, so
+      // the write starts now and is handed the link once it is built.
+      const text = building.then((link) => {
+        if (!link.ok) throw new Error(link.reason);
+        return new Blob([link.url], { type: "text/plain" });
+      });
+      await navigator.clipboard.write([new ClipboardItem({ "text/plain": text })]);
+    } else {
+      const link = await building;
+      if (link.ok) await navigator.clipboard.writeText(link.url);
+    }
+  } catch {
+    copied = false;
+  }
+
+  const link = await building.catch(() => null);
+  if (!link) return alertDialog({ title: "Can't share this chat", message: "This chat could not be loaded." });
   if (!link.ok) {
     return alertDialog({
       title: "Can't share this chat",
@@ -48,9 +68,7 @@ async function copyShareLink(id) {
           : "This chat is too long to fit in a link. Export it instead.",
     });
   }
-  try {
-    await navigator.clipboard.writeText(link.url);
-  } catch {
+  if (!copied) {
     return alertDialog({ title: "Couldn't copy the link", message: "Your browser blocked access to the clipboard." });
   }
   alertDialog({

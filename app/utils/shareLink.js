@@ -14,6 +14,8 @@ const VERSION = "1";
 export const MAX_LINK_LENGTH = 16000;
 /** Largest unpacked copy a link may hold, so a crafted link cannot exhaust memory. */
 const MAX_UNPACKED_BYTES = 2_000_000;
+/** Most turns a link may hold, so a crafted link cannot flood the page. */
+const MAX_TURNS = 2000;
 const MAX_TITLE_LENGTH = 200;
 
 function toBase64Url(bytes) {
@@ -91,7 +93,7 @@ export function decodeShare(fragment) {
   } catch {
     return null;
   }
-  if (!data || typeof data !== "object" || !Array.isArray(data.m)) return null;
+  if (!data || typeof data !== "object" || !Array.isArray(data.m) || data.m.length > MAX_TURNS) return null;
   const messages = [];
   for (const entry of data.m) {
     if (!Array.isArray(entry) || entry.length !== 2) return null;
@@ -112,6 +114,9 @@ export function decodeShare(fragment) {
 export function buildShareLink(conversation, origin) {
   const snapshot = shareSnapshot(conversation);
   if (snapshot.messages.length === 0) return { ok: false, reason: "empty" };
-  const url = `${origin}/shared#${encodeShare(snapshot)}`;
-  return url.length > MAX_LINK_LENGTH ? { ok: false, reason: "too-long" } : { ok: true, url };
+  const fragment = encodeShare(snapshot);
+  const url = `${origin}/shared#${fragment}`;
+  // Repetitive text can fit the link length yet exceed what a reader unpacks.
+  if (url.length > MAX_LINK_LENGTH || !decodeShare(fragment)) return { ok: false, reason: "too-long" };
+  return { ok: true, url };
 }
