@@ -554,8 +554,8 @@ function submitEdit(messageId, newContent, newAttachments) {
 // Image shown full size, or null.
 const openedImage = ref(null);
 
-function openImage(src, alt) {
-  openedImage.value = { src, alt: alt || '' };
+function openImage(src, alt, event) {
+  openedImage.value = { src, alt: alt || '', trigger: event?.currentTarget || null };
 }
 
 function regenerateMessage(messageId) {
@@ -833,7 +833,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                                 type="button"
                                 class="image-open"
                                 aria-label="View image full size"
-                                @click="openImage(image.url, image.revised_prompt || 'Generated image')"
+                                @click="openImage(image.url, image.revised_prompt || 'Generated image', $event)"
                               >
                                 <img
                                   :src="image.url"
@@ -867,7 +867,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                             type="button"
                             class="image-open"
                             :aria-label="`View ${attachment.filename || 'image'} full size`"
-                            @click="openImage(attachment.dataUrl, attachment.filename)"
+                            @click="openImage(attachment.dataUrl, attachment.filename, $event)"
                           >
                             <img
                               :src="attachment.dataUrl"

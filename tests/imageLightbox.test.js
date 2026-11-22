@@ -58,6 +58,9 @@ describe("image lightbox", () => {
     document.querySelector(".lightbox-close").click();
     await flushPromises();
     expect(document.querySelector(".lightbox-image")).toBeNull();
+    // Focus returns to the thumbnail even though the click never focused it.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.activeElement).toBe(open.element);
     wrapper.unmount();
   });
 
