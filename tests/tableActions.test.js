@@ -89,6 +89,15 @@ describe("review cases", () => {
     expect(html).toContain("<strong>bold</strong> <code>x</code>");
   });
 
+  it("keeps line breaks in guarded alt text and unlinks in-reply anchors", () => {
+    document.body.innerHTML =
+      '<table><tr><td><img src="javascript:x" alt="-5%"><br>year over year</td>' +
+      '<td>Fact<sup><a href="#fn1">[1]</a></sup></td></tr></table>';
+    const html = safeTableHtml(document.querySelector("table"));
+    expect(html).toContain("<td>'-5%<br>year over year</td>");
+    expect(html).toContain("<td>Fact<sup>[1]</sup></td>");
+  });
+
   it("resolves relative links and images and guards alt text standing in for an image", () => {
     document.body.innerHTML =
       '<table><tr><td><a href="/settings">Settings</a></td><td><img src="pic.png" alt="p"></td>' +

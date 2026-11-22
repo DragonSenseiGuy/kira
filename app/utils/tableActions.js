@@ -105,7 +105,10 @@ function absoluteUrl(element, name) {
 /** The text a piece of rebuilt markup shows, read without loading anything in it. */
 function shownText(html) {
   if (typeof DOMParser === "undefined") return "";
-  return (new DOMParser().parseFromString(html, "text/html").body?.textContent || "").trim();
+  const body = new DOMParser().parseFromString(html, "text/html").body;
+  if (!body) return "";
+  body.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+  return (body.textContent || "").trim();
 }
 
 /** Rebuilds a rendered cell's content from a small set of tags and attributes. */
@@ -132,7 +135,8 @@ function richHtml(node) {
       const alt = escapeHtml(child.getAttribute("alt") || "");
       html += SAFE_IMAGE.test(src) ? `<img src="${escapeHtml(src)}" alt="${alt}">` : alt;
     } else if (tag === "A") {
-      const href = absoluteUrl(child, "href");
+      // A link to a place in this reply (a footnote) has no target once pasted.
+      const href = (child.getAttribute("href") || "").trim().startsWith("#") ? "" : absoluteUrl(child, "href");
       const label = richHtml(child);
       html += SAFE_LINK.test(href) ? `<a href="${escapeHtml(href)}">${label}</a>` : label;
     } else {
@@ -162,7 +166,7 @@ export function safeTableHtml(table) {
         // The rebuilt markup can show text the plain cell does not, such as
         // the alt text standing in for a rejected image.
         const shown = shownText(content);
-        if (guarded === text && asText(shown) !== shown) content = escapeHtml(asText(shown));
+        if (guarded === text && asText(shown) !== shown) content = escapeHtml(asText(shown)).replace(/\n/g, "<br>");
         return `<${tag}>${content}</${tag}>`;
       });
       return `<tr>${cells.join("")}</tr>`;
