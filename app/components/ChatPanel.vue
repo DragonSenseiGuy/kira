@@ -504,6 +504,15 @@ function getMessageCopyText(message) {
 }
 
 const readAloud = useReadAloud();
+// Which disclosures in the answer are expanded on screen, so read-aloud
+// speaks what is shown rather than what the source started with.
+function shownDetails(event) {
+  const message = event?.currentTarget?.closest?.('.message');
+  if (!message) return undefined;
+  return Array.from(
+    message.querySelectorAll('.markdown-content:not(.reasoning-content) details'),
+  ).map((details) => details.open);
+}
 watch(() => props.currConvo, () => readAloud.stop());
 // Branch navigation, edits and deletions can hide the message being read.
 watch(() => props.currMessages, (visibleMessages) => {
@@ -928,7 +937,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                       :active="readAloud.speakingId.value === message.id"
                       togglable
                       size="sm"
-                      @click="readAloud.toggle(message.id, getMessageCopyText(message))"
+                      @click="readAloud.toggle(message.id, getMessageCopyText(message), { detailsOpen: shownDetails($event) })"
                     />
                   </UiTooltip>
 

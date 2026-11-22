@@ -305,3 +305,25 @@ describe("HTML block speech review cases", () => {
     expect(speechTextFromMarkdown("<div>Intro<p>Body</p><ul><li>One</li><li>Two</li></ul></div>")).toBe("Intro\nBody\nOne\nTwo");
   });
 });
+
+describe("HTML block speech, third review", () => {
+  it("keeps the prose after a URL that ends at full-width punctuation", () => {
+    expect(speechTextFromMarkdown("<p>请访问 https://example.com。然后重启应用。</p>")).toBe("请访问 。然后重启应用。");
+  });
+
+  it("keeps an email address whose domain starts with www", () => {
+    expect(speechTextFromMarkdown("<p>Email support@www.example.com for help.</p>")).toBe("Email support@www.example.com for help.");
+  });
+
+  it("keeps a link label that looks like an address but skips a bare one", () => {
+    expect(
+      speechTextFromMarkdown('<p>Open <a href="https://example.com/docs">www.example.com</a> or https://example.org/x for help.</p>'),
+    ).toBe("Open www.example.com or for help.");
+  });
+
+  it("follows the on-screen state of disclosures when given", () => {
+    const source = "<details><summary>Answer</summary>Paris</details>\n\n<details open><summary>Hint</summary>France</details>";
+    expect(speechTextFromMarkdown(source)).toBe("Answer\nHint\nFrance");
+    expect(speechTextFromMarkdown(source, { detailsOpen: [true, false] })).toBe("Answer\nParis\nHint");
+  });
+});

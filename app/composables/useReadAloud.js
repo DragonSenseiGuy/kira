@@ -45,36 +45,56 @@ function inlineSpeech(children) {
 const HTML_SILENT = "[hidden], script, style, template, pre, svg, math, head, noscript, iframe, object, textarea, select";
 const HTML_LINE_ENDS = "p, div, li, tr, br, h1, h2, h3, h4, h5, h6, blockquote, section, article, summary, details, dt, dd, caption, figcaption, hr";
 
-const BARE_URL = /(?:\bhttps?:\/\/|\bwww\.)[^\s<>"']*[^\s<>"'.,;:!?)\]]/gi;
+// A web address in running text. It ends at whitespace or full-width
+// punctuation, and is not the domain part of an email address.
+const BARE_URL = /(?<![\w@.\-/])(?:https?:\/\/|www\.)[^\s<>"'\u3000-\u303f\uff00-\uffef]*[^\s<>"'.,;:!?)\]\u3000-\u303f\uff00-\uffef]/gi;
 
 /**
  * Visible prose of a raw HTML block. The markup is parsed into a detached
  * document, so nothing in it loads or runs.
+ * @param {string} html
+ * @param {() => boolean|undefined} nextDetailsState Returns whether the next
+ *   `<details>` is expanded on screen, or undefined to use its attribute.
  */
-function htmlBlockSpeech(html) {
+function htmlBlockSpeech(html, nextDetailsState) {
   if (typeof DOMParser === "undefined") return "";
   const doc = new DOMParser().parseFromString(html, "text/html");
   if (!doc.body) return "";
-  doc.body.querySelectorAll(HTML_SILENT).forEach((el) => el.replaceWith(el.tagName === "PRE" ? "\n" : ""));
   // A closed disclosure shows only its summary.
-  doc.body.querySelectorAll("details:not([open])").forEach((details) => {
+  const closed = Array.from(doc.body.querySelectorAll("details")).filter(
+    (details) => !(nextDetailsState() ?? details.hasAttribute("open")),
+  );
+  doc.body.querySelectorAll(HTML_SILENT).forEach((el) => el.replaceWith(el.tagName === "PRE" ? "\n" : ""));
+  closed.forEach((details) => {
     const summary = Array.from(details.children).find((el) => el.tagName === "SUMMARY");
     details.replaceChildren(...(summary ? [summary] : []));
   });
+  // Bare web addresses are skipped, as they are in Markdown text. The label
+  // of a link is kept even when it looks like an address.
+  const walker = doc.createTreeWalker(doc.body, 4);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!node.parentElement?.closest("a")) node.textContent = node.textContent.replace(BARE_URL, "");
+  }
   doc.body.querySelectorAll("td, th").forEach((el) => el.append(" "));
   doc.body.querySelectorAll(HTML_LINE_ENDS).forEach((el) => {
     el.before("\n");
     el.append("\n");
   });
-  // Bare web addresses are skipped, as they are in Markdown text.
-  return (doc.body.textContent || "").replace(BARE_URL, "");
+  return doc.body.textContent || "";
 }
 
-export function speechTextFromMarkdown(markdown) {
+/**
+ * @param {string} markdown
+ * @param {{detailsOpen?: boolean[]}} [options] `detailsOpen` gives the
+ *   on-screen state of each `<details>` in the message, in document order.
+ */
+export function speechTextFromMarkdown(markdown, options = {}) {
   if (typeof markdown !== "string" || !markdown) return "";
 
   const lines = [];
   let row = null;
+  let detailsIndex = 0;
+  const nextDetailsState = () => options.detailsOpen?.[detailsIndex++];
   // The chat's own parser decides what is code, math or markup, so speech
   // matches what is displayed. Only inline text is spoken: fences, indented
   // code and math blocks are other token types. HTML blocks contribute
@@ -85,7 +105,7 @@ export function speechTextFromMarkdown(markdown) {
       lines.push(row.join(" "));
       row = null;
     } else if (token.type === "html_block") {
-      lines.push(htmlBlockSpeech(token.content));
+      lines.push(htmlBlockSpeech(token.content, nextDetailsState));
     } else if (token.type === "inline") {
       const text = inlineSpeech(token.children);
       if (row) row.push(text);
@@ -174,14 +194,14 @@ export function useReadAloud({ win = globalThis } = {}) {
     speakingId.value = null;
   }
 
-  function toggle(id, markdown) {
+  function toggle(id, markdown, options) {
     if (!supported) return;
 
     const wasPlaying = speakingId.value;
     if (wasPlaying !== null) stop();
     if (wasPlaying === id) return;
 
-    const chunks = chunkSpeechText(speechTextFromMarkdown(markdown));
+    const chunks = chunkSpeechText(speechTextFromMarkdown(markdown, options));
     if (chunks.length === 0) return;
 
     const current = ++playback;
