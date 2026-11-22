@@ -17,6 +17,30 @@ import {
   useReadAloud,
 } from "../app/composables/useReadAloud.js";
 
+describe("speechTextFromMarkdown review cases", () => {
+  it("speaks the visible text of an HTML paragraph", () => {
+    expect(speechTextFromMarkdown("<p>Check the settings before restarting.</p>")).toBe("Check the settings before restarting.");
+  });
+
+  it("keeps HTML table cells and rows apart and skips code, scripts and styles", () => {
+    const text = speechTextFromMarkdown(
+      "<table><tr><td>Name</td><td>Ada</td></tr><tr><td>Role</td><td>Engineer</td></tr></table>\n\n<div>Before<script>alert(1)</script><style>p{}</style><pre>x = 1</pre> after</div>",
+    );
+    expect(text).toBe("Name Ada\nRole Engineer\nBefore after");
+  });
+
+  it("speaks bare email addresses but not bare URLs or hrefs", () => {
+    expect(speechTextFromMarkdown("Email support@example.com for help.")).toBe("Email support@example.com for help.");
+    expect(speechTextFromMarkdown("Write to <admin@example.org> today.")).toBe("Write to admin@example.org today.");
+    expect(speechTextFromMarkdown("See https://example.com/docs for more.")).toBe("See for more.");
+    expect(speechTextFromMarkdown("[Mail us](mailto:hidden@example.com) now")).toBe("Mail us now");
+  });
+
+  it("leaves math out of an image description", () => {
+    expect(speechTextFromMarkdown("![Graph of $y=x^2$](https://example.org/plot.png)")).toBe("Graph of");
+  });
+});
+
 describe("speechTextFromMarkdown", () => {
   it("drops emphasis, heading and list markers", () => {
     const text = speechTextFromMarkdown("# Title\n\nSome **bold** and *italic* and ~~gone~~ text.\n\n- one\n- two\n\n1. first\n> quoted");

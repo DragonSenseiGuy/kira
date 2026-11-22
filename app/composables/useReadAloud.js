@@ -26,14 +26,37 @@ function inlineSpeech(children) {
   let text = "";
   let autolink = false;
   for (const child of children || []) {
-    if (child.type === "link_open") autolink = child.markup === "linkify" || child.markup === "autolink";
+    if (child.type === "link_open") {
+      // A bare URL is skipped, but a bare email address is worth hearing.
+      const auto = child.markup === "linkify" || child.markup === "autolink";
+      autolink = auto && !/^mailto:/i.test(child.attrGet("href") || "");
+    }
     else if (child.type === "link_close") autolink = false;
     else if (autolink) continue;
-    else if (child.type === "text" || child.type === "code_inline" || child.type === "image") text += child.content;
+    else if (child.type === "text" || child.type === "code_inline") text += child.content;
+    // The description is parsed too, so math inside it stays unspoken.
+    else if (child.type === "image") text += child.children ? inlineSpeech(child.children) : child.content;
     else if (child.type === "softbreak" || child.type === "hardbreak") text += "\n";
     // Everything else (math, HTML tags, footnote references) is not spoken.
   }
   return text;
+}
+
+const HTML_SILENT = "script, style, template, pre, code, svg, math, head, noscript, iframe, object, textarea, select";
+const HTML_LINE_ENDS = "p, div, li, tr, br, h1, h2, h3, h4, h5, h6, blockquote, section, article, summary, details, dt, dd, caption, figcaption, hr";
+
+/**
+ * Visible prose of a raw HTML block. The markup is parsed into a detached
+ * document, so nothing in it loads or runs.
+ */
+function htmlBlockSpeech(html) {
+  if (typeof DOMParser === "undefined") return "";
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  if (!doc.body) return "";
+  doc.body.querySelectorAll(HTML_SILENT).forEach((el) => el.remove());
+  doc.body.querySelectorAll("td, th").forEach((el) => el.append(" "));
+  doc.body.querySelectorAll(HTML_LINE_ENDS).forEach((el) => el.append("\n"));
+  return doc.body.textContent || "";
 }
 
 export function speechTextFromMarkdown(markdown) {
@@ -43,12 +66,15 @@ export function speechTextFromMarkdown(markdown) {
   let row = null;
   // The chat's own parser decides what is code, math or markup, so speech
   // matches what is displayed. Only inline text is spoken: fences, indented
-  // code, math blocks and HTML blocks are other token types.
+  // code and math blocks are other token types. HTML blocks contribute
+  // their visible text.
   for (const token of md.parse(markdown, {})) {
     if (token.type === "tr_open") row = [];
     else if (token.type === "tr_close") {
       lines.push(row.join(" "));
       row = null;
+    } else if (token.type === "html_block") {
+      lines.push(htmlBlockSpeech(token.content));
     } else if (token.type === "inline") {
       const text = inlineSpeech(token.children);
       if (row) row.push(text);
