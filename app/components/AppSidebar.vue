@@ -11,6 +11,7 @@ import {
 import { useConversationsList } from "~/composables/useConversationsList";
 import { useSettings } from "~/composables/useSettings";
 import { useAuth } from "~/composables/useAuth";
+import { hasUsableCredentials } from "~/composables/providers";
 
 const emit = defineEmits([
   "reloadSettings",
@@ -34,7 +35,7 @@ async function handleSignOut() {
   await logout();
   router.push("/login");
 }
-const hasApiKey = computed(() => !!settingsManager.settings.custom_api_key);
+const hasApiKey = computed(() => hasUsableCredentials(settingsManager.settings));
 
 // Use the conversations list composable
 const {
