@@ -28,6 +28,15 @@ describe("showTitleWhenClipped", () => {
     expect(element.hasAttribute("title")).toBe(false);
   });
 
+  it("notices text that overflows by less than a pixel", () => {
+    const element = span(180, 180);
+    element.getBoundingClientRect = () => ({ width: 180 });
+    const range = { selectNodeContents() {}, getBoundingClientRect: () => ({ width: 180.4 }) };
+    Object.defineProperty(element, "ownerDocument", { value: { createRange: () => range } });
+    showTitleWhenClipped(element, "Almost fits");
+    expect(element.title).toBe("Almost fits");
+  });
+
   it("ignores a missing element", () => {
     expect(() => showTitleWhenClipped(null, "x")).not.toThrow();
   });
