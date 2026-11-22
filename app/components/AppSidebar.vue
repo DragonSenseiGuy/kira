@@ -160,6 +160,7 @@ function handleMiddleClickNewChat(e) {
           type="text"
           class="search-input"
           placeholder="Search chats"
+          aria-label="Search chats"
         />
         <UiIconButton
           v-if="searchQuery"
@@ -226,6 +227,7 @@ function handleMiddleClickNewChat(e) {
                   v-if="renamingId === data.id"
                   v-model="newTitle"
                   class="rename-input"
+                  aria-label="Chat title"
                   @keydown="handleRenameKeydown($event, data.id)"
                   @blur="saveRename(data.id)"
                   ref="renameInput"

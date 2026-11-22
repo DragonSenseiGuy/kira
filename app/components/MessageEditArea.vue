@@ -17,7 +17,7 @@
           <Icon icon="material-symbols:picture-as-pdf" width="20" height="20" />
           <span class="edit-pdf-filename">{{ attachment.filename }}</span>
         </div>
-        <button class="remove-attachment-btn" @click="removeAttachment(index)" title="Remove attachment">
+        <button class="remove-attachment-btn" @click="removeAttachment(index)" title="Remove attachment" aria-label="Remove attachment">
           <Icon icon="material-symbols:close-rounded" width="16px" height="16px" />
         </button>
       </div>
@@ -27,6 +27,7 @@
       v-model="content"
       class="edit-textarea"
       placeholder="Edit your message..."
+      aria-label="Edit your message"
       rows="1"
       @keydown.enter="handleEnterKey"
       @keydown.esc="$emit('cancel')"
