@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
 } from "reka-ui";
 import { useConversationsList } from "~/composables/useConversationsList";
+import { showTitleWhenClipped } from "~/utils/clippedTitle";
 import { useSettings } from "~/composables/useSettings";
 import { useAuth } from "~/composables/useAuth";
 
@@ -239,7 +240,10 @@ function handleMiddleClickNewChat(e) {
                   :to="`/${data.id}`"
                   :class="{ active: data.id == route.params.id }"
                 >
-                  <span class="conversation-title">{{ data.title }}</span>
+                  <span
+                    class="conversation-title"
+                    @mouseenter="showTitleWhenClipped($event.currentTarget, data.title)"
+                  >{{ data.title }}</span>
                 </NuxtLink>
                 
                 <!-- Dropdown Menu -->
