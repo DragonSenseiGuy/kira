@@ -303,6 +303,23 @@ describe("MessageForm — arrow and Tab keys", () => {
     wrapper.unmount();
   });
 
+  it("closes the @mention picker when the message is sent with the button", async () => {
+    wb.chatFiles.value = [{ path: "a.md", size: 1 }];
+    const wrapper = mountForm();
+    await type(wrapper, "look at @a");
+    await flushPromises();
+    expect(wrapper.find(".mention-pop").exists()).toBe(true);
+
+    await wrapper.find(".send-btn").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.emitted("send-message")).toHaveLength(1);
+    expect(wrapper.find(".mention-pop").exists()).toBe(false);
+    expect(await press(wrapper, "ArrowUp")).toBe(true);
+    expect(wrapper.emitted("edit-last-message")).toHaveLength(1);
+    wrapper.unmount();
+  });
+
   it("does not ask to edit while a reply is streaming", async () => {
     const wrapper = mountForm();
     await wrapper.setProps({ isLoading: true });

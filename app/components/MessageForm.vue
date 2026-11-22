@@ -554,6 +554,7 @@ async function submitMessage() {
   // Emit the message to parent component, including search enabled state
   emit("send-message", outgoing, outgoing, toRaw(attachments.value), isSearchEnabled.value);
   inputMessage.value = "";
+  mentionClose();
   // Clear draft for this conversation
   await clearDraft();
   // Clear attachments after sending
