@@ -5,14 +5,18 @@
       <ChatPanel
         ref="chatPanelRef"
         :curr-convo="currConvo"
-        :curr-messages="messages"
+        :curr-messages="visibleMessages"
         :isLoading="isLoading"
         :conversationTitle="conversationTitle"
+        :branch-info="branchInfo"
         :show-welcome="false"
         :is-dark="isDark"
         :is-incognito="isIncognito"
         @set-message="text => messageFormRef?.setMessage(text)"
         @scroll="handleChatScroll"
+        @edit-message="editUserMessage"
+        @regenerate-message="regenerateAssistantMessage"
+        @navigate-branch="navigateBranch"
       />
       <MessageForm
         ref="messageFormRef"
@@ -55,6 +59,8 @@ const settingsManager = useSettings();
 // Initialize conversation state and methods
 const {
   messages,
+  visibleMessages,
+  branchInfo,
   isLoading,
   controller,
   currConvo,
@@ -67,7 +73,10 @@ const {
   deleteConversation,
   newConversation,
   setChatPanel,
-  chatPanel // This is the chat panel ref from the composable
+  chatPanel, // This is the chat panel ref from the composable
+  editUserMessage,
+  regenerateAssistantMessage,
+  navigateBranch
 } = useConversation();
 
 // Get the route and router

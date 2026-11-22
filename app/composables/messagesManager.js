@@ -60,7 +60,6 @@ export function useMessagesManager(chatPanel) {
 
   // Computed properties
   const visibleMessages = computed(() => {
-    if (isIncognito.value) return messages.value;
     return getMessagesForBranchPath(messages.value, branchPath.value);
   });
 
@@ -142,9 +141,9 @@ export function useMessagesManager(chatPanel) {
 
     messages.value.push(userMessage);
 
-    if (!isIncognito.value) {
-      branchPath.value = calculateBranchPath(messages.value, userMessage.id);
-    }
+    // The path is kept in memory in incognito too, so edits and regenerated
+    // replies branch there as well; it is only written to storage elsewhere.
+    branchPath.value = calculateBranchPath(messages.value, userMessage.id);
   }
 
   /**
