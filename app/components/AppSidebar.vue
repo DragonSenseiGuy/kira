@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onBeforeUnmount, onMounted, nextTick, computed } from "vue";
+import { ref, onBeforeUnmount, onMounted, nextTick, computed, watch } from "vue";
 import { Icon } from "@iconify/vue";
 import { useRouter, useRoute } from "vue-router";
 import {
@@ -59,6 +59,19 @@ const windowWidth = ref(
 
 // Collapsible pinned section state
 const isPinnedExpanded = ref(true);
+
+// A rename started from outside the list (the command palette) may target a
+// chat in the collapsed pinned group, and the field is not focused by a click.
+watch(renamingId, async (id) => {
+  if (!id) return;
+  if (metadata.value.find(conv => conv.id === id)?.pinned) isPinnedExpanded.value = true;
+  await nextTick();
+  const input = document.querySelector(".rename-input");
+  if (input && document.activeElement !== input) {
+    input.focus();
+    input.select();
+  }
+});
 
 function togglePinnedExpanded() {
   isPinnedExpanded.value = !isPinnedExpanded.value;
