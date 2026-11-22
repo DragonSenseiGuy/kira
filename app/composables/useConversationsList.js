@@ -88,7 +88,10 @@ export function useConversationsList() {
   // The command palette acts on the open chat without knowing its title.
   function renameById(id) {
     const conversation = metadata.value.find(conv => conv.id === id);
-    if (conversation) startRename(id, conversation.title);
+    if (!conversation) return;
+    // A search that hides the chat would leave no title field to type in.
+    searchQuery.value = "";
+    startRename(id, conversation.title);
   }
   emitter.on("renameConversation", renameById);
   emitter.on("togglePinConversation", togglePin);

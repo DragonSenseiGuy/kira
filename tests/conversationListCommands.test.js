@@ -44,6 +44,15 @@ describe("conversation list commands from outside the sidebar", () => {
     wrapper.unmount();
   });
 
+  it("clears a sidebar search so the chat being renamed is listed", async () => {
+    const { list, wrapper } = await mountList();
+    list.searchQuery.value = "first";
+    emitter.emit("renameConversation", "b");
+    expect(list.searchQuery.value).toBe("");
+    expect(list.renamingId.value).toBe("b");
+    wrapper.unmount();
+  });
+
   it("ignores a rename for a chat that is not in the list", async () => {
     const { list, wrapper } = await mountList();
     emitter.emit("renameConversation", "missing");

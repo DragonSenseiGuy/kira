@@ -148,7 +148,8 @@ const conversationTitle = ref(''); // Current conversation title
 const isTyping = ref(false); // Typing state
 
 // Show the per-chat export button only when viewing a specific chat
-const canExport = computed(() => !!route.params.id && route.path !== '/incognito');
+// A project page also has an id param, but it names a project, not a chat.
+const canExport = computed(() => !!route.params.id && route.path !== '/incognito' && !route.path.startsWith('/projects/'));
 
 // Use the global scroll status instead of local state
 const isScrolledTop = computed(() => getIsScrolledTop.value); // Track if chat is scrolled to the top
