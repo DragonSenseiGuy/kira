@@ -58,6 +58,22 @@ export function dictationErrorMessage(code) {
 }
 
 /**
+ * Removes the last occurrence of an unfinished phrase from the field text.
+ *
+ * @param {string} text
+ * @param {string} interim
+ * @returns {string}
+ */
+function withoutInterim(text, interim) {
+  if (!interim) return text;
+  const at = text.lastIndexOf(interim);
+  if (at === -1) return text;
+  const before = text.slice(0, at);
+  const after = text.slice(at + interim.length);
+  return after.trim() ? before + after.replace(/^\s+/, "") : before.replace(/[ \t]+$/, "");
+}
+
+/**
  * @param {Object} options
  * @param {() => string} options.getText  Reads the field's current text.
  * @param {(text: string) => void} options.setText  Writes the field's text.
@@ -66,7 +82,7 @@ export function dictationErrorMessage(code) {
  *   supported: boolean,
  *   listening: import("vue").Ref<boolean>,
  *   error: import("vue").Ref<string>,
- *   start: () => void, stop: () => void, toggle: () => void,
+ *   start: () => void, stop: () => void, cancel: () => void, toggle: () => void,
  * }}
  */
 export function useDictation({ getText, setText, win = globalThis }) {
@@ -90,6 +106,7 @@ export function useDictation({ getText, setText, win = globalThis }) {
     let base = getText() || "";
     let firstIndex = 0;
     let lastWritten = base;
+    let lastInterim = "";
 
     session.onstart = () => {
       if (recognition === session) listening.value = true;
@@ -100,10 +117,10 @@ export function useDictation({ getText, setText, win = globalThis }) {
 
       const current = getText() || "";
       if (current !== lastWritten) {
-        // The user edited the field: keep their text and only add what
-        // is being (re)reported from this event onwards.
-        base = current;
-        firstIndex = event.resultIndex || 0;
+        // The user edited the field: keep their text. An unfinished
+        // phrase still in it is about to be reported again (revised), so
+        // take it out rather than append its revision after it.
+        base = withoutInterim(current, lastInterim);
       }
 
       let committed = base;
@@ -122,6 +139,7 @@ export function useDictation({ getText, setText, win = globalThis }) {
       base = committed;
       firstIndex = nextIndex;
 
+      lastInterim = interim.trim();
       lastWritten = mergeDictation(committed, interim);
       setText(lastWritten);
     };
@@ -153,19 +171,25 @@ export function useDictation({ getText, setText, win = globalThis }) {
     recognition?.stop();
   }
 
+  /**
+   * Stops at once and ignores anything the browser reports afterwards.
+   * Used when the text is sent, so a late result cannot land in the
+   * emptied field.
+   */
+  function cancel() {
+    const session = recognition;
+    if (!session) return;
+    recognition = null;
+    listening.value = false;
+    session.abort();
+  }
+
   function toggle() {
     if (recognition) stop();
     else start();
   }
 
-  if (getCurrentScope()) {
-    onScopeDispose(() => {
-      const session = recognition;
-      recognition = null;
-      listening.value = false;
-      session?.abort();
-    });
-  }
+  if (getCurrentScope()) onScopeDispose(cancel);
 
-  return { supported: !!Recognition, listening, error, start, stop, toggle };
+  return { supported: !!Recognition, listening, error, start, stop, cancel, toggle };
 }

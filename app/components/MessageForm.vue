@@ -512,7 +512,7 @@ async function submitMessage() {
   // Resolve mentions: unescape literal \@ sequences, then ATTACH the
   // contents of every referenced workspace file. Read failures are skipped
   // — their @path stays in the text so the model can retry via its tools.
-  dictation.stop();
+  dictation.cancel();
   const { cleanText, mentions } = resolveMentions(inputMessage.value, knownPaths.value);
   let outgoing = cleanText;
   if (mentions.length && wb.available.value) {

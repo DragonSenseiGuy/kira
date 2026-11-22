@@ -186,6 +186,37 @@ describe("useDictation", () => {
     expect(s.text).toBe("First sentence, edited. second one");
   });
 
+  it("does not duplicate an unfinished phrase when the user types during it", () => {
+    const s = setup();
+    s.dictation.start();
+    s.rec.emit([["hello wor", false]]);
+    expect(s.text).toBe("hello wor");
+
+    // The user types in front while the phrase is still being recognised.
+    s.text = "Note: hello wor";
+    s.rec.emit([["hello world", false]]);
+    expect(s.text).toBe("Note: hello world");
+
+    s.rec.emit([["hello world", true]]);
+    expect(s.text).toBe("Note: hello world");
+  });
+
+  it("cancel() stops at once and ignores late results", () => {
+    const s = setup();
+    s.dictation.start();
+    s.rec.emit([["send this", false]]);
+    const rec = s.rec;
+
+    s.dictation.cancel();
+    expect(rec.aborted).toBe(1);
+    expect(s.dictation.listening.value).toBe(false);
+
+    // The field is cleared by the send; the final result must not refill it.
+    s.text = "";
+    rec.emit([["send this now", true]]);
+    expect(s.text).toBe("");
+  });
+
   it("stop() ends the session", () => {
     const s = setup();
     s.dictation.start();
