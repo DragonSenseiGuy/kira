@@ -16,7 +16,7 @@ function webUrl(value) {
 
 /** Two addresses of the same page compare equal by this key. */
 function pageKey(url) {
-  return `${url.hostname.replace(/^www\./, "")}${url.pathname.replace(/\/+$/, "")}${url.search}`.toLowerCase();
+  return `${url.host.replace(/^www\./, "")}${url.pathname.replace(/\/+$/, "")}${url.search}`;
 }
 
 function searchResults(tool) {

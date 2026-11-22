@@ -29,6 +29,13 @@ describe("messageSources", () => {
     expect(sources).toHaveLength(2);
   });
 
+  it("keeps pages that differ by path case, query case or port", () => {
+    const urls = ["https://a.com/Page", "https://a.com/page", "https://a.com/?q=A", "https://a.com/?q=a", "https://a.com:8443/page", "https://A.com/page"];
+    const sources = messageSources(answer([search(urls.map((url) => ({ title: url, url })))], "See https://a.com/Page"));
+    expect(sources.map((source) => source.title)).toEqual(urls.slice(0, 5));
+    expect(sources.filter((source) => source.cited).map((source) => source.title)).toEqual(["https://a.com/Page"]);
+  });
+
   it("lists pages the answer links to first", () => {
     const sources = messageSources(
       answer(
