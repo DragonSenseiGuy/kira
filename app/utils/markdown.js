@@ -3,6 +3,7 @@ import markdownItFootnote from "markdown-it-footnote";
 import markdownItTaskLists from "markdown-it-task-lists";
 import markdownItTexmath from "markdown-it-texmath";
 import katex from "katex";
+import { isPreviewableLang } from "./codeBlockUtils";
 
 // Shared fence renderer for code blocks (without synchronous highlighting)
 // Highlighting is now done lazily via lazyHighlight.js
@@ -32,12 +33,22 @@ function addCodeBlockRenderer(md) {
     const escapedLang = langDisplay.replace(/'/g, "\\'").replace(/"/g, '"').replace(/</g, '<').replace(/>/g, '>');
     const safeLangClass = md.utils.escapeHtml(lang);
 
+    const previewButton = isPreviewableLang(lang)
+      ? `<button class="code-action-button" onclick="window.togglePreview(event.currentTarget)" title="Toggle preview" aria-pressed="false">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+          <path fill="currentColor" d="M12 16q1.875 0 3.188-1.312T16.5 11.5t-1.312-3.187T12 7T8.813 8.313T7.5 11.5t1.313 3.188T12 16m0-1.8q-1.125 0-1.912-.788T9.3 11.5t.788-1.912T12 8.8t1.913.788t.787 1.912t-.787 1.913T12 14.2m0 4.8q-3.65 0-6.65-2.037T1 11.5q1.35-3.425 4.35-5.462T12 4t6.65 2.038T23 11.5q-1.35 3.425-4.35 5.463T12 19m0-2q2.825 0 5.188-1.487T20.8 11.5q-1.25-2.525-3.613-4.012T12 6T6.813 7.488T3.2 11.5q1.25 2.525 3.613 4.013T12 17" />
+        </svg>
+        <span>Preview</span>
+      </button>
+      `
+      : "";
+
     // Add data-needs-highlight attribute for lazy highlighting
     return `<div class="code-block-wrapper" data-lang="${safeLangClass}">
   <div class="code-block-header">
     <span class="code-language">${langDisplay}</span>
     <div class="code-actions">
-      <button class="code-action-button" onclick="window.downloadCode(event.currentTarget, '${escapedLang}')" title="Download file">
+      ${previewButton}      <button class="code-action-button" onclick="window.downloadCode(event.currentTarget, '${escapedLang}')" title="Download file">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
           <path fill="currentColor" d="M12 15.575q-.2 0-.375-.062T11.3 15.3l-3.6-3.6q-.3-.3-.288-.7t.288-.7q.3-.3.713-.312t.712.287L11 12.15V5q0-.425.288-.712T12 4t.713.288T13 5v7.15l1.875-1.875q.3-.3.713-.288t.712.313q.275.3.288.7t-.288.7l-3.6 3.6q-.15.15-.325.213t-.375.062M6 20q-.825 0-1.412-.587T4 18v-2q0-.425.288-.712T5 15t.713.288T6 16v2h12v-2q0-.425.288-.712T19 15t.713.288T20 16v2q0 .825-.587 1.413T18 20z" stroke-width="0.1" stroke="currentColor" />
         </svg>

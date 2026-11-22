@@ -75,8 +75,59 @@ export function downloadCode(button, lang) {
   URL.revokeObjectURL(url);
 }
 
+const PREVIEWABLE_LANGS = new Set(["html", "htm", "svg"]);
+
+/** True for code-block languages that can be rendered as a page. */
+export function isPreviewableLang(lang) {
+  return typeof lang === "string" && PREVIEWABLE_LANGS.has(lang.toLowerCase());
+}
+
+/** Builds the document shown in the preview frame for a code block. */
+export function buildPreviewDocument(lang, code) {
+  if (String(lang).toLowerCase() !== "svg") return code;
+  return `<!doctype html><html><body style="margin:0;min-height:100vh;display:grid;place-items:center">${code}</body></html>`;
+}
+
+/**
+ * Switches a code block between its source and a rendered preview.
+ *
+ * The code is model output, so it is untrusted: it renders in an iframe
+ * sandboxed to an opaque origin (scripts run, but cannot reach the app,
+ * its storage, the top window, or open popups).
+ */
+export function togglePreview(button) {
+  const wrapper = button && button.closest(".code-block-wrapper");
+  if (!wrapper) return;
+  const pre = wrapper.querySelector("pre");
+  const codeEl = pre && pre.querySelector("code");
+  if (!codeEl) return;
+
+  const label = button.querySelector("span");
+  const existing = wrapper.querySelector(".code-preview-frame");
+
+  if (existing) {
+    existing.remove();
+    pre.hidden = false;
+    if (label) label.textContent = "Preview";
+    button.setAttribute("aria-pressed", "false");
+    return;
+  }
+
+  const frame = document.createElement("iframe");
+  frame.className = "code-preview-frame";
+  frame.setAttribute("sandbox", "allow-scripts");
+  frame.setAttribute("referrerpolicy", "no-referrer");
+  frame.setAttribute("title", "Code preview");
+  frame.setAttribute("srcdoc", buildPreviewDocument(wrapper.dataset.lang, codeEl.textContent));
+  wrapper.appendChild(frame);
+  pre.hidden = true;
+  if (label) label.textContent = "Code";
+  button.setAttribute("aria-pressed", "true");
+}
+
 // Make functions globally available for inline onclick handlers
 if (typeof window !== 'undefined') {
+  window.togglePreview = togglePreview;
   window.copyCode = copyCode;
   window.downloadCode = downloadCode;
 }

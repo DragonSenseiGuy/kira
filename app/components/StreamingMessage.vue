@@ -17,7 +17,7 @@
 <script setup>
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue';
 import { md } from '../utils/markdown';
-import { copyCode, downloadCode } from '../utils/codeBlockUtils';
+import { copyCode, downloadCode, togglePreview } from '../utils/codeBlockUtils';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
 import { splitIntoBlocks, addCaretToHtml } from '../utils/streamBlocks';
 
@@ -43,6 +43,7 @@ let hasEmittedStart = false;
 if (typeof window !== 'undefined') {
   window.copyCode = copyCode;
   window.downloadCode = downloadCode;
+  window.togglePreview = togglePreview;
 }
 
 /**

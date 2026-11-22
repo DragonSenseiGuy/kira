@@ -152,6 +152,24 @@
   border-radius: 0 0 var(--radius-control) var(--radius-control);
 }
 
+.code-block-wrapper pre[hidden] {
+  display: none;
+}
+
+/* Rendered HTML/SVG preview. Pages assume a white canvas, in either theme. */
+.code-preview-frame {
+  display: block;
+  width: 100%;
+  height: 360px;
+  border: 0;
+  background: #fff;
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
+}
+
+.code-action-button[aria-pressed="true"] {
+  color: var(--text-primary);
+}
+
 .code-block-wrapper pre code.hljs {
   display: block;
   padding: 16px;

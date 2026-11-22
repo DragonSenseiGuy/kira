@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from "vue";
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
-import { copyCode, downloadCode } from '../utils/codeBlockUtils';
+import { copyCode, downloadCode, togglePreview } from '../utils/codeBlockUtils';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -433,6 +433,7 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.copyCode = copyCode;
     window.downloadCode = downloadCode;
+    window.togglePreview = togglePreview;
   }
 });
 
