@@ -113,6 +113,8 @@ function chatLinks() {
 }
 
 function moveSidebarFocus(event) {
+  // With a modifier the arrows select text or belong to a shortcut.
+  if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
   const target = sidebarArrowTarget(event.key, event.target, searchInput.value, chatLinks());
   if (!target) return;
   event.preventDefault();
@@ -120,7 +122,8 @@ function moveSidebarFocus(event) {
 }
 
 function handleSearchKeydown(event) {
-  if (event.isComposing) return;
+  // Closing the sidebar can leave focus in the now hidden field.
+  if (event.isComposing || !props.isOpen) return;
   if (event.key === "Escape" && searchQuery.value) {
     event.preventDefault();
     event.stopPropagation();
