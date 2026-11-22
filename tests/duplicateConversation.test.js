@@ -30,6 +30,15 @@ beforeEach(() => {
 });
 
 describe("copyTitle", () => {
+  it("keeps the copy of a very long title within 255 characters", () => {
+    const long = "x".repeat(300);
+    const first = copyTitle(long, [long]);
+    expect(first).toBe(`Copy of ${"x".repeat(247)}`);
+    const second = copyTitle(long, [long, first]);
+    expect(second).toBe(`Copy of ${"x".repeat(243)} (2)`);
+    expect(second).toHaveLength(255);
+  });
+
   it("prefixes the title and numbers repeated copies", () => {
     expect(copyTitle("Trip", ["Trip"])).toBe("Copy of Trip");
     expect(copyTitle("Trip", ["Trip", "Copy of Trip"])).toBe("Copy of Trip (2)");

@@ -211,21 +211,20 @@ export async function storeMessages(
  * @param {string[]} takenTitles
  * @returns {string}
  */
+// The account database stores titles in 255 characters.
+const MAX_TITLE_LENGTH = 255;
+
 export function copyTitle(title, takenTitles) {
-  const base = `Copy of ${(title || "").trim() || "Untitled"}`;
+  const name = (title || "").trim() || "Untitled";
   const taken = new Set(takenTitles);
-  if (!taken.has(base)) return base;
-  let n = 2;
-  while (taken.has(`${base} (${n})`)) n++;
-  return `${base} (${n})`;
+  for (let n = 1; ; n++) {
+    const suffix = n === 1 ? "" : ` (${n})`;
+    const room = MAX_TITLE_LENGTH - "Copy of ".length - suffix.length;
+    const candidate = `Copy of ${name.slice(0, room).trimEnd()}${suffix}`;
+    if (!taken.has(candidate)) return candidate;
+  }
 }
 
-/**
- * Copies a conversation, with all its branches, into a new one that can be
- * continued separately. Messages get new ids so the two never share state.
- * @param {string} conversationId
- * @returns {Promise<string|null>} Id of the copy, or null if the original is gone.
- */
 export async function duplicateConversation(conversationId) {
   const original = await loadConversation(conversationId);
   if (!original) return null;
