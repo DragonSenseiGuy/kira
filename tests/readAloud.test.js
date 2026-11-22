@@ -221,3 +221,20 @@ describe("useReadAloud", () => {
     expect(spoken).toHaveLength(0);
   });
 });
+
+describe("speechTextFromMarkdown code detection", () => {
+  it("keeps prose after a line that starts with a triple-backtick inline span", () => {
+    expect(speechTextFromMarkdown("```npm install``` installs the package.\n\nRestart the app.")).toBe(
+      "npm install installs the package.\nRestart the app."
+    );
+  });
+
+  it("omits fences nested in list items and quotes", () => {
+    expect(speechTextFromMarkdown("- ```sh\n  npm install\n  ```\n- Restart.")).toBe("Restart.");
+    expect(speechTextFromMarkdown("> Run:\n> ```sh\n> npm test\n> ```\n> Done.")).toBe("Run:\nDone.");
+  });
+
+  it("drops display math written with escaped brackets", () => {
+    expect(speechTextFromMarkdown("So \\(a+b\\) and \\[x^2\\] hold.")).toBe("So and hold.");
+  });
+});

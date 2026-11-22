@@ -6,6 +6,7 @@
  */
 
 import { ref, getCurrentScope, onScopeDispose } from "vue";
+import MarkdownIt from "markdown-it";
 
 /**
  * Chrome silently stops speaking utterances that run longer than roughly
@@ -20,33 +21,55 @@ const MAX_UTTERANCE_LENGTH = 220;
  * @param {string} markdown
  * @returns {string}
  */
+const speechMarkdown = new MarkdownIt({ html: false, linkify: false });
+
+// Stand-ins for the escapes Markdown would otherwise turn into plain
+// characters, so "\$5" (a price) can be told apart from "$x$" (math).
+const ESCAPES = { "\\$": "\uE000", "\\(": "\uE001", "\\)": "\uE002", "\\[": "\uE003", "\\]": "\uE004" };
+const ESCAPED_CHARS = { "\uE000": "$", "\uE001": "(", "\uE002": ")", "\uE003": "[", "\uE004": "]" };
+const restoreEscapes = (text) => text.replace(/[\uE000-\uE004]/g, (c) => ESCAPED_CHARS[c]);
+
+/** Speakable text of one inline token: no math, no tags, code spans kept. */
+function inlineSpeech(children) {
+  const codeSpans = [];
+  let text = "";
+  for (const child of children || []) {
+    if (child.type === "text") text += child.content.replace(/<\/?[a-zA-Z][^>]*>/g, "");
+    else if (child.type === "code_inline") {
+      codeSpans.push(restoreEscapes(child.content));
+      text += `\uE010${codeSpans.length - 1}\uE011`;
+    } else if (child.type === "image") text += child.content;
+    else if (child.type === "softbreak" || child.type === "hardbreak") text += "\n";
+  }
+  text = text
+    .replace(/\$\$[\s\S]*?\$\$/g, "\n")
+    .replace(/\uE003[\s\S]*?\uE004|\uE001[\s\S]*?\uE002/g, " ")
+    .replace(/\$(?=\S)[^$\n]*?(?<=\S)\$/g, " ");
+  return restoreEscapes(text).replace(/\uE010(\d+)\uE011/g, (_, n) => codeSpans[Number(n)]);
+}
+
 export function speechTextFromMarkdown(markdown) {
   if (typeof markdown !== "string" || !markdown) return "";
 
-  const text = markdown
-    // Fenced code. The closing fence must be at least as long as the opening
-    // one, so a ```` block may show ``` inside it.
-    .replace(/^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^[ \t]*\1[`~]*[ \t]*$|(?![\s\S]))/gm, "\n")
-    // Indented code: 4+ spaces after a blank line, unless it is a list item.
-    .replace(/(^|\n[ \t]*\n)((?:(?: {4,}|\t)(?![ \t]*(?:[-*+]|\d+[.)])\s)[^\n]*(?:\n|$))+)/g, "$1")
-    // An escaped dollar is a literal one ("\$5 to \$10"), never math.
-    .replace(/\\\$/g, "\uE000")
-    .replace(/\$\$[\s\S]*?\$\$/g, "\n")
-    .replace(/\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)/g, " ")
-    .replace(/\$(?=\S)[^$\n]*?(?<=\S)\$/g, " ")
-    .replace(/\uE000/g, "$")
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/<\/?[a-zA-Z][^>]*>/g, "")
-    .replace(/^\s*\|?[\s:|-]*-{3,}[\s:|-]*$/gm, "")
-    .replace(/^\s*([-*_]\s*){3,}$/gm, "")
-    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
-    .replace(/^\s*(>\s?)+/gm, "")
-    .replace(/^\s*([-*+]|\d+[.)])\s+/gm, "")
-    .replace(/\|/g, " ")
-    .replace(/\*+|~~|`+|\b__|__\b/g, "");
+  const source = markdown.replace(/\\[$()[\]]/g, (escape) => ESCAPES[escape]);
+  const lines = [];
+  let row = null;
+  // Fences, indented code and HTML blocks are separate token types and are
+  // skipped, wherever they are nested (quotes, list items).
+  for (const token of speechMarkdown.parse(source, {})) {
+    if (token.type === "tr_open") row = [];
+    else if (token.type === "tr_close") {
+      lines.push(row.join(" "));
+      row = null;
+    } else if (token.type === "inline") {
+      const text = inlineSpeech(token.children);
+      if (row) row.push(text);
+      else lines.push(text);
+    }
+  }
 
-  return text
+  return lines
+    .join("\n")
     .split("\n")
     .map((line) => line.replace(/\s+/g, " ").trim())
     .filter(Boolean)
