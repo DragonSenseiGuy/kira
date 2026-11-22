@@ -55,6 +55,18 @@ describe("shouldFocusComposerOnKey", () => {
     }
   });
 
+  it("leaves keys alone while focus is inside an open popover", () => {
+    document.body.innerHTML = '<div data-reka-popper-content-wrapper><div role="dialog"><button id="b"></button></div></div>';
+    expect(shouldFocusComposerOnKey(key({ key: "a" }, document.getElementById("b")))).toBe(false);
+  });
+
+  it("is not stopped by the composer's own suggestion list", () => {
+    document.body.innerHTML = '<div id="form"><div role="listbox"></div><textarea></textarea></div>';
+    const form = document.getElementById("form");
+    expect(shouldFocusComposerOnKey(key({ key: "a" }), document, form)).toBe(true);
+    expect(shouldFocusComposerOnKey(key({ key: "a" }))).toBe(false);
+  });
+
   it("is not stopped by a non-modal panel or a hidden overlay", () => {
     document.body.innerHTML = '<div role="dialog" aria-label="Workspace"></div><div role="menu" id="m"></div>';
     document.getElementById("m").checkVisibility = () => false;

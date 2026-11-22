@@ -783,7 +783,7 @@ useKeybinds({
 function onWindowKeydown(event) {
   const textarea = textareaRef.value;
   if (!textarea || textarea.disabled) return;
-  if (shouldFocusComposerOnKey(event)) textarea.focus();
+  if (shouldFocusComposerOnKey(event, document, messageFormRoot.value)) textarea.focus();
 }
 onMounted(() => window.addEventListener("keydown", onWindowKeydown));
 onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
