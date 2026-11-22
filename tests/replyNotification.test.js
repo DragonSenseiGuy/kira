@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
+  confirmNotifications,
   notificationPermission,
   notifyReplyFinished,
   requestNotificationPermission,
@@ -10,6 +11,7 @@ function fakeWindow({ permission = "granted", hidden = true, focused = false, su
   const shown = [];
   const win = {
     focus: vi.fn(),
+    setTimeout: (fn) => fn(),
     document: {
       hidden,
       hasFocus: () => focused,
@@ -120,5 +122,31 @@ describe("requestNotificationPermission", () => {
     const { win } = fakeWindow({ supported: false });
     expect(await requestNotificationPermission(win)).toBe("unsupported");
     expect(notificationPermission(win)).toBe("unsupported");
+  });
+});
+
+describe("confirmNotifications", () => {
+  it("shows a confirmation and reports that delivery works", () => {
+    const { win, shown } = fakeWindow();
+    expect(confirmNotifications(win)).toBe(true);
+    expect(shown[0].title).toBe("Kira notifications are on");
+    expect(shown[0].close).toHaveBeenCalled();
+  });
+
+  it("reports browsers that grant permission but cannot notify from a page", () => {
+    const { win } = fakeWindow();
+    win.Notification = class {
+      static permission = "granted";
+      constructor() {
+        throw new TypeError("Illegal constructor");
+      }
+    };
+    expect(confirmNotifications(win)).toBe(false);
+  });
+
+  it("does nothing without permission", () => {
+    const { win, shown } = fakeWindow({ permission: "denied" });
+    expect(confirmNotifications(win)).toBe(false);
+    expect(shown).toHaveLength(0);
   });
 });

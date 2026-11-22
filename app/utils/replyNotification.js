@@ -16,6 +16,23 @@ export async function requestNotificationPermission(win = window) {
   }
 }
 
+// Shown when the setting is switched on. It confirms the choice, and it finds
+// out whether this browser lets a page show notifications at all: some grant
+// permission but only deliver through a service worker.
+export function confirmNotifications(win = window) {
+  if (notificationPermission(win) !== "granted") return false;
+  try {
+    const notification = new win.Notification("Kira notifications are on", {
+      body: "You will be told when a reply finishes in the background.",
+      tag: "kira-reply",
+    });
+    win.setTimeout(() => notification.close(), 4000);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function notifyReplyFinished({ title, failed = false, incognito = false } = {}, win = window) {
   const doc = win.document;
   if (notificationPermission(win) !== "granted") return null;

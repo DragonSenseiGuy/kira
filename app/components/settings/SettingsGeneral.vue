@@ -78,7 +78,7 @@ import { ref } from 'vue';
 import { SwitchRoot, SwitchThumb } from 'reka-ui';
 import { useDark, useToggle } from '@vueuse/core';
 import { useSettings } from '~/composables/useSettings';
-import { requestNotificationPermission } from '~/utils/replyNotification';
+import { confirmNotifications, requestNotificationPermission } from '~/utils/replyNotification';
 
 const settingsManager = useSettings();
 const settings = settingsManager.settings;
@@ -101,6 +101,11 @@ async function setNotify(on) {
       notifyProblem.value = permission === 'unsupported'
         ? 'This browser does not support notifications.'
         : 'Notifications are blocked for this site. Allow them in your browser settings, then turn this on again.';
+      set('notify_on_reply', false);
+      return;
+    }
+    if (!confirmNotifications()) {
+      notifyProblem.value = 'This browser cannot show notifications from a web page.';
       set('notify_on_reply', false);
       return;
     }
