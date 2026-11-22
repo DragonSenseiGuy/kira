@@ -16,7 +16,9 @@ function webUrl(value) {
 
 /** Two addresses of the same page compare equal by this key. */
 function pageKey(url) {
-  return `${url.host.replace(/^www\./, "")}${url.pathname.replace(/\/+$/, "")}${url.search}`;
+  const path = `${url.pathname.replace(/\/+$/, "")}${url.search}`;
+  // %2f and %2F are the same escape.
+  return url.host.replace(/^www\./, "") + path.replace(/%[0-9a-f]{2}/gi, (escape) => escape.toUpperCase());
 }
 
 function searchResults(tool) {

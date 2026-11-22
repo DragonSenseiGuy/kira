@@ -36,6 +36,13 @@ describe("messageSources", () => {
     expect(sources.filter((source) => source.cited).map((source) => source.title)).toEqual(["https://a.com/Page"]);
   });
 
+  it("treats percent-escapes of either case as the same page", () => {
+    const sources = messageSources(
+      answer([search([{ title: "A", url: "https://a.com/caf%c3%a9?q=%2f" }, { title: "B", url: "https://a.com/caf%C3%A9?q=%2F" }])], "https://a.com/caf%C3%A9?q=%2F"),
+    );
+    expect(sources.map((source) => [source.title, source.cited])).toEqual([["A", true]]);
+  });
+
   it("lists pages the answer links to first", () => {
     const sources = messageSources(
       answer(
