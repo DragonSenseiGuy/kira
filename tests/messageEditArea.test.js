@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
+import { nextTick } from "vue";
 import MessageEditArea from "~/components/MessageEditArea.vue";
 
 let wrapper;
@@ -22,6 +23,21 @@ describe("MessageEditArea", () => {
     expect(document.activeElement).toBe(textarea);
     expect(textarea.selectionStart).toBe(11);
     expect(textarea.selectionEnd).toBe(11);
+  });
+
+  it("hands focus back to where it was when editing is cancelled", async () => {
+    const editButton = document.createElement("button");
+    document.body.appendChild(editButton);
+    editButton.focus();
+    mountEditor({ content: "hello", attachments: [] });
+    expect(document.activeElement).toBe(wrapper.find("textarea").element);
+
+    await wrapper.find("textarea").trigger("keydown", { key: "Escape" });
+    await nextTick();
+
+    expect(wrapper.emitted("cancel")).toHaveLength(1);
+    expect(document.activeElement).toBe(editButton);
+    editButton.remove();
   });
 
   it("disables Save once the text is cleared and nothing is attached", async () => {

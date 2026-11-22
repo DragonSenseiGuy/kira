@@ -29,10 +29,10 @@
       placeholder="Edit your message..."
       rows="1"
       @keydown.enter="handleEnterKey"
-      @keydown.esc="$emit('cancel')"
+      @keydown.esc="cancel"
     ></textarea>
     <div class="edit-actions">
-      <button class="edit-cancel" @click="$emit('cancel')">
+      <button class="edit-cancel" @click="cancel">
         <Icon icon="material-symbols:close-rounded" width="16px" height="16px" />
         <span>Cancel</span>
       </button>
@@ -74,7 +74,12 @@ function resizeTextarea() {
   });
 }
 
+// What had focus when editing began (the Edit button, when it was opened
+// from the keyboard), so that cancelling can hand focus back to it.
+let opener = null;
+
 onMounted(() => {
+  opener = document.activeElement;
   resizeTextarea();
   // Editing starts with the caret after the existing text, ready to type,
   // rather than needing a second click into the field.
@@ -93,6 +98,16 @@ function handleEnterKey(event) {
     event.preventDefault();
     submit();
   }
+}
+
+function cancel() {
+  emit('cancel');
+  const target = opener;
+  // The editor is removed once the parent reacts; without this, focus would
+  // fall back to the page.
+  nextTick(() => {
+    if (target?.isConnected && target !== document.body) target.focus();
+  });
 }
 
 function removeAttachment(index) {
