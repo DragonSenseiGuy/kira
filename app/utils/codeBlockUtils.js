@@ -4,6 +4,8 @@ const langExtMap = {
   javascript: "js",
   typescript: "ts",
   html: "html",
+  htm: "html",
+  svg: "svg",
   css: "css",
   vue: "vue",
   json: "json",
