@@ -772,14 +772,14 @@ async function handleDrop(event) {
 // Keep the caret in the composer, as desktop chat apps do: on arrival, when
 // another chat is opened, and when a reply ends (the field is disabled while
 // it streams, which drops focus).
-function autofocusComposer() {
+function autofocusComposer(arrived) {
   nextTick(() => {
-    if (!isMobile.value && canAutofocusComposer()) textareaRef.value?.focus({ preventScroll: true });
+    if (!isMobile.value && canAutofocusComposer({ arrived })) textareaRef.value?.focus({ preventScroll: true });
   });
 }
-onMounted(autofocusComposer);
-watch(conversationIdRef, autofocusComposer);
-watch(() => props.isLoading, (loading, wasLoading) => { if (wasLoading && !loading) autofocusComposer(); });
+onMounted(() => autofocusComposer(true));
+watch(conversationIdRef, () => autofocusComposer(true));
+watch(() => props.isLoading, (loading, wasLoading) => { if (wasLoading && !loading) autofocusComposer(false); });
 
 // Focus text input via the user-configured shortcut (Settings → Shortcuts).
 // The dispatcher already skips modifier-less binds while typing, which
