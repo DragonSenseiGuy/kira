@@ -484,6 +484,10 @@ function onWindowEscape(event) {
   event.preventDefault();
   emit("abort-controller");
 }
+// The composer is disabled while a reply streams, so a mention list still
+// open then could not be dismissed and would hold back Escape-to-stop.
+watch(() => props.isLoading, (loading) => { if (loading) mentionClose(); });
+
 onMounted(() => window.addEventListener("keydown", onWindowEscape, true));
 onBeforeUnmount(() => window.removeEventListener("keydown", onWindowEscape, true));
 
@@ -519,10 +523,6 @@ function handleEnterKey(event) {
  * Emits the message to the parent, then clears the input.
  */
 async function submitMessage() {
-  // The composer is disabled while the reply streams, so a list left open
-  // here could not be dismissed and would hold back Escape-to-stop.
-  mentionClose();
-
   // Resolve mentions: unescape literal \@ sequences, then ATTACH the
   // contents of every referenced workspace file. Read failures are skipped
   // — their @path stays in the text so the model can retry via its tools.
