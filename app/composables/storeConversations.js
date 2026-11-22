@@ -238,7 +238,10 @@ export async function duplicateConversation(conversationId) {
   }));
 
   const metadata = (await localforage.getItem("conversations_metadata")) || [];
-  const title = copyTitle(original.title, metadata.map((conv) => conv.title));
+  // A rename from the sidebar only updates the list entry, so that is where
+  // the current title is.
+  const listed = metadata.find((conv) => conv.id === conversationId);
+  const title = copyTitle(listed?.title ?? original.title, metadata.map((conv) => conv.title));
   const copyId = crypto.randomUUID();
   const now = new Date();
   const branchPath = [...(original.branchPath || [])];

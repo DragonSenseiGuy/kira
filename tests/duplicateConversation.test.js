@@ -73,6 +73,13 @@ describe("duplicateConversation", () => {
     expect(cloudCreateConversation).toHaveBeenCalledWith(copyId, expect.objectContaining({ title: "Copy of Trip", branchPath: [1] }));
   });
 
+  it("names the copy after a title changed from the sidebar", async () => {
+    store.get("conversations_metadata")[0].title = "Renamed";
+    const copyId = await duplicateConversation("c1");
+    expect(store.get(`conversation_${copyId}`).title).toBe("Copy of Renamed");
+    expect(store.get("conversations_metadata")[1].title).toBe("Copy of Renamed");
+  });
+
   it("numbers a second copy", async () => {
     await duplicateConversation("c1");
     const second = await duplicateConversation("c1");
