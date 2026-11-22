@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { md } from "../app/utils/markdown.js";
-import { tableRows, rowsToTsv, rowsToCsv, copyTable, downloadTable } from "../app/utils/tableActions.js";
+import { tableRows, rowsToTsv, rowsToCsv, safeTableHtml, copyTable, downloadTable } from "../app/utils/tableActions.js";
 
 const SOURCE = "| Name | Note |\n| --- | --- |\n| Ada | **first**, `x` |\n| Bob | said \"hi\" |\n";
 
@@ -49,6 +49,33 @@ describe("table text", () => {
     expect(rowsToCsv([["=SUM(A1:A2)", "+cmd", "@x", "-5", "+1.5e3", "-12%", "- note"]])).toBe(
       "'=SUM(A1:A2),'+cmd,'@x,-5,+1.5e3,-12%,'- note",
     );
+  });
+});
+
+describe("review cases", () => {
+  it("exports an equation once, as its LaTeX source", () => {
+    const table = render("| f |\n| --- |\n| value $x=1$ here |\n").querySelector("table");
+    expect(tableRows(table)).toEqual([["f"], ["value x=1 here"]]);
+  });
+
+  it("keeps a <br> as a line break in CSV and a space in TSV", () => {
+    const rows = tableRows(render("| city |\n| --- |\n| Paris<br>London |\n").querySelector("table"));
+    expect(rows).toEqual([["city"], ["Paris\nLondon"]]);
+    expect(rowsToCsv(rows)).toBe('city\r\n"Paris\nLondon"');
+    expect(rowsToTsv(rows)).toBe("city\nParis London");
+  });
+
+  it("writes an empty cell as a quoted field", () => {
+    expect(rowsToCsv([["h"], [""]])).toBe('h\r\n""');
+  });
+
+  it("neutralises formulas in the copied text and HTML", () => {
+    const rows = [["name", "calc"], ["a", "=HYPERLINK(\"http://x\")"], ["b", "-3"]];
+    expect(rowsToTsv(rows)).toBe("name\tcalc\na\t'=HYPERLINK(\"http://x\")\nb\t-3");
+    const html = safeTableHtml(rows);
+    expect(html).toContain("<td>'=HYPERLINK(&quot;http://x&quot;)</td>");
+    expect(html).toContain("<th>name</th>");
+    expect(safeTableHtml([["<img src=x onerror=1>"]])).toBe("<table><tr><th>&lt;img src=x onerror=1&gt;</th></tr></table>");
   });
 });
 

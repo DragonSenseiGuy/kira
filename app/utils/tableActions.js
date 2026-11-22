@@ -22,48 +22,85 @@ export function addTableActions(md) {
     `</div></div>\n`;
 }
 
+function cellText(cell) {
+  const copy = cell.cloneNode(true);
+  // KaTeX renders an equation three times (visual, MathML, source); keep the source.
+  copy.querySelectorAll(".katex").forEach((math) => {
+    const source = math.querySelector('annotation[encoding="application/x-tex"]');
+    if (source) math.replaceWith(source.textContent || "");
+  });
+  copy.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+  return (copy.textContent || "")
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .join("\n")
+    .trim();
+}
+
 /**
- * Reads a table element into rows of cell text.
+ * Reads a table element into rows of cell text. A `<br>` in a cell becomes
+ * a line break.
  * @param {HTMLTableElement} table
  * @returns {string[][]}
  */
 export function tableRows(table) {
   if (!table) return [];
   return Array.from(table.querySelectorAll("tr")).map((row) =>
-    Array.from(row.querySelectorAll("th, td")).map((cell) =>
-      (cell.textContent || "").replace(/\s+/g, " ").trim(),
-    ),
+    Array.from(row.querySelectorAll("th, td")).map(cellText),
   );
-}
-
-/**
- * Tab-separated text: pastes as cells into a spreadsheet and stays readable
- * as plain text.
- * @param {string[][]} rows
- * @returns {string}
- */
-export function rowsToTsv(rows) {
-  return rows.map((row) => row.map((cell) => cell.replace(/\t/g, " ")).join("\t")).join("\n");
 }
 
 // A spreadsheet runs a cell that starts with one of these as a formula.
 const FORMULA_START = /^[=+\-@\t\r]/;
 const PLAIN_NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?%?$/i;
 
-function csvCell(value) {
-  let cell = value;
-  if (FORMULA_START.test(cell) && !PLAIN_NUMBER.test(cell)) cell = `'${cell}`;
-  return /[",\n\r]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell;
+/** Prefixes text a spreadsheet would run as a formula so it opens as text. */
+function asText(cell) {
+  return FORMULA_START.test(cell) && !PLAIN_NUMBER.test(cell) ? `'${cell}` : cell;
 }
 
 /**
- * RFC 4180 CSV. Text that a spreadsheet would run as a formula is prefixed
- * with an apostrophe so it opens as text.
+ * Tab-separated text: pastes as cells into a spreadsheet and stays readable
+ * as plain text. Each cell stays on one line.
+ * @param {string[][]} rows
+ * @returns {string}
+ */
+export function rowsToTsv(rows) {
+  return rows.map((row) => row.map((cell) => asText(cell.replace(/[\t\n\r]+/g, " "))).join("\t")).join("\n");
+}
+
+function csvCell(value) {
+  const cell = asText(value);
+  // An empty field is quoted so a row of one empty cell is still a row.
+  return cell === "" || /[",\n\r]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell;
+}
+
+/**
+ * RFC 4180 CSV.
  * @param {string[][]} rows
  * @returns {string}
  */
 export function rowsToCsv(rows) {
   return rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+}
+
+const escapeHtml = (text) =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/**
+ * Plain HTML table for the rich clipboard format, built from the cell text
+ * so pasted cells get the same formula protection as the other formats.
+ * @param {string[][]} rows
+ * @returns {string}
+ */
+export function safeTableHtml(rows) {
+  const body = rows
+    .map((row, index) => {
+      const tag = index === 0 ? "th" : "td";
+      return `<tr>${row.map((cell) => `<${tag}>${escapeHtml(asText(cell)).replace(/\n/g, "<br>")}</${tag}>`).join("")}</tr>`;
+    })
+    .join("");
+  return `<table>${body}</table>`;
 }
 
 function tableFor(button) {
@@ -86,15 +123,15 @@ function flash(button, label) {
 export async function copyTable(button) {
   const table = tableFor(button);
   if (!table) return;
-  const text = rowsToTsv(tableRows(table));
+  const rows = tableRows(table);
+  const text = rowsToTsv(rows);
   try {
     if (typeof ClipboardItem !== "undefined" && navigator.clipboard.write) {
       // Rich copy keeps the table a table in documents and mail.
-      const clean = table.cloneNode(true);
       await navigator.clipboard.write([
         new ClipboardItem({
           "text/plain": new Blob([text], { type: "text/plain" }),
-          "text/html": new Blob([clean.outerHTML], { type: "text/html" }),
+          "text/html": new Blob([safeTableHtml(rows)], { type: "text/html" }),
         }),
       ]);
     } else {
