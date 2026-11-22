@@ -59,6 +59,34 @@ describe("downloadCode", () => {
     clickSpy.mockRestore();
   });
 
+  /** Downloads a block labelled `lang` and returns the file extension used. */
+  function extensionFor(lang) {
+    const { button } = makeCodeBlock(lang, "x");
+    let name = "";
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function () { name = this.download; });
+    downloadCode(button, lang);
+    clickSpy.mockRestore();
+    return name.replace(/^code-\d+\./, "");
+  }
+
+  it("uses the right extension for short and less common language names", () => {
+    expect(extensionFor("js")).toBe("js");
+    expect(extensionFor("TSX")).toBe("tsx");
+    expect(extensionFor("py")).toBe("py");
+    expect(extensionFor("c++")).toBe("cpp");
+    expect(extensionFor("kotlin")).toBe("kt");
+    expect(extensionFor("yml")).toBe("yml");
+    expect(extensionFor("python")).toBe("py");
+  });
+
+  it("uses .txt for a label that is only a property of Object", () => {
+    expect(extensionFor("constructor")).toBe("txt");
+    expect(extensionFor("toString")).toBe("txt");
+    expect(extensionFor("__proto__")).toBe("txt");
+    expect(extensionFor("text")).toBe("txt");
+  });
+
   it("falls back to .txt for unknown languages", () => {
     const { button } = makeCodeBlock("not-a-real-language", "x");
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click")
