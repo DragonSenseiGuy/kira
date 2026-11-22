@@ -226,4 +226,14 @@ describe("parseFollowUps list commentary", () => {
     expect(parseFollowUps("1. A?\n2. B?\nTell me which option is best.")).toEqual(["A?", "B?", "Tell me which option is best."]);
     expect(parseFollowUps("1. A?\n2. B?\nHope this helps!")).toEqual(["A?", "B?"]);
   });
+
+  it("tells a polite sign-off from a request that addresses the assistant", () => {
+    expect(parseFollowUps("1. A?\n2. B?\nPlease tell me which one you’d like to explore!")).toEqual(["A?", "B?"]);
+    expect(parseFollowUps("1. A?\n2. B?\nTell me which option interests you, and I’ll expand on it.")).toEqual(["A?", "B?"]);
+    expect(parseFollowUps("1. A?\n2. B?\nTell me what files you need to debug this.")).toEqual([
+      "A?",
+      "B?",
+      "Tell me what files you need to debug this.",
+    ]);
+  });
 });
