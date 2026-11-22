@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue';
 import localforage from 'localforage';
+import { useGlobalIncognito } from './useGlobalIncognito';
 
 const DRAFT_KEY_PREFIX = 'draft:';
 const DEBOUNCE_MS = 300;
@@ -10,9 +11,13 @@ const DEBOUNCE_MS = 300;
  *
  * @param {import('vue').Ref<string>} conversationIdRef - Reactive conversation ID (empty for new)
  * @param {import('vue').Ref<string>} inputRef - Reactive input string to sync
+ * @param {{isEphemeral?: import('vue').Ref<boolean>}} [options] - When the ref is
+ *   true nothing is saved or restored. Defaults to the incognito state.
  * @returns {Object} Draft manager API
  */
-export function useDraftPrompt(conversationIdRef, inputRef) {
+export function useDraftPrompt(conversationIdRef, inputRef, options = {}) {
+  // Incognito chats leave nothing behind, and that includes unsent text.
+  const isEphemeral = options.isEphemeral ?? useGlobalIncognito().isIncognito;
   let saveTimeout = null;
   let isRestoring = false;
 
@@ -27,6 +32,11 @@ export function useDraftPrompt(conversationIdRef, inputRef) {
    * Load draft for the current conversation into inputRef.
    */
   async function loadDraft() {
+    if (isEphemeral.value) {
+      // Start empty rather than restoring a stored draft into a private chat.
+      inputRef.value = '';
+      return;
+    }
     isRestoring = true;
     try {
       const key = getKey(conversationIdRef.value);
@@ -44,6 +54,7 @@ export function useDraftPrompt(conversationIdRef, inputRef) {
    * Persist the current input to localForage.
    */
   async function saveDraft() {
+    if (isEphemeral.value) return;
     const key = getKey(conversationIdRef.value);
     await localforage.setItem(key, inputRef.value);
   }
@@ -67,13 +78,18 @@ export function useDraftPrompt(conversationIdRef, inputRef) {
     }, DEBOUNCE_MS);
   }
 
+  // Entering incognito: a save scheduled just before must not land.
+  watch(isEphemeral, (ephemeral) => {
+    if (ephemeral) clearTimeout(saveTimeout);
+  });
+
   // Watch input changes and auto-save
   watch(inputRef, debouncedSave);
 
   // Watch conversation changes: save old draft, load new one.
   // `immediate: true` also restores the draft on initial mount.
   watch(conversationIdRef, async (newId, oldId) => {
-    if (oldId !== undefined && !isRestoring) {
+    if (oldId !== undefined && !isRestoring && !isEphemeral.value) {
       // Save previous conversation's draft before switching
       const oldKey = getKey(oldId);
       await localforage.setItem(oldKey, inputRef.value);
