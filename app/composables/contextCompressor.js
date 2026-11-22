@@ -28,6 +28,7 @@ import { toRaw } from "vue";
 import { requestCompletion, extractCompletionText } from "~/composables/apiClient";
 import { getBackgroundTarget } from "~/composables/backgroundCredentials";
 import { collectWorkspaceContext } from "~/composables/workspaceContext";
+import { textAttachmentsToText } from "~/utils/attachmentParts";
 
 // ---------------------------------------------------------------------------
 // Defaults & keys
@@ -241,6 +242,8 @@ export function estimateMessageTokens(msg) {
     for (const a of msg.attachments) {
       if (a?.filename) chars += a.filename.length + 8;
     }
+    // Text files are replayed to the model in full on every turn.
+    chars += textAttachmentsToText(msg.attachments).length;
   }
   if (Array.isArray(msg.parts)) {
     for (const p of msg.parts) {
@@ -593,7 +596,7 @@ export function shouldOfferCompression({
  * @param {Object} msg
  * @returns {string}
  */
-function formatMessageForSummaryPrompt(msg) {
+export function formatMessageForSummaryPrompt(msg) {
   if (!msg) return "";
   const parts = [];
   const roleLabel = msg.role === "user" ? "User" : "Assistant";
@@ -612,6 +615,13 @@ function formatMessageForSummaryPrompt(msg) {
   }
   if (content) {
     parts.push(content.substring(0, MAX_MESSAGE_CHARS));
+  }
+
+  // Text-file attachments: once summarised, the original turn (and the
+  // file with it) is no longer replayed, so the summariser must see them.
+  const attachedText = textAttachmentsToText(msg.attachments);
+  if (attachedText) {
+    parts.push(attachedText.substring(0, MAX_MESSAGE_CHARS));
   }
 
   // Reasoning

@@ -49,7 +49,33 @@ export function isTextFile(file) {
 }
 
 /**
- * Decodes the UTF-8 text held in a base64 data URL.
+ * Windows tools (Excel "Unicode text", PowerShell redirects) write UTF-16.
+ * Recognised by its byte-order mark, or without one by the NUL bytes that
+ * ASCII characters leave in every other position.
+ *
+ * @param {Uint8Array} bytes
+ * @returns {"utf-8"|"utf-16le"|"utf-16be"}
+ */
+export function detectTextEncoding(bytes) {
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return "utf-16le";
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return "utf-16be";
+
+  const sample = Math.min(bytes.length - (bytes.length % 2), 2048);
+  if (sample < 4) return "utf-8";
+  let evenNuls = 0;
+  let oddNuls = 0;
+  for (let i = 0; i < sample; i += 2) {
+    if (bytes[i] === 0) evenNuls++;
+    if (bytes[i + 1] === 0) oddNuls++;
+  }
+  const pairs = sample / 2;
+  if (oddNuls > pairs * 0.4 && evenNuls < pairs * 0.1) return "utf-16le";
+  if (evenNuls > pairs * 0.4 && oddNuls < pairs * 0.1) return "utf-16be";
+  return "utf-8";
+}
+
+/**
+ * Decodes the text (UTF-8 or UTF-16) held in a base64 data URL.
  *
  * @param {string} dataUrl
  * @returns {string} The text, or "" when it cannot be decoded.
@@ -61,10 +87,42 @@ export function decodeTextDataUrl(dataUrl) {
   try {
     const binary = atob(dataUrl.slice(comma + 1));
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
+    // TextDecoder drops the byte-order mark of the encoding it is given.
+    return new TextDecoder(detectTextEncoding(bytes)).decode(bytes);
   } catch {
     return "";
   }
+}
+
+/**
+ * The text-file attachments of a message as `<attached_file>` blocks: what
+ * the model is sent for them. Images and PDFs are not included.
+ *
+ * @param {Array<Object>} attachments  Stored attachments of a user message.
+ * @returns {string} The blocks, or "" when there are no text attachments.
+ */
+export function textAttachmentsToText(attachments) {
+  return (attachments || [])
+    .filter((attachment) => attachment?.type === "text")
+    .map(textAttachmentBlock)
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+// Decoding a multi-megabyte data URL is not free and history is re-formatted
+// (and its size re-estimated) on every turn, so blocks are kept per attachment.
+const blockCache = new WeakMap();
+
+function textAttachmentBlock(attachment) {
+  const cached = blockCache.get(attachment);
+  if (cached && cached.dataUrl === attachment.dataUrl && cached.filename === attachment.filename) {
+    return cached.block;
+  }
+  const block = formatAttachedFiles([
+    { path: attachment.filename || "file.txt", content: decodeTextDataUrl(attachment.dataUrl) },
+  ]);
+  blockCache.set(attachment, { dataUrl: attachment.dataUrl, filename: attachment.filename, block });
+  return block;
 }
 
 /**
@@ -82,9 +140,7 @@ export function attachmentsToContentParts(attachments) {
         file: { filename: attachment.filename, file_data: attachment.dataUrl },
       });
     } else if (attachment.type === "text") {
-      const text = formatAttachedFiles([
-        { path: attachment.filename || "file.txt", content: decodeTextDataUrl(attachment.dataUrl) },
-      ]);
+      const text = textAttachmentsToText([attachment]);
       if (text) parts.push({ type: "text", text });
     }
   }

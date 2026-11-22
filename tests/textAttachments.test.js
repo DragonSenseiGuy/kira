@@ -15,6 +15,7 @@ import {
 } from "../app/utils/attachmentParts.js";
 import { useAttachments } from "../app/composables/useAttachments.js";
 import { formatMessageForAPI } from "../app/composables/messageFormat.js";
+import { estimateMessageTokens, formatMessageForSummaryPrompt } from "../app/composables/contextCompressor.js";
 
 function textDataUrl(text, mime = "text/plain") {
   const bytes = new TextEncoder().encode(text);
@@ -147,5 +148,63 @@ describe("useAttachments with text files", () => {
     expect(result.success).toBe(false);
     expect(attachments.value).toHaveLength(0);
     expect(error.value).toMatch(/text/i);
+  });
+});
+
+function bytesDataUrl(bytes) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:text/plain;base64,${btoa(binary)}`;
+}
+
+function utf16(text, { littleEndian, bom }) {
+  const bytes = bom ? (littleEndian ? [0xff, 0xfe] : [0xfe, 0xff]) : [];
+  for (const char of text) {
+    const code = char.charCodeAt(0);
+    bytes.push(...(littleEndian ? [code & 0xff, code >> 8] : [code >> 8, code & 0xff]));
+  }
+  return bytes;
+}
+
+describe("decodeTextDataUrl encodings", () => {
+  const text = "name\tvalue\ncafé\t42\n";
+
+  it("reads UTF-16 with a byte-order mark", () => {
+    expect(decodeTextDataUrl(bytesDataUrl(utf16(text, { littleEndian: true, bom: true })))).toBe(text);
+    expect(decodeTextDataUrl(bytesDataUrl(utf16(text, { littleEndian: false, bom: true })))).toBe(text);
+  });
+
+  it("reads UTF-16 without a byte-order mark", () => {
+    expect(decodeTextDataUrl(bytesDataUrl(utf16(text, { littleEndian: true, bom: false })))).toBe(text);
+    expect(decodeTextDataUrl(bytesDataUrl(utf16(text, { littleEndian: false, bom: false })))).toBe(text);
+  });
+
+  it("drops a UTF-8 byte-order mark", () => {
+    expect(decodeTextDataUrl(bytesDataUrl([0xef, 0xbb, 0xbf, 0x68, 0x69]))).toBe("hi");
+  });
+});
+
+describe("context compression with text attachments", () => {
+  const message = {
+    role: "user",
+    content: "Summarise this",
+    attachments: [{ id: "1", type: "text", filename: "notes.txt", dataUrl: textDataUrl("the quarterly notes ".repeat(200)) }],
+  };
+
+  it("counts the file text towards the token estimate", () => {
+    const withoutFile = estimateMessageTokens({ ...message, attachments: [] });
+    expect(estimateMessageTokens(message)).toBeGreaterThan(withoutFile + 500);
+  });
+
+  it("does not count image or PDF data as text", () => {
+    const image = { role: "user", content: "hi", attachments: [{ type: "image", filename: "a.png", dataUrl: "data:image/png;base64," + "A".repeat(50_000) }] };
+    expect(estimateMessageTokens(image)).toBeLessThan(100);
+  });
+
+  it("gives the summariser the file text", () => {
+    const prompt = formatMessageForSummaryPrompt(message);
+    expect(prompt).toContain("Summarise this");
+    expect(prompt).toContain("notes.txt");
+    expect(prompt).toContain("the quarterly notes");
   });
 });
