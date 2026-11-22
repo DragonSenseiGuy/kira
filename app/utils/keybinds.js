@@ -23,6 +23,25 @@ export const KEYBIND_ACTIONS = [
   { id: 'next_chat', label: 'Go to the chat below', default: 'mod+alt+arrowdown' },
 ];
 
+/**
+ * Leaves an action unbound when it is new since the user's settings were
+ * saved and its default combo is one they already use, so one keypress never
+ * runs two actions. They can still bind it in Settings.
+ *
+ * @param {Record<string, string>} merged Defaults with the saved binds applied.
+ * @param {Record<string, string>|undefined} saved The binds as stored.
+ * @returns {Record<string, string>}
+ */
+export function dropTakenDefaults(merged, saved) {
+  if (!merged || !saved || typeof saved !== 'object') return merged;
+  const taken = new Set(Object.values(saved).filter(Boolean).map((combo) => String(combo).toLowerCase()));
+  const result = { ...merged };
+  for (const id of Object.keys(result)) {
+    if (!(id in saved) && taken.has(String(result[id]).toLowerCase())) result[id] = '';
+  }
+  return result;
+}
+
 /** Ordered modifier tokens (canonical ordering). */
 const MODIFIER_ORDER = ['mod', 'ctrl', 'meta', 'alt', 'shift'];
 const MODIFIER_SET = new Set(MODIFIER_ORDER);

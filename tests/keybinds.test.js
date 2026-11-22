@@ -120,3 +120,19 @@ describe("KEYBIND_ACTIONS defaults", () => {
     }
   });
 });
+
+describe("dropTakenDefaults", () => {
+  it("unbinds a new action whose default the user already uses", async () => {
+    const { dropTakenDefaults } = await import("~/utils/keybinds");
+    const saved = { new_chat: "mod+alt+arrowup" };
+    const merged = { new_chat: "mod+alt+arrowup", previous_chat: "mod+alt+arrowup", next_chat: "mod+alt+arrowdown" };
+    expect(dropTakenDefaults(merged, saved)).toEqual({ new_chat: "mod+alt+arrowup", previous_chat: "", next_chat: "mod+alt+arrowdown" });
+  });
+
+  it("keeps binds the user saved, and everything when nothing was saved", async () => {
+    const { dropTakenDefaults } = await import("~/utils/keybinds");
+    const merged = { a: "mod+k", b: "mod+k" };
+    expect(dropTakenDefaults(merged, { a: "mod+k", b: "mod+k" })).toEqual(merged);
+    expect(dropTakenDefaults(merged, undefined)).toBe(merged);
+  });
+});
