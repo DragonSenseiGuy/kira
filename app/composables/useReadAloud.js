@@ -47,8 +47,27 @@ const HTML_LINE_ENDS = "p, div, li, tr, br, h1, h2, h3, h4, h5, h6, blockquote, 
 
 // A web address in running text. It ends at whitespace or full-width
 // punctuation, and is not the domain part of an email address.
-const URL_END = "\\s<>\"'\ue000\u3000-\u3002\u3008-\u3011\u3014-\u301b\uff01\uff08\uff09\uff0c\uff1a\uff1b\uff1f\uff3b\uff3d\uff5b\uff5d";
+const URL_END = "\\s<>\"'\ue000\u3000-\u3002\uff01\uff0c\uff1a\uff1b\uff1f";
 const BARE_URL = new RegExp(`(?<![\\w@.\\-/])(?:https?:\\/\\/|www\\.)[^${URL_END}]*[^${URL_END}.,;:!?)\\]]`, "gi");
+const WIDE_BRACKETS = { "〈": "〉", "《": "》", "「": "」", "『": "』", "【": "】", "〔": "〕", "〖": "〗", "（": "）", "［": "］", "｛": "｝" };
+const WIDE_CLOSERS = new Set(Object.values(WIDE_BRACKETS));
+
+/**
+ * Removes bare web addresses. A full-width bracket pair inside an address
+ * belongs to it; a closing bracket with no opener in the address is the
+ * prose around it, so the address ends there.
+ */
+function stripBareUrls(text) {
+  return text.replace(BARE_URL, (url) => {
+    const open = [];
+    for (let i = 0; i < url.length; i++) {
+      const char = url[i];
+      if (WIDE_BRACKETS[char]) open.push(WIDE_BRACKETS[char]);
+      else if (WIDE_CLOSERS.has(char) && open.pop() !== char) return url.slice(i);
+    }
+    return "";
+  });
+}
 
 // Elements whose content the browser shows or keeps as text, not markup.
 const RAW_TEXT_ELEMENT = /<(textarea|title|script|style|xmp|noscript|iframe)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi;
@@ -100,8 +119,7 @@ function htmlBlockSpeech(html, nextDetailsState) {
   });
   // Bare web addresses are skipped, as they are in Markdown text. Matching
   // the joined text catches an address split by inline formatting.
-  return (doc.body.textContent || "")
-    .replace(BARE_URL, "")
+  return stripBareUrls(doc.body.textContent || "")
     .replace(/\ue000(\d+)\ue001/g, (_, index) => labels[Number(index)]);
 }
 

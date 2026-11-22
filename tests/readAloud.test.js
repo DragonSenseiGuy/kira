@@ -361,4 +361,8 @@ describe("HTML block speech, fourth review", () => {
     expect(speechTextFromMarkdown(source, { detailsOpen: [true] })).toContain("Paris");
     expect(speechTextFromMarkdown(source, { detailsOpen: [false] })).not.toContain("Paris");
   });
+
+  it("keeps a bracketed path segment as part of the address", () => {
+    expect(speechTextFromMarkdown("<p>詳しくは https://example.jp/products/［限定版］ を参照。</p>")).toBe("詳しくは を参照。");
+  });
 });
