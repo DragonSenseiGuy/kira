@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode } from '../utils/codeBlockUtils';
+import { isLongMessage, COLLAPSED_LINES } from '../utils/longMessage';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -537,6 +538,12 @@ function copyDebugDump(message, event) {
 // --- Branching Logic ---
 const editingMessageId = ref(null);
 
+// Long user messages start collapsed; these are the ones opened by hand.
+const expandedMessages = reactive(new Set());
+function toggleExpanded(messageId) {
+  if (!expandedMessages.delete(messageId)) expandedMessages.add(messageId);
+}
+
 function startEditing(message) {
   editingMessageId.value = message.id;
 }
@@ -859,7 +866,22 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                         </div>
                       </div>
                       <!-- Message text -->
-                      <div v-if="editingMessageId !== message.id" class="user-text">{{ message.content }}</div>
+                      <template v-if="editingMessageId !== message.id">
+                        <div
+                          class="user-text"
+                          :class="{ collapsed: isLongMessage(message.content) && !expandedMessages.has(message.id) }"
+                          :style="{ '--collapsed-lines': COLLAPSED_LINES }"
+                        >{{ message.content }}</div>
+                        <button
+                          v-if="isLongMessage(message.content)"
+                          type="button"
+                          class="user-text-toggle"
+                          :aria-expanded="expandedMessages.has(message.id)"
+                          @click="toggleExpanded(message.id)"
+                        >
+                          {{ expandedMessages.has(message.id) ? 'Show less' : 'Show more' }}
+                        </button>
+                      </template>
                       <!-- Edit area -->
                       <div v-else class="edit-area">
                         <MessageEditArea
@@ -1584,6 +1606,33 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: break-word;
+}
+
+.user-text.collapsed {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--collapsed-lines);
+  line-clamp: var(--collapsed-lines);
+  overflow: hidden;
+}
+
+.user-text-toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.user-text-toggle:hover,
+.user-text-toggle:focus-visible {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 .message-attachments {
