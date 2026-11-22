@@ -47,7 +47,8 @@ const HTML_LINE_ENDS = "p, div, li, tr, br, h1, h2, h3, h4, h5, h6, blockquote, 
 
 // A web address in running text. It ends at whitespace or full-width
 // punctuation, and is not the domain part of an email address.
-const BARE_URL = /(?<![\w@.\-/])(?:https?:\/\/|www\.)[^\s<>"'\u3000-\u303f\uff00-\uffef]*[^\s<>"'.,;:!?)\]\u3000-\u303f\uff00-\uffef]/gi;
+const URL_END = "\\s<>\"'\ue000\u3000-\u3002\uff0c\uff1b\uff1a\uff01\uff1f\u300c-\u300f\uff08\uff09\u3010\u3011";
+const BARE_URL = new RegExp(`(?<![\\w@.\\-/])(?:https?:\\/\\/|www\\.)[^${URL_END}]*[^${URL_END}.,;:!?)\\]]`, "gi");
 
 /**
  * Visible prose of a raw HTML block. The markup is parsed into a detached
@@ -69,18 +70,23 @@ function htmlBlockSpeech(html, nextDetailsState) {
     const summary = Array.from(details.children).find((el) => el.tagName === "SUMMARY");
     details.replaceChildren(...(summary ? [summary] : []));
   });
-  // Bare web addresses are skipped, as they are in Markdown text. The label
-  // of a link is kept even when it looks like an address.
-  const walker = doc.createTreeWalker(doc.body, 4);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (!node.parentElement?.closest("a")) node.textContent = node.textContent.replace(BARE_URL, "");
-  }
+  // Link labels are set aside so they are kept even when they look like an
+  // address; see the address removal below.
+  const labels = [];
+  doc.body.querySelectorAll("a").forEach((a) => {
+    labels.push(a.textContent);
+    a.replaceWith(`\ue000${labels.length - 1}\ue001`);
+  });
   doc.body.querySelectorAll("td, th").forEach((el) => el.append(" "));
   doc.body.querySelectorAll(HTML_LINE_ENDS).forEach((el) => {
     el.before("\n");
     el.append("\n");
   });
-  return doc.body.textContent || "";
+  // Bare web addresses are skipped, as they are in Markdown text. Matching
+  // the joined text catches an address split by inline formatting.
+  return (doc.body.textContent || "")
+    .replace(BARE_URL, "")
+    .replace(/\ue000(\d+)\ue001/g, (_, index) => labels[Number(index)]);
 }
 
 /**
@@ -107,6 +113,11 @@ export function speechTextFromMarkdown(markdown, options = {}) {
     } else if (token.type === "html_block") {
       lines.push(htmlBlockSpeech(token.content, nextDetailsState));
     } else if (token.type === "inline") {
+      // A disclosure written inline (in a table cell, say) is on screen too,
+      // so it takes its place in the list of on-screen states.
+      for (const child of token.children || []) {
+        if (child.type === "html_inline" && /^<details[\s>]/i.test(child.content)) detailsIndex++;
+      }
       const text = inlineSpeech(token.children);
       if (row) row.push(text);
       else lines.push(text);

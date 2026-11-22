@@ -327,3 +327,22 @@ describe("HTML block speech, third review", () => {
     expect(speechTextFromMarkdown(source, { detailsOpen: [true, false] })).toBe("Answer\nParis\nHint");
   });
 });
+
+describe("HTML block speech, fourth review", () => {
+  it("drops a whole URL that contains a full-width hyphen", () => {
+    expect(speechTextFromMarkdown("<p>詳しくは https://example.jp/製品－一覧 を参照。</p>")).toBe("詳しくは を参照。");
+  });
+
+  it("lines up on-screen disclosure states when one sits in a table cell", () => {
+    const source = "| a |\n| --- |\n| <details><summary>Cell</summary>x</details> |\n\n<details open><summary>Hint</summary>France</details>";
+    expect(speechTextFromMarkdown(source, { detailsOpen: [false, true] })).toContain("Hint\nFrance");
+    expect(speechTextFromMarkdown(source, { detailsOpen: [false, false] })).not.toContain("France");
+  });
+
+  it("drops an address split by inline formatting", () => {
+    expect(speechTextFromMarkdown("<p>See https://<strong>example.com</strong>/docs for help.</p>")).toBe("See for help.");
+    expect(speechTextFromMarkdown('<p>Open <a href="https://example.com">www.example.com</a>https://x.test now</p>')).toBe(
+      "Open www.example.com now",
+    );
+  });
+});
