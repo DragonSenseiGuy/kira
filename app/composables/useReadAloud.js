@@ -59,7 +59,7 @@ const WIDE_CLOSERS = new Set(Object.values(WIDE_BRACKETS));
  * never closed, and before any bracket that follows the host directly:
  * those are the prose around the address.
  */
-function addressLength(match) {
+function addressLength(match, followedBySpace) {
   const pathStart = match.replace(/^https?:\/\//i, (scheme) => " ".repeat(scheme.length)).search(/[/?#]/);
   const open = [];
   for (let i = 0; i < match.length; i++) {
@@ -71,7 +71,9 @@ function addressLength(match) {
       return i;
     }
   }
-  return open.length ? open[0].at : match.length;
+  // An opener left open is a literal character of the address when the
+  // address runs up to a space, and the start of a note when it does not.
+  return open.length && !followedBySpace ? open[0].at : match.length;
 }
 
 /** Removes bare web addresses, keeping the prose and brackets around them. */
@@ -82,7 +84,8 @@ function stripBareUrls(text) {
   let match;
   while ((match = pattern.exec(text))) {
     out += text.slice(cursor, match.index);
-    cursor = match.index + addressLength(match[0]);
+    const after = text[match.index + match[0].length];
+    cursor = match.index + addressLength(match[0], after === undefined || /\s/.test(after));
     pattern.lastIndex = cursor;
   }
   return out + text.slice(cursor);

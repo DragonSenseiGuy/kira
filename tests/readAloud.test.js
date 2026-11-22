@@ -376,4 +376,8 @@ describe("HTML block speech, fourth review", () => {
     expect(speechTextFromMarkdown("<p>［https://example.jp］［https://example.org］をご覧ください。</p>")).toBe("［］［］をご覧ください。");
     expect(speechTextFromMarkdown("<p>〘https://example.jp/a〙を参照。</p>")).toBe("〘〙を参照。");
   });
+
+  it("removes an address whose query holds an unpaired bracket", () => {
+    expect(speechTextFromMarkdown("<p>検索結果: https://example.jp/search?q=製品（限定 を確認してください。</p>")).toBe("検索結果: を確認してください。");
+  });
 });
