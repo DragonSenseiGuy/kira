@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS messages (
   prompt_tokens INTEGER,
   annotations JSONB,
   parts JSONB,
+  model_name VARCHAR(255),
   -- Tool message fields
   tool_call_id VARCHAR(255),
   tool_name VARCHAR(255),
@@ -79,6 +80,9 @@ CREATE TABLE IF NOT EXISTS messages (
   -- Message ids are only unique within a conversation
   PRIMARY KEY (conversation_id, id)
 );
+
+-- For databases created before replies recorded which model wrote them.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS model_name VARCHAR(255);
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_position ON messages(conversation_id, position);

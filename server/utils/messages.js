@@ -9,14 +9,16 @@ const INSERT_MESSAGE_SQL = `
     reasoning, reasoning_start_time, reasoning_end_time, reasoning_duration,
     tool_calls, api_call_time, first_token_time, completion_time,
     token_count, total_tokens, prompt_tokens,
-    annotations, parts, tool_call_id, tool_name, position
+    annotations, parts, tool_call_id, tool_name, position,
+    model_name
   ) VALUES (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9,
     $10, $11, $12, $13,
     $14, $15, $16, $17,
     $18, $19, $20,
-    $21, $22, $23, $24, $25
+    $21, $22, $23, $24, $25,
+    $26
   )`;
 
 /**
@@ -61,6 +63,9 @@ export async function replaceMessages(client, conversationId, messages) {
       msg.tool_call_id || null,
       msg.name || null,
       i,
+      typeof msg.modelName === "string" && msg.modelName
+        ? msg.modelName.slice(0, 255)
+        : null,
     ]);
   }
 }
@@ -99,6 +104,7 @@ export function rowToMessage(row) {
     msg.promptTokens = row.prompt_tokens;
     msg.annotations = row.annotations;
     msg.parts = row.parts;
+    msg.modelName = row.model_name ?? null;
   }
 
   if (row.role === "tool") {

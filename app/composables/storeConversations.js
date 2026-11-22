@@ -45,6 +45,7 @@ function serializeMessage(msg) {
     baseMessage.tokenCount = msg.tokenCount;
     baseMessage.totalTokens = msg.totalTokens;
     baseMessage.promptTokens = msg.promptTokens;
+    baseMessage.modelName = msg.modelName ?? null;
     baseMessage.annotations = msg.annotations
       ? JSON.parse(JSON.stringify(msg.annotations))
       : null;

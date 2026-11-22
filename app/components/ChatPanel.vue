@@ -219,6 +219,11 @@ function getMessageStats(message) {
   const stats = calculateMessageStats(message);
   const formattedStats = [];
 
+  // Which model wrote the reply; absent on replies stored before this was recorded.
+  if (typeof message.modelName === 'string' && message.modelName) {
+    formattedStats.push({ value: message.modelName, isModel: true });
+  }
+
   // Add delay if available
   if (stats.delay !== undefined) {
     formattedStats.push({
@@ -944,7 +949,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                 <template v-if="message.role === 'assistant'">
                   <div class="message-stats-row" v-for="(stats, _) in [getMessageStats(message)]" :key="_">
                     <span v-for="(stat, index) in stats" :key="index" class="stat-item">
-                      <span v-if="stat.value" class="stat-value">{{ stat.value }}</span>
+                      <span v-if="stat.value" class="stat-value" :class="{ 'stat-model': stat.isModel }" :title="stat.isModel ? `Answered by ${stat.value}` : undefined">{{ stat.value }}</span>
                       <span v-if="stat.value && index < stats.length - 1" class="stat-separator"> • </span>
                     </span>
                   </div>
@@ -1515,6 +1520,12 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 .stat-value {
   white-space: nowrap;
+}
+
+.stat-model {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-separator {
