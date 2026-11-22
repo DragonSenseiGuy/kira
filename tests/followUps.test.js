@@ -185,4 +185,18 @@ describe("parseFollowUps list commentary", () => {
     const reply = '1. Suggested questions:\n```json\n["How do I authenticate?", "How do I revoke a token?"]\n```\n2. Pick one to continue.';
     expect(parseFollowUps(reply)).toEqual(["How do I authenticate?", "How do I revoke a token?"]);
   });
+
+  it("keeps an unnumbered request or quoted question in a list", () => {
+    expect(parseFollowUps("1. How do I authenticate?\n2. How do I revoke a token?\nShow me a curl example.")).toEqual([
+      "How do I authenticate?",
+      "How do I revoke a token?",
+      "Show me a curl example.",
+    ]);
+    expect(parseFollowUps('1. How do I authenticate?\n2. How do I revoke a token?\n"Can you show me a curl example?"')).toEqual([
+      "How do I authenticate?",
+      "How do I revoke a token?",
+      "Can you show me a curl example?",
+    ]);
+    expect(parseFollowUps("1. A?\nTwo more ideas:\n2. B?\nLet me know if you want more.")).toEqual(["A?", "B?"]);
+  });
 });

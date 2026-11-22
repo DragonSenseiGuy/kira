@@ -40,6 +40,15 @@ function clean(item) {
     .trim();
 }
 
+/**
+ * Whether an unnumbered line in a list is the model talking about the list
+ * (a heading or a sign-off) rather than a suggestion it forgot to number.
+ */
+function isCommentary(line) {
+  if (/[?？]$/.test(line)) return false;
+  return /[:：!！…]$/.test(line) || /^(?:let me know|feel free|i hope|hope|here are|here's|these|those|happy to|i can|i'm|i am|if you)\b/i.test(line);
+}
+
 const LIST_MARKER = /^\s*(?:[-*•]|\d+[.)])\s+/;
 
 /**
@@ -105,7 +114,7 @@ export function parseFollowUps(text) {
     if (lines.filter((line) => LIST_MARKER.test(line)).length >= 2) {
       // A list: headings and sign-offs around the items are not suggestions,
       // but a question the model forgot to number is.
-      items = lines.slice(firstListed).filter((line) => LIST_MARKER.test(line) || /[?？]\s*$/.test(line));
+      items = lines.slice(firstListed).filter((line) => LIST_MARKER.test(line) || !isCommentary(clean(line)));
     } else {
       items = findJsonArray(text) || lines;
     }
