@@ -480,14 +480,8 @@ function handleActionClick() {
 // Escape stops the reply, as the stop button does. Capture phase: an open
 // menu or dialog is still in the page then, and keeps Escape for itself.
 function onWindowEscape(event) {
-  if (!props.isLoading || !shouldStopOnEscape(event, textareaRef.value, document, messageFormRoot.value)) return;
+  if (!props.isLoading || !shouldStopOnEscape(event, textareaRef.value)) return;
   event.preventDefault();
-  // A mention list left open by the send cannot get Escape itself (the
-  // composer is disabled meanwhile), so the first Escape closes it.
-  if (mentionOpen.value) {
-    mentionClose();
-    return;
-  }
   emit("abort-controller");
 }
 onMounted(() => window.addEventListener("keydown", onWindowEscape, true));
@@ -525,6 +519,10 @@ function handleEnterKey(event) {
  * Emits the message to the parent, then clears the input.
  */
 async function submitMessage() {
+  // The composer is disabled while the reply streams, so a list left open
+  // here could not be dismissed and would hold back Escape-to-stop.
+  mentionClose();
+
   // Resolve mentions: unescape literal \@ sequences, then ATTACH the
   // contents of every referenced workspace file. Read failures are skipped
   // — their @path stays in the text so the model can retry via its tools.

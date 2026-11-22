@@ -50,12 +50,6 @@ describe("shouldStopOnEscape", () => {
     }
   });
 
-  it("is not blocked by the composer's own suggestion list", () => {
-    document.body.innerHTML = '<div id="form"><div role="listbox"></div></div>';
-    expect(shouldStopOnEscape(key(), null, document, document.getElementById("form"))).toBe(true);
-    expect(shouldStopOnEscape(key())).toBe(false);
-  });
-
   it("is not blocked by the docked workspace panel or a hidden overlay", () => {
     document.body.innerHTML = '<div role="dialog" aria-label="Workspace"></div><div role="menu" id="m"></div>';
     document.getElementById("m").checkVisibility = () => false;
