@@ -33,7 +33,8 @@ function fold(text) {
   let folded = "";
   for (const char of text) {
     const lower = char.toLowerCase();
-    folded += lower.length === char.length ? lower : char;
+    // Greek writes a word-final sigma as "ς"; both forms are one letter.
+    folded += lower.length === char.length ? lower.replace("ς", "σ") : char;
   }
   return folded;
 }

@@ -92,4 +92,10 @@ describe("findSnippet", () => {
     });
     expect(findSnippet(reply, "**quick sort**").match).toBe("quick sort");
   });
+
+  it("treats the Greek final sigma as a sigma", () => {
+    const greek = [{ role: "user", content: "ο δρόμος είναι μακρύς" }];
+    expect(findSnippet(greek, "ΔΡΌΜΟΣ").match).toBe("δρόμος");
+    expect(findSnippet([{ role: "user", content: "ΔΡΌΜΟΣ" }], "δρόμος").match).toBe("ΔΡΌΜΟΣ");
+  });
 });
