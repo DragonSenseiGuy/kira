@@ -12,6 +12,8 @@ import { useContextCompression } from '../composables/useContextCompression';
 import { getFormattedStatsFromExecutedTools } from '../composables/searchViewStats';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
 import { useDeveloperMode } from '../composables/useDeveloperMode';
+import { useSettings } from '../composables/useSettings';
+import { welcomeHeading } from '../utils/greeting';
 
 // Debug tooling (e.g. the message debug copy button) is opt-in via
 // Settings → General → Developer Mode.
@@ -535,6 +537,8 @@ function copyDebugDump(message, event) {
 }
 
 // --- Branching Logic ---
+const welcomeText = computed(() => welcomeHeading(useSettings().settings.user_name));
+
 const editingMessageId = ref(null);
 
 function startEditing(message) {
@@ -700,7 +704,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   <div class="chat-wrapper" ref="chatWrapper">
     <div class="chat-container">
       <div v-if="messages.length < 1 && showWelcome" class="welcome-container">
-        <h1 v-if="!isIncognito" class="welcome-message">What can I help with?</h1>
+        <h1 v-if="!isIncognito" class="welcome-message">{{ welcomeText }}</h1>
         <div v-if="!isIncognito" class="suggestion-chips">
           <button class="suggestion-chip" @click="emit('set-message', 'Help me create something new and interesting')">
             <Icon icon="material-symbols:auto-fix-high-outline" width="16" height="16" />
@@ -1009,6 +1013,9 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   color: var(--text-primary);
   margin: 0 0 1.75rem 0;
   letter-spacing: -0.015em;
+  padding: 0 16px;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .suggestion-chips {
