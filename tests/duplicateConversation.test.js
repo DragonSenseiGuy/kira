@@ -30,6 +30,14 @@ beforeEach(() => {
 });
 
 describe("copyTitle", () => {
+  it("never splits an emoji at the length limit", () => {
+    const fits = "x".repeat(246) + "😀";
+    expect(copyTitle(fits, [])).toBe(`Copy of ${fits}`);
+    const first = copyTitle("😀".repeat(300), []);
+    expect(first).toBe(`Copy of ${"😀".repeat(247)}`);
+    expect(copyTitle("😀".repeat(300), [first])).toBe(`Copy of ${"😀".repeat(243)} (2)`);
+  });
+
   it("keeps the copy of a very long title within 255 characters", () => {
     const long = "x".repeat(300);
     const first = copyTitle(long, [long]);

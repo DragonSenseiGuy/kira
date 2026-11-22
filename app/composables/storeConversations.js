@@ -215,12 +215,13 @@ export async function storeMessages(
 const MAX_TITLE_LENGTH = 255;
 
 export function copyTitle(title, takenTitles) {
-  const name = (title || "").trim() || "Untitled";
+  // Code points, so that an emoji at the cut is never split in half.
+  const name = Array.from((title || "").trim() || "Untitled");
   const taken = new Set(takenTitles);
   for (let n = 1; ; n++) {
     const suffix = n === 1 ? "" : ` (${n})`;
     const room = MAX_TITLE_LENGTH - "Copy of ".length - suffix.length;
-    const candidate = `Copy of ${name.slice(0, room).trimEnd()}${suffix}`;
+    const candidate = `Copy of ${name.slice(0, room).join("").trimEnd()}${suffix}`;
     if (!taken.has(candidate)) return candidate;
   }
 }
