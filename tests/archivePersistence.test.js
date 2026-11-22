@@ -81,6 +81,31 @@ describe("hydrateFromCloud", () => {
   });
 });
 
+describe("hydrateFromCloud uploads", () => {
+  it("does not re-upload a chat created while hydration was downloading", async () => {
+    store.set("conversations_metadata", [{ id: "old", title: "Old local", lastUpdated: "2026-01-01T00:00:00Z" }]);
+    store.set("conversation_old", { title: "Old local", messages: [] });
+    const posted = [];
+
+    vi.stubGlobal("fetch", vi.fn(async (path, options) => {
+      if (options?.method === "POST") {
+        posted.push(JSON.parse(options.body).id);
+        return json({});
+      }
+      if (path === "/api/conversations") return json({ conversations: [{ id: "trip", lastUpdated: "2026-03-03T00:00:00Z" }] });
+      // A new chat is started (and synced normally) during the download.
+      store.set("conversations_metadata", [...store.get("conversations_metadata"), { id: "fresh", title: "Fresh", lastUpdated: "2026-03-04T00:00:00Z" }]);
+      store.set("conversation_fresh", { title: "Fresh", messages: [] });
+      return json({ id: "trip", title: "Trip planning", lastUpdated: "2026-03-03T00:00:00Z", messages: [] });
+    }));
+
+    await useCloudSync().hydrateFromCloud();
+
+    expect(posted).toEqual(["old"]);
+    expect(store.get("conversations_metadata").map((m) => m.id).sort()).toEqual(["fresh", "old", "trip"]);
+  });
+});
+
 describe("sidebar", () => {
   it("offers no collapse toggle for Archived while a search forces it open", async () => {
     const { readFileSync } = await import("node:fs");
