@@ -98,6 +98,7 @@ function addExternalLinkTargets(md) {
  * @param {boolean} options.enableKatex - Enable KaTeX math rendering (default: true)
  * @param {boolean} options.enableFootnotes - Enable footnotes (default: true)
  * @param {boolean} options.enableTaskLists - Enable task lists (default: true)
+ * @param {boolean} options.untrusted - Render text from an unknown author: raw HTML is shown as text (default: false)
  * @returns {MarkdownIt} Configured markdown-it instance
  */
 export function createMarkdownInstance(options = {}) {
@@ -105,10 +106,11 @@ export function createMarkdownInstance(options = {}) {
     enableKatex = true,
     enableFootnotes = true,
     enableTaskLists = true,
+    untrusted = false,
   } = options;
 
   const md = new MarkdownIt({
-    html: true,
+    html: !untrusted,
     linkify: true,
     typographer: true,
     // Disable synchronous highlighting - we use lazy highlighting instead
@@ -139,7 +141,9 @@ export function createMarkdownInstance(options = {}) {
     });
   }
 
-  addCodeBlockRenderer(md);
+  // The code-block toolbar builds HTML with inline handlers, so untrusted
+  // text keeps markdown-it's plain, fully escaped code blocks.
+  if (!untrusted) addCodeBlockRenderer(md);
   addExternalLinkTargets(md);
   return md;
 }
@@ -151,6 +155,9 @@ export const md = createMarkdownInstance({
   enableFootnotes: true,
   enableTaskLists: true,
 });
+
+// For text that did not come from the user's own chats (shared links).
+export const untrustedMd = createMarkdownInstance({ untrusted: true });
 
 // Backward-compatible exports
 // Both point to the same unified instance now

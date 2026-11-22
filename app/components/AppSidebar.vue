@@ -11,6 +11,9 @@ import {
 import { useConversationsList } from "~/composables/useConversationsList";
 import { useSettings } from "~/composables/useSettings";
 import { useAuth } from "~/composables/useAuth";
+import { loadConversation } from "~/composables/storeConversations";
+import { alertDialog } from "~/composables/useDialogs";
+import { buildShareLink } from "~/utils/shareLink";
 
 const emit = defineEmits([
   "reloadSettings",
@@ -33,6 +36,28 @@ const { accountsEnabled, user, logout } = useAuth();
 async function handleSignOut() {
   await logout();
   router.push("/login");
+}
+async function copyShareLink(id) {
+  const link = buildShareLink(await loadConversation(id), window.location.origin);
+  if (!link.ok) {
+    return alertDialog({
+      title: "Can't share this chat",
+      message:
+        link.reason === "empty"
+          ? "This chat has no messages to share yet."
+          : "This chat is too long to fit in a link. Export it instead.",
+    });
+  }
+  try {
+    await navigator.clipboard.writeText(link.url);
+  } catch {
+    return alertDialog({ title: "Couldn't copy the link", message: "Your browser blocked access to the clipboard." });
+  }
+  alertDialog({
+    title: "Share link copied",
+    message:
+      "Anyone with the link can read this chat as it is now. The link holds the chat's text itself: nothing was uploaded, and it can't be revoked once sent. Attachments, reasoning and tool results are not included.",
+  });
 }
 const hasApiKey = computed(() => !!settingsManager.settings.custom_api_key);
 
@@ -259,6 +284,10 @@ function handleMiddleClickNewChat(e) {
                     <DropdownMenuItem class="conversation-menu-item" @select="startRename(data.id, data.title)">
                       <Icon icon="material-symbols:edit-outline" width="16" height="16" />
                       <span>Rename</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem class="conversation-menu-item" @select="copyShareLink(data.id)">
+                      <Icon icon="material-symbols:link" width="16" height="16" />
+                      <span>Copy share link</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem class="conversation-menu-item delete-item" @select="handleDelete(data.id)">
                       <Icon icon="material-symbols:delete" width="16" height="16" />
