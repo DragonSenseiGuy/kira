@@ -1,4 +1,4 @@
-import { sanitizeRenderedHtml } from "./sanitizeHtml";
+import { sanitizeRenderedHtml, trustedHandler } from "./sanitizeHtml";
 import MarkdownIt from "markdown-it";
 import markdownItFootnote from "markdown-it-footnote";
 import markdownItTaskLists from "markdown-it-task-lists";
@@ -36,13 +36,13 @@ function addCodeBlockRenderer(md) {
   <div class="code-block-header">
     <span class="code-language">${safeLangClass}</span>
     <div class="code-actions">
-      <button class="code-action-button" onclick="window.downloadCode(event.currentTarget)" title="Download file">
+      <button class="code-action-button" ${trustedHandler("window.downloadCode(event.currentTarget)")} title="Download file">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
           <path fill="currentColor" d="M12 15.575q-.2 0-.375-.062T11.3 15.3l-3.6-3.6q-.3-.3-.288-.7t.288-.7q.3-.3.713-.312t.712.287L11 12.15V5q0-.425.288-.712T12 4t.713.288T13 5v7.15l1.875-1.875q.3-.3.713-.288t.712.313q.275.3.288.7t-.288.7l-3.6 3.6q-.15.15-.325.213t-.375.062M6 20q-.825 0-1.412-.587T4 18v-2q0-.425.288-.712T5 15t.713.288T6 16v2h12v-2q0-.425.288-.712T19 15t.713.288T20 16v2q0 .825-.587 1.413T18 20z" stroke-width="0.1" stroke="currentColor" />
         </svg>
         <span>Download</span>
       </button>
-      <button class="code-action-button" onclick="window.copyCode(event.currentTarget)" title="Copy code">
+      <button class="code-action-button" ${trustedHandler("window.copyCode(event.currentTarget)")} title="Copy code">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
           <path fill="currentColor" stroke-width="0.1" d="M9 18q-.825 0-1.412-.587T7 16V4q0-.825.588-1.412T9 2h9q.825 0 1.413.588T20 4v12q0 .825-.587 1.413T18 18zm0-2h9V4H9zm-4 6q-.825 0-1.412-.587T3 20V7q0-.425.288-.712T4 6t.713.288T5 7v13h10q.425 0 .713.288T16 21t-.288.713T15 22zm4-6V4z" />
         </svg>
