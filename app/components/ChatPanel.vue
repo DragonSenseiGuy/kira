@@ -329,6 +329,21 @@ async function focusMessage(messageId, options = {}) {
 
 const showJumpToLatest = ref(false);
 
+// The composer grows with the draft, so the button is placed from its
+// measured height rather than a fixed offset.
+const composerHeight = ref(120);
+let composerObserver = null;
+
+function observeComposer() {
+  const composer = (cachedScrollContainer || document).querySelector?.(".input-section");
+  if (!composer || typeof ResizeObserver === "undefined") return;
+  composerHeight.value = composer.offsetHeight || composerHeight.value;
+  composerObserver = new ResizeObserver(() => {
+    composerHeight.value = composer.offsetHeight || composerHeight.value;
+  });
+  composerObserver.observe(composer);
+}
+
 const handleScroll = () => {
   const container = cachedScrollContainer || chatWrapper.value;
   if (!container) return;
@@ -431,6 +446,7 @@ onMounted(() => {
 
   // Trigger initial scroll check
   handleScroll();
+  observeComposer();
 
   // Make functions available globally (only in browser)
   if (typeof window !== 'undefined') {
@@ -443,6 +459,7 @@ onUnmounted(() => {
   // Clean up scroll listener from cached container or document fallback
   const scrollTarget = cachedScrollContainer || document;
   scrollTarget.removeEventListener('scroll', handleScroll);
+  composerObserver?.disconnect();
 });
 
 // Render message content with markdown and trigger lazy highlighting.
@@ -963,7 +980,7 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
         </template>
       </div>
     </div>
-    <div class="jump-to-latest-anchor">
+    <div class="jump-to-latest-anchor" :style="{ bottom: `${composerHeight + 12}px` }">
       <Transition name="jump-fade">
         <button
           v-if="showJumpToLatest"
@@ -985,7 +1002,6 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
    taking space in the conversation. */
 .jump-to-latest-anchor {
   position: sticky;
-  bottom: 150px;
   height: 0;
   display: flex;
   justify-content: center;
