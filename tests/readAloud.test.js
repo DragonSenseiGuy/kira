@@ -63,6 +63,30 @@ describe("speechTextFromMarkdown", () => {
   });
 });
 
+describe("speechTextFromMarkdown edge cases", () => {
+  it("keeps prices written with escaped dollar signs", () => {
+    expect(speechTextFromMarkdown("Plans cost \\$5 to \\$10 a month.")).toBe("Plans cost $5 to $10 a month.");
+  });
+
+  it("still drops inline math next to an escaped dollar", () => {
+    expect(speechTextFromMarkdown("It costs \\$5 and $x^2$ is math.")).toBe("It costs $5 and is math.");
+  });
+
+  it("omits a four-backtick block that shows a three-backtick fence", () => {
+    const markdown = "Write it like this:\n\n````markdown\n```js\nconsole.log(1);\n```\n````\n\nDone.";
+    expect(speechTextFromMarkdown(markdown)).toBe("Write it like this:\nDone.");
+  });
+
+  it("omits indented code blocks but keeps nested list items", () => {
+    expect(speechTextFromMarkdown("Run:\n\n    npm install\n    npm test\n\nThen wait.")).toBe("Run:\nThen wait.");
+    expect(speechTextFromMarkdown("- one\n\n    - nested item\n")).toBe("one\nnested item");
+  });
+
+  it("omits an unterminated fence while streaming", () => {
+    expect(speechTextFromMarkdown("Here:\n```js\nlet a = 1;")).toBe("Here:");
+  });
+});
+
 describe("chunkSpeechText", () => {
   it("returns no chunks for blank text", () => {
     expect(chunkSpeechText("   ")).toEqual([]);

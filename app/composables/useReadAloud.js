@@ -24,10 +24,17 @@ export function speechTextFromMarkdown(markdown) {
   if (typeof markdown !== "string" || !markdown) return "";
 
   const text = markdown
-    .replace(/(```|~~~)[\s\S]*?(\1|$)/g, "\n")
+    // Fenced code. The closing fence must be at least as long as the opening
+    // one, so a ```` block may show ``` inside it.
+    .replace(/^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^[ \t]*\1[`~]*[ \t]*$|(?![\s\S]))/gm, "\n")
+    // Indented code: 4+ spaces after a blank line, unless it is a list item.
+    .replace(/(^|\n[ \t]*\n)((?:(?: {4,}|\t)(?![ \t]*(?:[-*+]|\d+[.)])\s)[^\n]*(?:\n|$))+)/g, "$1")
+    // An escaped dollar is a literal one ("\$5 to \$10"), never math.
+    .replace(/\\\$/g, "\uE000")
     .replace(/\$\$[\s\S]*?\$\$/g, "\n")
     .replace(/\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)/g, " ")
     .replace(/\$(?=\S)[^$\n]*?(?<=\S)\$/g, " ")
+    .replace(/\uE000/g, "$")
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/<\/?[a-zA-Z][^>]*>/g, "")

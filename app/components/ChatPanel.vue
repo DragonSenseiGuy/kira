@@ -505,6 +505,13 @@ function getMessageCopyText(message) {
 
 const readAloud = useReadAloud();
 watch(() => props.currConvo, () => readAloud.stop());
+// Branch navigation, edits and deletions can hide the message being read.
+watch(() => props.currMessages, (visibleMessages) => {
+  const speakingId = readAloud.speakingId.value;
+  if (speakingId !== null && !visibleMessages?.some(message => message.id === speakingId)) {
+    readAloud.stop();
+  }
+});
 
 // Function to copy message content
 function copyMessage(message, event) {
