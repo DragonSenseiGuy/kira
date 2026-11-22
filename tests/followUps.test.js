@@ -219,4 +219,11 @@ describe("parseFollowUps list commentary", () => {
     expect(parseFollowUps("1. A?\n2. B?\nTell me which one you would like to explore.")).toEqual(["A?", "B?"]);
     expect(parseFollowUps("1. A?\n2. B?\nTell me more about tokens.")).toEqual(["A?", "B?", "Tell me more about tokens."]);
   });
+
+  it("keeps an unnumbered request without a full stop and a request for a recommendation", () => {
+    expect(parseFollowUps("1. A?\n2. B?\nShow me an example")).toEqual(["A?", "B?", "Show me an example"]);
+    expect(parseFollowUps("1. A?\n2. B?\nExplain the difference!")).toEqual(["A?", "B?", "Explain the difference!"]);
+    expect(parseFollowUps("1. A?\n2. B?\nTell me which option is best.")).toEqual(["A?", "B?", "Tell me which option is best."]);
+    expect(parseFollowUps("1. A?\n2. B?\nHope this helps!")).toEqual(["A?", "B?"]);
+  });
 });
