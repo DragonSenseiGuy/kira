@@ -235,6 +235,22 @@ describe("speechTextFromMarkdown code detection", () => {
   });
 
   it("drops display math written with escaped brackets", () => {
-    expect(speechTextFromMarkdown("So \\(a+b\\) and \\[x^2\\] hold.")).toBe("So and hold.");
+    expect(speechTextFromMarkdown("So \\(a+b\\) holds.\n\n\\[\nx^2\n\\]\n\nDone.")).toBe("So holds.\nDone.");
+  });
+});
+
+describe("speechTextFromMarkdown matches the rendered message", () => {
+  it("omits a display equation that looks like a list or has a blank line", () => {
+    expect(speechTextFromMarkdown("Before.\n\n$$\nx^2\n+ y^2\n$$\n\nAfter.")).toBe("Before.\nAfter.");
+    expect(speechTextFromMarkdown("Before.\n\n$$\na\n\nb\n$$\n\nAfter.")).toBe("Before.\nAfter.");
+  });
+
+  it("keeps literal element names but drops real tags", () => {
+    expect(speechTextFromMarkdown("Use &lt;button&gt; here.")).toBe("Use <button> here.");
+    expect(speechTextFromMarkdown("A <span>real</span> tag.")).toBe("A real tag.");
+  });
+
+  it("keeps backslashes inside inline code", () => {
+    expect(speechTextFromMarkdown("Run `grep -E '\\[' file.txt` now.")).toBe("Run grep -E '\\[' file.txt now.");
   });
 });

@@ -6,7 +6,7 @@
  */
 
 import { ref, getCurrentScope, onScopeDispose } from "vue";
-import MarkdownIt from "markdown-it";
+import { md } from "../utils/markdown";
 
 /**
  * Chrome silently stops speaking utterances that run longer than roughly
@@ -21,42 +21,30 @@ const MAX_UTTERANCE_LENGTH = 220;
  * @param {string} markdown
  * @returns {string}
  */
-const speechMarkdown = new MarkdownIt({ html: false, linkify: false });
-
-// Stand-ins for the escapes Markdown would otherwise turn into plain
-// characters, so "\$5" (a price) can be told apart from "$x$" (math).
-const ESCAPES = { "\\$": "\uE000", "\\(": "\uE001", "\\)": "\uE002", "\\[": "\uE003", "\\]": "\uE004" };
-const ESCAPED_CHARS = { "\uE000": "$", "\uE001": "(", "\uE002": ")", "\uE003": "[", "\uE004": "]" };
-const restoreEscapes = (text) => text.replace(/[\uE000-\uE004]/g, (c) => ESCAPED_CHARS[c]);
-
-/** Speakable text of one inline token: no math, no tags, code spans kept. */
+/** Speakable text of one inline token: its words and code spans only. */
 function inlineSpeech(children) {
-  const codeSpans = [];
   let text = "";
+  let autolink = false;
   for (const child of children || []) {
-    if (child.type === "text") text += child.content.replace(/<\/?[a-zA-Z][^>]*>/g, "");
-    else if (child.type === "code_inline") {
-      codeSpans.push(restoreEscapes(child.content));
-      text += `\uE010${codeSpans.length - 1}\uE011`;
-    } else if (child.type === "image") text += child.content;
+    if (child.type === "link_open") autolink = child.markup === "linkify" || child.markup === "autolink";
+    else if (child.type === "link_close") autolink = false;
+    else if (autolink) continue;
+    else if (child.type === "text" || child.type === "code_inline" || child.type === "image") text += child.content;
     else if (child.type === "softbreak" || child.type === "hardbreak") text += "\n";
+    // Everything else (math, HTML tags, footnote references) is not spoken.
   }
-  text = text
-    .replace(/\$\$[\s\S]*?\$\$/g, "\n")
-    .replace(/\uE003[\s\S]*?\uE004|\uE001[\s\S]*?\uE002/g, " ")
-    .replace(/\$(?=\S)[^$\n]*?(?<=\S)\$/g, " ");
-  return restoreEscapes(text).replace(/\uE010(\d+)\uE011/g, (_, n) => codeSpans[Number(n)]);
+  return text;
 }
 
 export function speechTextFromMarkdown(markdown) {
   if (typeof markdown !== "string" || !markdown) return "";
 
-  const source = markdown.replace(/\\[$()[\]]/g, (escape) => ESCAPES[escape]);
   const lines = [];
   let row = null;
-  // Fences, indented code and HTML blocks are separate token types and are
-  // skipped, wherever they are nested (quotes, list items).
-  for (const token of speechMarkdown.parse(source, {})) {
+  // The chat's own parser decides what is code, math or markup, so speech
+  // matches what is displayed. Only inline text is spoken: fences, indented
+  // code, math blocks and HTML blocks are other token types.
+  for (const token of md.parse(markdown, {})) {
     if (token.type === "tr_open") row = [];
     else if (token.type === "tr_close") {
       lines.push(row.join(" "));
