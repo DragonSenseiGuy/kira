@@ -85,8 +85,13 @@ export function isPreviewableLang(lang) {
 }
 
 /** Builds the document shown in the preview frame for a code block. */
+// A srcdoc frame resolves URLs against the parent page, so an in-page link
+// (`<a href="#top">`) would navigate the frame to the app itself and wipe the
+// preview. This script keeps those links scrolling inside the preview.
+const PREVIEW_ANCHOR_SCRIPT = `<script>document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href");if(!h||h.charAt(0)!=="#")return;e.preventDefault();var id=decodeURIComponent(h.slice(1));var t=id?document.getElementById(id)||document.getElementsByName(id)[0]:document.documentElement;if(t)t.scrollIntoView()});<\/script>`;
+
 export function buildPreviewDocument(lang, code) {
-  if (String(lang).toLowerCase() !== "svg") return code;
+  if (String(lang).toLowerCase() !== "svg") return code + PREVIEW_ANCHOR_SCRIPT;
   return `<!doctype html><html><body style="margin:0;min-height:100vh;display:grid;place-items:center">${code}</body></html>`;
 }
 

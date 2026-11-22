@@ -44,7 +44,29 @@ describe("isPreviewableLang", () => {
 describe("buildPreviewDocument", () => {
   it("uses HTML as the document itself", () => {
     const code = "<!doctype html><h1>Hi</h1>";
-    expect(buildPreviewDocument("html", code)).toBe(code);
+    expect(buildPreviewDocument("html", code).startsWith(code)).toBe(true);
+  });
+
+  it("keeps in-page links inside the preview", () => {
+    // A srcdoc frame resolves "#id" against the parent URL; without the
+    // helper the link would load the app inside the frame.
+    const doc = buildPreviewDocument("html", '<a href="#features">Go</a><h2 id="features">Features</h2>');
+    const frame = document.createElement("div");
+    frame.innerHTML = doc;
+    const script = frame.querySelector("script");
+    expect(script).toBeTruthy();
+    document.body.appendChild(frame);
+    const target = frame.querySelector("#features");
+    let scrolled = false;
+    target.scrollIntoView = () => {
+      scrolled = true;
+    };
+    new Function(script.textContent)();
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    frame.querySelector("a").dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(true);
+    expect(scrolled).toBe(true);
+    frame.remove();
   });
 
   it("wraps SVG in a minimal HTML page", () => {
@@ -83,7 +105,7 @@ describe("togglePreview", () => {
 
     const frame = wrapper.querySelector("iframe");
     expect(frame).toBeTruthy();
-    expect(frame.getAttribute("srcdoc").trim()).toBe(code);
+    expect(frame.getAttribute("srcdoc").startsWith(code)).toBe(true);
     expect(wrapper.querySelector("pre").hidden).toBe(true);
     expect(button.textContent.trim()).toBe("Code");
     expect(button.getAttribute("aria-pressed")).toBe("true");
