@@ -49,6 +49,7 @@ import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
 import { useDark } from "@vueuse/core";
 import { useHead } from '@unhead/vue';
+import { useUnseenReply, tabTitleTemplate } from '~/composables/tabAttention';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useSettings } from '~/composables/useSettings';
@@ -130,8 +131,11 @@ const title = computed(() => {
   }
 });
 
+const hasUnseenReply = useUnseenReply();
+
 useHead({
   title: title,
+  titleTemplate: computed(() => tabTitleTemplate(hasUnseenReply.value)),
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' },
     { name: 'description', content: 'An open-source AI assistant interface' }

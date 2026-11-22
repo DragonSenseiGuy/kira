@@ -8,6 +8,7 @@ import DEFAULT_PARAMETERS from './defaultParameters';
 import { useSettings } from './useSettings';
 import { useGlobalIncognito } from './useGlobalIncognito';
 import { emitter } from './emitter';
+import { noteReplyFinished } from './tabAttention';
 import { resolveChatTarget } from './providers';
 import {
   setActiveConversation,
@@ -538,6 +539,7 @@ export function useMessagesManager(chatPanel) {
       }
 
       isLoading.value = false;
+      noteReplyFinished();
 
       // Store messages if not in incognito mode
       if (!isIncognito.value) {
