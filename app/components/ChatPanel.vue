@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode } from '../utils/codeBlockUtils';
-import { quotableSelection } from '../utils/quoteReply';
+import { quotableSelection, quoteButtonPosition } from '../utils/quoteReply';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -338,10 +338,24 @@ function updateQuoteButton() {
     return;
   }
   const rect = selection.getRangeAt(0).getBoundingClientRect();
+  // Visible chat area: the scroller, minus the composer stuck to its bottom.
+  const scroller = (cachedScrollContainer || chatWrapper.value)?.getBoundingClientRect();
+  const composer = document.querySelector(".input-section")?.getBoundingClientRect();
+  const area = {
+    top: scroller?.top ?? 0,
+    bottom: Math.min(scroller?.bottom ?? window.innerHeight, composer?.top ?? window.innerHeight),
+    left: scroller?.left ?? 0,
+    right: scroller?.right ?? window.innerWidth,
+  };
+  // Nothing to anchor to once the selection is scrolled out of view.
+  if (rect.bottom < area.top || rect.top > area.bottom) {
+    quoteButton.visible = false;
+    return;
+  }
+  const position = quoteButtonPosition(rect, area);
   quoteButton.text = text;
-  // Above the selection, or below it when there is no room above.
-  quoteButton.top = rect.top > 56 ? rect.top - 40 : rect.bottom + 8;
-  quoteButton.left = Math.min(Math.max(rect.left + rect.width / 2, 48), window.innerWidth - 48);
+  quoteButton.top = position.top;
+  quoteButton.left = position.left;
   quoteButton.visible = true;
 }
 
@@ -357,7 +371,7 @@ const handleScroll = () => {
 
   const { scrollHeight, scrollTop, clientHeight } = container;
   isAtBottom.value = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
-  if (quoteButton.visible) updateQuoteButton();
+  updateQuoteButton();
   emit('scroll', { isAtTop: scrollTop === 0 });
 };
 
