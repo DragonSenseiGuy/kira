@@ -9,6 +9,7 @@
  * - Clean separation between streaming accumulation and message formatting
  */
 
+import { attachmentsToContentParts } from "~/utils/attachmentParts";
 import {
   DEFAULT_MODEL_ID,
   buildReasoningParams,
@@ -245,23 +246,7 @@ export async function* handleIncomingMessage(
     // Build user message content based on attachments
     let userMessageContent;
     if (attachments && attachments.length > 0) {
-      const contentParts = [{ type: "text", text: query }];
-      for (const attachment of attachments) {
-        if (attachment.type === "image") {
-          contentParts.push({
-            type: "image_url",
-            image_url: { url: attachment.dataUrl },
-          });
-        } else if (attachment.type === "pdf") {
-          contentParts.push({
-            type: "file",
-            file: {
-              filename: attachment.filename,
-              file_data: attachment.dataUrl,
-            },
-          });
-        }
-      }
+      const contentParts = [{ type: "text", text: query }, ...attachmentsToContentParts(attachments)];
       userMessageContent = contentParts;
     } else {
       userMessageContent = query;

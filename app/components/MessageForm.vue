@@ -20,6 +20,7 @@ import DEFAULT_PARAMETERS from '~/composables/defaultParameters';
 import { useDraftPrompt } from "~/composables/useDraftPrompt";
 import { useWorkspaceBrowser } from "~/composables/useWorkspaceBrowser";
 import { useDictation } from "~/composables/useDictation";
+import { isTextFile, TEXT_FILE_EXTENSIONS } from "~/utils/attachmentParts";
 import {
   buildKnownPaths,
   backspaceTarget,
@@ -335,9 +336,10 @@ const supportsVision = computed(() => {
 // Computed property for accepted file types based on model capabilities
 // PDFs work with any model (via file-parser plugin), images require vision
 const acceptedFileTypes = computed(() => {
+  const textTypes = `text/*,${TEXT_FILE_EXTENSIONS.map((ext) => `.${ext}`).join(',')}`;
   return supportsVision.value
-    ? 'image/png,image/jpeg,image/webp,image/gif,.pdf,application/pdf'
-    : '.pdf,application/pdf';
+    ? `image/png,image/jpeg,image/webp,image/gif,.pdf,application/pdf,${textTypes}`
+    : `.pdf,application/pdf,${textTypes}`;
 });
 
 // Computed property to check if the current model supports reasoning
@@ -658,7 +660,7 @@ async function handleFileSelect(event) {
 }
 
 /**
- * Checks if a file is an allowed type (image or PDF)
+ * Checks if a file is an allowed type (image, PDF, or text)
  * @param {File} file - The file to check
  * @returns {boolean}
  */
@@ -676,8 +678,8 @@ function isAllowedFileType(file) {
   if (imageTypes.includes(file.type) || ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(extension)) {
     return supportsVision.value;
   }
-  
-  return false;
+
+  return isTextFile(file);
 }
 
 /**
@@ -852,7 +854,13 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
           :class="attachment.type"
         >
           <img v-if="attachment.type === 'image'" :src="attachment.dataUrl" :alt="attachment.filename" />
-          <Icon v-else icon="material-symbols:picture-as-pdf" width="24" height="24" class="pdf-icon" />
+          <Icon
+            v-else
+            :icon="attachment.type === 'text' ? 'material-symbols:description-outline' : 'material-symbols:picture-as-pdf'"
+            width="24"
+            height="24"
+            class="pdf-icon"
+          />
           <span class="attachment-name">{{ attachment.filename }}</span>
           <button class="remove-attachment" @click="removeAttachment(attachment.id)" aria-label="Remove attachment">
             <Icon icon="material-symbols:close" width="14" height="14" />
@@ -1006,7 +1014,7 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
               @click="openFilePicker"
             >
               <Icon icon="material-symbols:attach-file" width="20" height="20" />
-              <span>Attach {{ supportsVision ? 'image or PDF' : 'PDF' }}</span>
+              <span>Attach {{ supportsVision ? 'image, PDF, or text file' : 'PDF or text file' }}</span>
             </button>
           </PopoverContent>
         </PopoverRoot>
@@ -1394,7 +1402,8 @@ defineExpose({ setMessage, toggleReasoning, setReasoningEffort, toggleSearch, $e
   border-radius: var(--radius-chip);
 }
 
-.attachment-preview.pdf {
+.attachment-preview.pdf,
+.attachment-preview.text {
   padding-right: 28px;
 }
 

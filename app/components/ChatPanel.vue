@@ -874,7 +874,11 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                             loading="lazy"
                           />
                           <div v-else class="pdf-attachment">
-                            <Icon icon="material-symbols:picture-as-pdf" width="24" height="24" />
+                            <Icon
+                              :icon="attachment.type === 'text' ? 'material-symbols:description-outline' : 'material-symbols:picture-as-pdf'"
+                              width="24"
+                              height="24"
+                            />
                             <span class="pdf-filename">{{ attachment.filename }}</span>
                           </div>
                         </div>
@@ -1414,7 +1418,8 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   display: block;
 }
 
-.edit-attachment-item.pdf {
+.edit-attachment-item.pdf,
+.edit-attachment-item.text {
   background: var(--overlay-hover);
   padding: 8px 12px;
   display: flex;
@@ -1641,7 +1646,8 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   display: block;
 }
 
-.attachment-thumbnail.pdf {
+.attachment-thumbnail.pdf,
+.attachment-thumbnail.text {
   display: flex;
   align-items: center;
   gap: 6px;

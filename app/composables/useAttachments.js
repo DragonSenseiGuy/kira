@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue';
+import { isTextFile } from '~/utils/attachmentParts';
 
 // Maximum file size: 4.5MB
 const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
@@ -54,9 +55,12 @@ export function useAttachments() {
         const isAllowedExtension = ALLOWED_EXTENSIONS.includes(extension);
 
         if (!fileType && !isAllowedExtension) {
+            if (isTextFile(file)) {
+                return { valid: true, isImage: false, isPDF: false, isText: true };
+            }
             return {
                 valid: false,
-                error: `File type not supported. Allowed: PNG, JPG, WEBP, GIF, PDF.`,
+                error: `File type not supported. Allowed: PNG, JPG, WEBP, GIF, PDF, and text or code files.`,
                 isImage: false,
                 isPDF: false
             };
@@ -216,9 +220,9 @@ export function useAttachments() {
                 dataUrl = result.dataUrl;
                 mimeType = result.mimeType;
             } else {
-                // PDF or other: just convert to data URL
+                // PDF or text: just convert to data URL
                 dataUrl = await fileToDataUrl(file);
-                mimeType = file.type || 'application/pdf';
+                mimeType = file.type || (validation.isText ? 'text/plain' : 'application/pdf');
             }
 
             // Now check size AFTER processing
@@ -230,7 +234,7 @@ export function useAttachments() {
             }
 
             // Determine type
-            const type = validation.isImage ? 'image' : 'pdf';
+            const type = validation.isImage ? 'image' : validation.isText ? 'text' : 'pdf';
 
             // Update filename extension if converted to WebP
             let filename = file.name;

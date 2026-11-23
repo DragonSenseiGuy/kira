@@ -11,9 +11,11 @@
  * `formatMessageForAPI` — see the note on it at the bottom of the file.
  */
 
+import { attachmentsToContentParts } from "~/utils/attachmentParts";
+
 /**
  * Formats a message object for the API, handling multimodal content including:
- * - User attachments (images, PDFs)
+ * - User attachments (images, PDFs, text files)
  * - Assistant generated images
  * - Reasoning/thinking content
  * - Tool calls and results
@@ -37,24 +39,10 @@ export function formatMessageForAPI(msg, options = {}) {
     };
     
     if (msg.attachments && msg.attachments.length > 0) {
-      const contentParts = [{ type: "text", text: msg.content || "" }];
-
-      for (const attachment of msg.attachments) {
-        if (attachment.type === "image") {
-          contentParts.push({
-            type: "image_url",
-            image_url: { url: attachment.dataUrl },
-          });
-        } else if (attachment.type === "pdf") {
-          contentParts.push({
-            type: "file",
-            file: {
-              filename: attachment.filename,
-              file_data: attachment.dataUrl,
-            },
-          });
-        }
-      }
+      const contentParts = [
+        { type: "text", text: msg.content || "" },
+        ...attachmentsToContentParts(msg.attachments),
+      ];
 
       baseMessage.content = contentParts;
     } else {
