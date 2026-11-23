@@ -250,3 +250,74 @@ describe("MessageForm — mobile IME composition", () => {
     wrapper.unmount();
   });
 });
+
+describe("MessageForm — voice dictation", () => {
+  let recognizers;
+
+  class FakeRecognition {
+    constructor() {
+      recognizers.push(this);
+    }
+    start() {}
+    stop() {
+      this.onend?.();
+    }
+    abort() {
+      this.onend?.();
+    }
+  }
+
+  function finalResult(transcript) {
+    const result = [{ transcript }];
+    result.isFinal = true;
+    return { resultIndex: 0, results: [result] };
+  }
+
+  beforeEach(() => {
+    recognizers = [];
+    delete globalThis.SpeechRecognition;
+    delete globalThis.webkitSpeechRecognition;
+  });
+
+  it("hides the microphone when the browser cannot recognize speech", () => {
+    const wrapper = mountForm();
+    expect(wrapper.find(".dictation-btn").exists()).toBe(false);
+  });
+
+  it("writes dictated speech into the composer and enables sending", async () => {
+    globalThis.webkitSpeechRecognition = FakeRecognition;
+    const wrapper = mountForm();
+    await type(wrapper, "Hello");
+
+    const mic = wrapper.find(".dictation-btn");
+    expect(mic.attributes("aria-label")).toBe("Dictate message");
+    await mic.trigger("click");
+    expect(wrapper.find(".dictation-btn").attributes("aria-label")).toBe("Stop dictation");
+
+    recognizers[0].onresult(finalResult("from my voice"));
+    await flushPromises();
+
+    expect(wrapper.find("textarea").element.value).toBe("Hello from my voice");
+    expect(wrapper.find(".send-btn").attributes("disabled")).toBeUndefined();
+
+    await wrapper.find(".dictation-btn").trigger("click");
+    expect(wrapper.find(".dictation-btn").attributes("aria-label")).toBe("Dictate message");
+    delete globalThis.webkitSpeechRecognition;
+  });
+
+  it("shows a dismissible alert when the microphone is blocked", async () => {
+    globalThis.webkitSpeechRecognition = FakeRecognition;
+    const wrapper = mountForm();
+    await wrapper.find(".dictation-btn").trigger("click");
+
+    recognizers[0].onerror({ error: "not-allowed" });
+    recognizers[0].onend();
+    await flushPromises();
+
+    const alert = wrapper.find("[role=alert]");
+    expect(alert.text()).toMatch(/microphone/i);
+    await alert.find(".dismiss-error").trigger("click");
+    expect(wrapper.find("[role=alert]").exists()).toBe(false);
+    delete globalThis.webkitSpeechRecognition;
+  });
+});

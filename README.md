@@ -17,12 +17,11 @@ Kira does **not** sell user information. Chats stay on your device by default; i
 - Conversation branching with message editing/regenerating
 - Context compression system
 - Programmable keybinds
+- Voice dictation into the composer (in browsers with the Web Speech API)
 
 ## Todo
 
-- voice-to-text input feature
-
-You can suggest other ideas in the Issues tab of the GitHub repo
+You can suggest ideas in the Issues tab of the GitHub repo
 
 ## Setup
 
