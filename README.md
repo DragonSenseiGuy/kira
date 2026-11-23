@@ -16,6 +16,7 @@ Kira does **not** sell user information. Chats stay on your device by default; i
 - Opt-in notepad that remembers user details/preferences/opinions across chats
 - Conversation branching with message editing/regenerating
 - Quote part of a reply: select text in an answer and click Quote to reply to it
+- Optional follow-up suggestions under each answer (off by default; one extra request per answer)
 - Context compression system
 - Programmable keybinds
 - Voice dictation into the composer (in browsers with the Web Speech API)

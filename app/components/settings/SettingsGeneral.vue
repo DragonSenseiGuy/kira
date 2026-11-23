@@ -34,6 +34,20 @@
         </SwitchRoot>
       </div>
 
+      <div class="stx-item">
+        <div class="stx-info">
+          <h3>Follow-up Suggestions</h3>
+          <p>Suggest questions to ask next under each answer. Uses one extra request to the selected model per answer.</p>
+        </div>
+        <SwitchRoot
+          class="switch-root stx-switch-root"
+          :model-value="settings.follow_up_suggestions"
+          @update:model-value="set('follow_up_suggestions', $event)"
+        >
+          <SwitchThumb class="switch-thumb stx-switch-thumb" />
+        </SwitchRoot>
+      </div>
+
       <div class="stx-item" style="border-bottom: none">
         <div class="stx-info">
           <h3>Developer Mode</h3>

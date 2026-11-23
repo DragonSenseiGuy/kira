@@ -1,4 +1,5 @@
 <script setup>
+import { useFollowUps } from '~/composables/useFollowUps';
 import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from "vue";
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
@@ -54,6 +55,8 @@ const props = defineProps({
     default: () => new Map()
   }
 });
+
+const { suggestions: followUps, forMessageId: followUpsForMessageId } = useFollowUps();
 
 const emit = defineEmits(["send-message", "set-message", "quote-message", "scroll", "edit-message", "regenerate-message", "navigate-branch"]);
 
@@ -1063,6 +1066,23 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                   </div>
                 </template>
               </div>
+
+              <div
+                v-if="message.id === followUpsForMessageId && followUps.length && !isLoading && message.id === messages[messages.length - 1]?.id"
+                class="follow-ups"
+                aria-label="Suggested follow-ups"
+              >
+                <button
+                  v-for="suggestion in followUps"
+                  :key="suggestion"
+                  type="button"
+                  class="follow-up"
+                  @click="emit('set-message', suggestion)"
+                >
+                  <span>{{ suggestion }}</span>
+                  <Icon icon="material-symbols:arrow-outward-rounded" width="16" height="16" />
+                </button>
+              </div>
             </div>
           </div>
           <!-- Presentational divider at a summary boundary (sidecar-derived). -->
@@ -1674,6 +1694,45 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 .copy-button.copied {
   color: var(--success) !important;
+}
+
+.follow-ups {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.follow-up {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg, 12px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.follow-up:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.follow-up:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.follow-up svg {
+  flex-shrink: 0;
 }
 
 .message-content-footer {
