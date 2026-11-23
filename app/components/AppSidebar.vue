@@ -173,6 +173,27 @@ function toggleGroupExpanded(key) {
   } else if (key === "archived") isArchivedExpanded.value = !isArchivedExpanded.value;
 }
 
+// Opening a chat that sits far down the list (from a link, the command
+// palette or a reload) brings its row into view, once per chat: later list
+// updates must not pull the list back from wherever it was scrolled to.
+let revealedChatId = null;
+watch(
+  [() => route.params.id, () => metadata.value?.length],
+  async ([id]) => {
+    if (!id) {
+      revealedChatId = null;
+      return;
+    }
+    if (id === revealedChatId) return;
+    await nextTick();
+    const row = document.querySelector(".sidebar .conversation-button.active");
+    if (!row) return;
+    revealedChatId = id;
+    row.scrollIntoView({ block: "nearest" });
+  },
+  { immediate: true, flush: "post" },
+);
+
 function handleResize() {
   windowWidth.value = window.innerWidth;
 }
