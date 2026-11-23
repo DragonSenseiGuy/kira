@@ -21,6 +21,7 @@ import BottomSheetModelSelector from "./BottomSheetModelSelector.vue";
 import { useAttachments } from "~/composables/useAttachments";
 import DEFAULT_PARAMETERS from '~/composables/defaultParameters';
 import { useDraftPrompt } from "~/composables/useDraftPrompt";
+import { canAutofocusComposer } from "~/utils/composerAutofocus";
 import { useWorkspaceBrowser } from "~/composables/useWorkspaceBrowser";
 import { useDictation } from "~/composables/useDictation";
 import { isTextFile, TEXT_FILE_EXTENSIONS } from "~/utils/attachmentParts";
@@ -837,6 +838,18 @@ async function handleDrop(event) {
     }
   }
 }
+
+// Keep the caret in the composer, as desktop chat apps do: on arrival, when
+// another chat is opened, and when a reply ends (the field is disabled while
+// it streams, which drops focus).
+function autofocusComposer(arrived) {
+  nextTick(() => {
+    if (!isMobile.value && canAutofocusComposer({ arrived })) textareaRef.value?.focus({ preventScroll: true });
+  });
+}
+onMounted(() => autofocusComposer(true));
+watch(conversationIdRef, () => autofocusComposer(true));
+watch(() => props.isLoading, (loading, wasLoading) => { if (wasLoading && !loading) autofocusComposer(false); });
 
 // Focus text input via the user-configured shortcut (Settings → Shortcuts).
 // The dispatcher already skips modifier-less binds while typing, which

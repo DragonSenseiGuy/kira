@@ -13,6 +13,7 @@
         <UiIconButton
           icon="material-symbols:add-box-outline"
           label="New chat"
+          data-opens-chat
           @click="handleNewChat"
           @auxclick="handleMiddleClickNewChat"
         />
