@@ -3,6 +3,7 @@ import { emitter } from "~/composables/emitter";
 import { migrateMessages } from "./branchManager";
 import { requestCompletion, extractCompletionText } from "~/composables/apiClient";
 import { getBackgroundTarget } from "~/composables/backgroundCredentials";
+import { isLocalBaseUrl } from "~/composables/providers";
 import { deleteChatSummary } from "./chatSummarizer";
 import { deleteContextSummary } from "./contextCompressor";
 import { useCloudSync } from "~/composables/useCloudSync";
@@ -104,12 +105,25 @@ export async function createConversation(plainMessages, lastUpdated) {
 /** Model ID used for title generation when the active provider is Hack Club AI. */
 const TITLE_GENERATION_MODEL = "z-ai/glm-5.3-flash";
 
+/**
+ * A generated title may only replace the "Untitled" placeholder, never a
+ * name the user gave the conversation while generation was running.
+ *
+ * @param {{title?: string}|undefined} metadataEntry  The conversation's sidebar entry.
+ * @returns {boolean}
+ */
+export function canApplyGeneratedTitle(metadataEntry) {
+  return !metadataEntry || !metadataEntry.title || metadataEntry.title === "Untitled";
+}
+
 async function generateTitleInBackground(conversationId, plainMessages, lastUpdated) {
   const systemPrompt = `You are an AI with the task of shortening and summarising messages into a short title. You must summarise the given messages based on their content into at most a 40 character title. Each conversation is between a user and an AI chatbot. The messages provided to you are the first messages of the conversation. The title must be general enough to apply to what you think the conversation will be about. Only output the title, without any additional explainations or commentary.`;
 
   try {
     const target = await getBackgroundTarget();
-    if (!target.model || !target.customApiKey) {
+    // Local runtimes (Ollama, LM Studio) need no key.
+    const keyless = isLocalBaseUrl(target.upstreamBaseUrl);
+    if (!target.model || (!target.customApiKey && !keyless)) {
       console.warn("No usable model/key for title generation, skipping");
       return;
     }
@@ -146,6 +160,12 @@ async function generateTitleInBackground(conversationId, plainMessages, lastUpda
     }
 
     // Update the conversation with the new title
+    // The request can take a while; a name the user chose meanwhile wins.
+    // Read before the conversation record so nothing is awaited between
+    // reading that record and writing it back (a reply may be saving).
+    const metadata = (await localforage.getItem("conversations_metadata")) || [];
+    if (!canApplyGeneratedTitle(metadata.find(conv => conv.id === conversationId))) return;
+
     const conversation = await localforage.getItem(`conversation_${conversationId}`);
     if (conversation) {
       conversation.title = newTitle;
@@ -153,7 +173,6 @@ async function generateTitleInBackground(conversationId, plainMessages, lastUpda
       await localforage.setItem(`conversation_${conversationId}`, conversation);
 
       // Update metadata as well
-      const metadata = (await localforage.getItem("conversations_metadata")) || [];
       const updatedMetadata = metadata.map(conv =>
         conv.id === conversationId ? { ...conv, title: newTitle, lastUpdated } : conv
       );

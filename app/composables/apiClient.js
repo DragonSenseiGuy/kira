@@ -15,6 +15,7 @@
  */
 
 import { getSessionToken } from "~/composables/useSession";
+import { isLocalBaseUrl } from "~/composables/providers";
 
 /** Header used to transport the user's own API key (BYOK). */
 export const API_KEY_HEADER = "x-api-key";
@@ -123,8 +124,9 @@ function sleepWithAbort(ms, signal) {
  *   1. Default — relayed through our `/api/ai` server route (session
  *      token + BYOK key header). Used for Hack Club and remote custom
  *      providers (avoids CORS).
- *   2. Direct — when the payload carries `directBaseUrl` (loopback
- *      providers like Ollama/LM Studio), the BROWSER calls
+ *   2. Direct — when the payload carries `directBaseUrl`, or an
+ *      `upstreamBaseUrl` that is a loopback address (Ollama/LM Studio),
+ *      the BROWSER calls
  *      `${directBaseUrl}/chat/completions` itself with a Bearer key.
  *      This is what makes local runtimes work even when the site is
  *      hosted remotely.
@@ -140,7 +142,15 @@ function sleepWithAbort(ms, signal) {
  */
 export async function postChatCompletion(payload, { signal } = {}) {
   const { customApiKey, directBaseUrl, ...body } = payload || {};
-  const base = directBaseUrl ? String(directBaseUrl).replace(/\/+$/, "") : null;
+  // A loopback `upstreamBaseUrl` can never be relayed (the server rejects
+  // loopback upstreams), so it takes the direct transport too. This keeps
+  // background completions working for local runtimes.
+  let direct = directBaseUrl;
+  if (!direct && isLocalBaseUrl(body.upstreamBaseUrl)) {
+    direct = body.upstreamBaseUrl;
+    delete body.upstreamBaseUrl;
+  }
+  const base = direct ? String(direct).replace(/\/+$/, "") : null;
 
   // Serialize once, well-formed: sandboxed tool results can carry lone
   // surrogates, which JSON.stringify happily embeds — producing an invalid

@@ -235,6 +235,19 @@ export function resolveChatTarget(settings) {
 }
 
 /**
+ * True when the active provider can be called as configured: a key for
+ * Hack Club or a remote custom provider, or any loopback provider (local
+ * runtimes need no key). Drives the "API Key Required" warning.
+ *
+ * @param {Object} settings  Settings snapshot.
+ * @returns {boolean}
+ */
+export function hasUsableCredentials(settings) {
+  const target = resolveChatTarget(settings);
+  return !!target.apiKey || target.direct;
+}
+
+/**
  * Resolves credentials for BACKGROUND completions (title generation,
  * summarization, compression, notepad consolidation). These use cheap
  * Hack Club models by default; when the user has no Hack Club key we fall

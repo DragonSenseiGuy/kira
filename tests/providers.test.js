@@ -19,6 +19,7 @@ import {
   findCustomProvider,
   resolveChatTarget,
   resolveCompletionCredentials,
+  hasUsableCredentials,
   isKnownModelId,
   normalizeFullModel,
   getConfiguredProviders,
@@ -514,5 +515,46 @@ describe("buildAllModelGroups", () => {
     const target = resolveChatTarget(settings);
     expect(target.direct).toBe(true);
     expect(target.upstreamBaseUrl).toBe("http://localhost:11434/v1");
+  });
+});
+
+describe("hasUsableCredentials", () => {
+  const withProvider = (provider) => ({
+    active_provider_id: provider.id,
+    selected_model_id: buildCustomModelId(provider.id, "m"),
+    custom_providers: [provider],
+  });
+
+  it("is false with nothing configured", () => {
+    expect(hasUsableCredentials({})).toBe(false);
+    expect(hasUsableCredentials(undefined)).toBe(false);
+  });
+
+  it("is true with a Hack Club key", () => {
+    expect(hasUsableCredentials({ custom_api_key: "sk-hc" })).toBe(true);
+  });
+
+  it("is true for an active custom provider with its own key, without a Hack Club key", () => {
+    const settings = withProvider({ id: "pr_a", baseUrl: "https://api.example.com/v1", apiKey: "sk-a" });
+    expect(hasUsableCredentials(settings)).toBe(true);
+  });
+
+  it("is true for a keyless loopback provider", () => {
+    const settings = withProvider({ id: "pr_l", baseUrl: "http://localhost:11434/v1", apiKey: "" });
+    expect(hasUsableCredentials(settings)).toBe(true);
+  });
+
+  it("is false for a remote custom provider with no key", () => {
+    const settings = withProvider({ id: "pr_r", baseUrl: "https://api.example.com/v1", apiKey: "" });
+    expect(hasUsableCredentials(settings)).toBe(false);
+  });
+
+  it("ignores a custom provider's key while Hack Club is the active provider", () => {
+    const settings = {
+      active_provider_id: HACKCLUB_PROVIDER_ID,
+      selected_model_id: "some/model",
+      custom_providers: [{ id: "pr_a", baseUrl: "https://api.example.com/v1", apiKey: "sk-a" }],
+    };
+    expect(hasUsableCredentials(settings)).toBe(false);
   });
 });
