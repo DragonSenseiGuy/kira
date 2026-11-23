@@ -145,7 +145,14 @@ export function createMarkdownInstance(options = {}) {
 
   if (enableKatex) {
     md.use(markdownItTexmath, {
-      engine: katex,
+      engine: {
+        renderToString(source, options) {
+          return katex.renderToString(source, options).replace(
+            '<span class="katex">',
+            () => `<span class="katex" data-katex-source="${md.utils.escapeHtml(source)}">`,
+          );
+        },
+      },
       delimiters: ["dollars", "brackets"],
       katexOptions: {
         throwOnError: false,

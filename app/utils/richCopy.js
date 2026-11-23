@@ -1,3 +1,5 @@
+import { mathSource } from "./mathSource";
+
 /**
  * Builds the HTML put on the clipboard next to a reply's Markdown source, so a
  * paste into a document or an email keeps headings, lists, tables and code.
@@ -13,8 +15,8 @@ export function clipboardHtml(elements) {
       copy.querySelectorAll(".code-block-header, button").forEach((node) => node.remove());
       // Rendered math pastes as scrambled glyphs; its TeX source reads better.
       copy.querySelectorAll(".katex").forEach((node) => {
-        const tex = node.querySelector('annotation[encoding="application/x-tex"]');
-        if (tex) node.replaceWith(copy.ownerDocument.createTextNode(tex.textContent));
+        const tex = mathSource(node);
+        if (tex != null) node.replaceWith(copy.ownerDocument.createTextNode(tex));
       });
       return copy.innerHTML.trim();
     })

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { clipboardHtml, copyRichText } from "~/utils/richCopy";
+import { md } from "~/utils/markdown";
 
 function block(html) {
   const element = document.createElement("div");
@@ -27,6 +28,11 @@ describe("clipboardHtml", () => {
       ),
     ]);
     expect(html).toBe("<p>Area: \\pi r^2</p>");
+  });
+
+  it("copies TeX source as text after Markdown sanitization", () => {
+    const html = clipboardHtml([block(md.render("Area: $\\pi r^2 < 1$"))]);
+    expect(html).toBe("<p>Area: \\pi r^2 &lt; 1</p>");
   });
 
   it("joins the blocks of one reply and leaves the page untouched", () => {

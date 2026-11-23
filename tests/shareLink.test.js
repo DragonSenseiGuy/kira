@@ -144,7 +144,11 @@ describe("buildShareLink limits", () => {
 describe("untrustedMd", () => {  it("turns images into links instead of loading them", () => {
     const html = untrustedMd.render('![a "cat"](https://tracker.example/p.png?x=1&y=2)');
     expect(html).not.toMatch(/<img/i);
-    expect(html).toContain('<a href="https://tracker.example/p.png?x=1&amp;y=2" target="_blank" rel="noopener noreferrer">a &quot;cat&quot;</a>');
+    const link = new DOMParser().parseFromString(html, "text/html").querySelector("a");
+    expect(link.getAttribute("href")).toBe("https://tracker.example/p.png?x=1&y=2");
+    expect(link.target).toBe("_blank");
+    expect(link.rel).toBe("noopener noreferrer");
+    expect(link.textContent).toBe('a "cat"');
   });
 
   it("keeps an image inside a link as that link's label", () => {

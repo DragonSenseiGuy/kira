@@ -240,6 +240,17 @@ describe("what must keep working", () => {
     expect(mermaid.querySelector("pre code").textContent).toBe("graph TD; A-->B;\n");
   });
 
+  it("keeps preview and table toolbar handlers through sanitization", () => {
+    const el = dom("```mermaid\ngraph TD; A-->B;\n```\n\n| A |\n| --- |\n| B |");
+    expect(el.querySelector('button[title="Toggle preview"]').getAttribute("onclick"))
+      .toBe("window.togglePreview(event.currentTarget)");
+    expect(el.querySelector('button[title="Copy table"]').getAttribute("onclick"))
+      .toBe("window.copyTable(event.currentTarget)");
+    expect(el.querySelector('button[title="Download as CSV"]').getAttribute("onclick"))
+      .toBe("window.downloadTable(event.currentTarget)");
+    expect(el.querySelector("[data-trusted-handler]")).toBeNull();
+  });
+
   it("does not let a language label break out of the code block", () => {
     const el = dom('```"><img/src=x/onerror=alert(1)>\nx\n```');
     expectInert(el);

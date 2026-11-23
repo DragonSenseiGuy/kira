@@ -317,8 +317,11 @@ function findScrollContainer() {
 
 const scrollToEnd = (behavior = "instant") => {
   const container = cachedScrollContainer || chatWrapper.value;
-  if (container) {
+  if (!container) return;
+  if (typeof container.scrollTo === 'function') {
     container.scrollTo({ top: container.scrollHeight, behavior: motionSafeScroll(behavior) });
+  } else {
+    container.scrollTop = container.scrollHeight;
   }
 };
 
