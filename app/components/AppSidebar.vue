@@ -48,6 +48,7 @@ const {
   togglePin,
   toggleArchive,
   handleDelete,
+  exportMarkdown,
   startRename,
   cancelRename,
   saveRename,
@@ -289,6 +290,10 @@ function handleMiddleClickNewChat(e) {
                         height="16"
                       />
                       <span>{{ data.archived ? 'Unarchive' : 'Archive' }}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem class="conversation-menu-item" @select="exportMarkdown(data.id, data.title)">
+                      <Icon icon="material-symbols:download" width="16" height="16" />
+                      <span>Export as Markdown</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem class="conversation-menu-item delete-item" @select="handleDelete(data.id)">
                       <Icon icon="material-symbols:delete" width="16" height="16" />

@@ -24,6 +24,7 @@ Kira does **not** sell user information. Chats stay on your device by default; i
 - Voice dictation into the composer (in browsers with the Web Speech API)
 - Read assistant messages aloud (in browsers with speech synthesis)
 - Inline, sandboxed previews for HTML and SVG code blocks
+- Export any chat as a Markdown file
 
 ## Todo
 

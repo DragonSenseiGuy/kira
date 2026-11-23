@@ -1,7 +1,8 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import localforage from "localforage";
 import { emitter } from "./emitter";
-import { deleteConversation as deleteConv } from "./storeConversations";
+import { deleteConversation as deleteConv, loadConversation } from "./storeConversations";
+import { downloadConversationMarkdown } from "~/utils/conversationMarkdown";
 
 /**
  * Groups conversations by time periods
@@ -200,6 +201,17 @@ export function useConversationsList() {
     }
   }
 
+  // Download one conversation as a Markdown file
+  async function exportMarkdown(id, title) {
+    try {
+      const conversation = await loadConversation(id);
+      if (!conversation) return;
+      downloadConversationMarkdown({ ...conversation, title });
+    } catch (error) {
+      console.error("Error exporting conversation:", error);
+    }
+  }
+
   // Rename functions
   function startRename(id, currentTitle) {
     renamingId.value = id;
@@ -265,6 +277,7 @@ export function useConversationsList() {
     togglePin,
     toggleArchive,
     handleDelete,
+    exportMarkdown,
     startRename,
     cancelRename,
     saveRename,
