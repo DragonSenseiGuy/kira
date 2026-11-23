@@ -11,6 +11,7 @@ import DEFAULT_PARAMETERS from './defaultParameters';
 import { useSettings } from './useSettings';
 import { useGlobalIncognito } from './useGlobalIncognito';
 import { emitter } from './emitter';
+import { holdLeaveGuard } from './leaveGuard';
 import { resolveChatTarget } from './providers';
 import {
   setActiveConversation,
@@ -254,6 +255,7 @@ export function useMessagesManager(chatPanel) {
     controller.value = new AbortController();
     const { signal: stopSignal } = controller.value;
     isLoading.value = true;
+    const releaseLeaveGuard = holdLeaveGuard();
     // Scope the file workspace to this conversation (null while incognito).
     setActiveConversation(isIncognito.value ? null : currConvo.value || null);
     isTyping.value = false;
@@ -282,6 +284,7 @@ export function useMessagesManager(chatPanel) {
           errorDetails: { name: 'StorageError', message: 'Failed to create conversation' }
         });
         isLoading.value = false;
+        releaseLeaveGuard();
         return;
       }
       if (currConvo.value) {
@@ -311,6 +314,7 @@ export function useMessagesManager(chatPanel) {
         complete: true
       });
       isLoading.value = false;
+      releaseLeaveGuard();
       return;
     }
 
@@ -572,8 +576,12 @@ export function useMessagesManager(chatPanel) {
       }
 
       // Store messages if not in incognito mode
-      if (!isIncognito.value) {
-        await storeMessages(currConvo.value, toRaw(messages.value), new Date());
+      try {
+        if (!isIncognito.value) {
+          await storeMessages(currConvo.value, toRaw(messages.value), new Date());
+        }
+      } finally {
+        releaseLeaveGuard();
       }
 
       // Fire-and-forget: suggest what to ask next (opt-in). Not after an
