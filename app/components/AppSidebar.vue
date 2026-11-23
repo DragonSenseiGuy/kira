@@ -13,6 +13,7 @@ import { useConversationsList } from "~/composables/useConversationsList";
 import { useSettings } from "~/composables/useSettings";
 import { useKeybinds } from "~/composables/useKeybinds";
 import { adjacentChatId } from "~/utils/chatNavigation";
+import { sidebarArrowTarget } from "~/utils/sidebarKeys";
 import { useAuth } from "~/composables/useAuth";
 import { hasUsableCredentials } from "~/composables/providers";
 import { loadConversation } from "~/composables/storeConversations";
@@ -210,6 +211,46 @@ useKeybinds({
   previous_chat: () => openAdjacentChat(-1),
   next_chat: () => openAdjacentChat(1),
 });
+
+//-- Keyboard: search field and chat list
+
+const searchInput = ref(null);
+
+function chatLinks() {
+  return [...document.querySelectorAll(".conversation-list .conversation-button")];
+}
+
+function moveSidebarFocus(event) {
+  // With a modifier the arrows select text or belong to a shortcut.
+  if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
+  const target = sidebarArrowTarget(event.key, event.target, searchInput.value, chatLinks());
+  if (!target) return;
+  event.preventDefault();
+  target.focus();
+}
+
+function handleSearchKeydown(event) {
+  // Closing the sidebar can leave focus in the now hidden field.
+  if (event.isComposing || !props.isOpen) return;
+  if (event.key === "Escape" && searchQuery.value) {
+    event.preventDefault();
+    event.stopPropagation();
+    clearSearch();
+  } else if (event.key === "Enter" && searchQuery.value.trim()) {
+    // Open the top result.
+    const first = chatLinks()[0];
+    if (first) {
+      event.preventDefault();
+      first.click();
+    }
+  } else {
+    moveSidebarFocus(event);
+  }
+}
+
+function handleListKeydown(event) {
+  if (event.target.matches?.(".conversation-button")) moveSidebarFocus(event);
+}
 </script>
 
 <template>
@@ -265,8 +306,10 @@ useKeybinds({
         <input
           v-model="searchQuery"
           type="text"
+          ref="searchInput"
           class="search-input"
           placeholder="Search chats"
+          @keydown="handleSearchKeydown"
         />
         <UiIconButton
           v-if="searchQuery"
@@ -296,7 +339,7 @@ useKeybinds({
         />
 
         <!-- Grouped conversation list -->
-        <div v-else class="conversation-list">
+        <div v-else class="conversation-list" @keydown="handleListKeydown">
           <template v-for="(group, index) in groupedConversations" :key="group.key">
             <!-- Group Header -->
             <div class="group-header">
