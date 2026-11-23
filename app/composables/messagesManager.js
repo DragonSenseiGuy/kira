@@ -180,7 +180,8 @@ export function useMessagesManager(chatPanel) {
       reasoningDuration: null,
       error: false,
       errorDetails: null,
-      annotations: null
+      annotations: null,
+      modelName: null
     };
 
     messages.value.push(assistantMsg);
@@ -310,6 +311,11 @@ export function useMessagesManager(chatPanel) {
       isLoading.value = false;
       return;
     }
+
+    // Kept on the message so the chat can show which model wrote each reply.
+    updateAssistantMessage(assistantMsg, {
+      modelName: String(selectedModelDetails.name || selectedModelDetails.id || "").slice(0, 255) || null
+    });
 
     // Construct model parameters
     const reasoningConfig = normalizeReasoningConfig(selectedModelDetails);
