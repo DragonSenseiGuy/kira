@@ -1,5 +1,6 @@
 import { useFollowUps } from './useFollowUps';
 import { notifyReplyFinished } from "../utils/replyNotification";
+import { isTruncated } from "../utils/continueReply";
 import { ref, computed, nextTick, onMounted, onUnmounted, toRaw } from 'vue';
 import { useRouter } from 'vue-router';
 import localforage from 'localforage';
@@ -467,6 +468,10 @@ export function useMessagesManager(chatPanel) {
         }
 
         // Process annotations
+        if (chunk.complete && isTruncated(chunk.finishReason)) {
+          assistantMsg.truncated = true;
+        }
+
         if (chunk.annotations) {
           assistantMsg.annotations = chunk.annotations;
         }
@@ -516,7 +521,8 @@ export function useMessagesManager(chatPanel) {
         complete: true,
         completionTime: new Date(),
         reasoningDuration: timing.calculateReasoningDuration(),
-        tool_calls: currentToolCalls
+        tool_calls: currentToolCalls,
+        ...(assistantMsg.truncated ? { truncated: true } : {})
       };
 
       Object.assign(assistantMsg, finalUpdates);

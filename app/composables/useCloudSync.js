@@ -1,4 +1,5 @@
 import { mergeMetadataEntries } from "~/utils/conversationMetadata";
+import { keepTruncated } from "../utils/continueReply";
 import localforage from "localforage";
 import { ref } from "vue";
 import { emitter } from "~/composables/emitter";
@@ -208,10 +209,14 @@ export function useCloudSync() {
         const full = await cloudLoadConversation(summary.id);
         if (!full) continue;
 
+        const stored = local
+          ? await localforage.getItem(`conversation_${full.id}`)
+          : null;
+
         await localforage.setItem(`conversation_${full.id}`, {
           title: full.title,
           lastUpdated: full.lastUpdated,
-          messages: full.messages || [],
+          messages: keepTruncated(full.messages || [], stored?.messages),
           branchPath: full.branchPath || [],
         });
 

@@ -1,5 +1,6 @@
 <script setup>
 import { useFollowUps } from '~/composables/useFollowUps';
+import { CONTINUE_PROMPT, continuableMessageId } from "../utils/continueReply";
 import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from "vue";
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
@@ -222,6 +223,12 @@ const messages = normalizedMessages;
 function timeOf(message) {
   const time = messageTime(message.timestamp);
   return time ? [time] : [];
+}
+
+const continuableId = computed(() => continuableMessageId(messages.value, props.isLoading));
+
+function continueReply() {
+  emit("send-message", CONTINUE_PROMPT);
 }
 
 // Phase 2.2: Cached message stats with caching for complete messages
@@ -1028,6 +1035,13 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                 v-if="message.role === 'assistant' && message.complete"
                 :sources="sourcesOf(message)"
               />
+              <div v-if="continuableId === message.id" class="continue-reply" role="status">
+                <span>This reply reached the model's length limit.</span>
+                <button type="button" class="continue-reply-btn" @click="continueReply">
+                  <Icon icon="material-symbols:play-arrow-rounded" width="16" height="16" />
+                  Continue
+                </button>
+              </div>
               <div class="message-content-footer" :class="{ 'user-footer': message.role === 'user' }">
                 <div class="footer-left-actions">
                   <UiTooltip content="Copy message">
@@ -2103,5 +2117,37 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.continue-reply {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 10px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.continue-reply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.continue-reply-btn:hover {
+  background: var(--stripe-bg);
+}
+
+.continue-reply-btn:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
 }
 </style>

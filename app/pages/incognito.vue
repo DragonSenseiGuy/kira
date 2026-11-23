@@ -13,6 +13,7 @@
         :is-incognito="isIncognito"
         @set-message="text => messageFormRef?.setMessage(text)"
         @quote-message="text => messageFormRef?.quoteText(text)"
+        @send-message="text => sendMessage(text, null, [], settingsManager.settings?.search_enabled ?? false)"
         @scroll="handleChatScroll"
       />
       <MessageForm

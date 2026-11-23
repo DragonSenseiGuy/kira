@@ -31,6 +31,7 @@ Kira does **not** sell user information. Chats stay on your device by default; i
 - Inline, sandboxed previews for HTML and SVG code blocks, and Mermaid diagrams
 - Export any chat as a Markdown file
 - Optional desktop notification when a reply finishes in the background
+- Continue a reply that hit the model's length limit
 
 ## Todo
 

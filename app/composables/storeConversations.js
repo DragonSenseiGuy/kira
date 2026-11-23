@@ -44,6 +44,7 @@ function serializeMessage(msg) {
     baseMessage.apiCallTime = msg.apiCallTime;
     baseMessage.firstTokenTime = msg.firstTokenTime;
     baseMessage.completionTime = msg.completionTime;
+    if (msg.truncated) baseMessage.truncated = true;
     baseMessage.tokenCount = msg.tokenCount;
     baseMessage.totalTokens = msg.totalTokens;
     baseMessage.promptTokens = msg.promptTokens;

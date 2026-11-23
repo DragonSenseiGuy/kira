@@ -614,6 +614,7 @@ export async function* handleIncomingMessage(
       finalToolCalls: accumulator.getCompletedToolCalls(),
       usage: accumulator.usage,
       annotations: accumulator.annotations,
+      finishReason: accumulator.finishReason,
     };
 
   } catch (error) {
