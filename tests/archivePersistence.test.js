@@ -15,6 +15,7 @@ vi.mock("~/composables/useAuth", () => ({
 import { mergeMetadataEntries } from "../app/utils/conversationMetadata.js";
 import { storeMessages } from "../app/composables/storeConversations.js";
 import { useCloudSync } from "../app/composables/useCloudSync.js";
+import { groupConversations } from "../app/composables/useConversationsList.js";
 
 const json = (body) => ({ ok: true, json: async () => body });
 
@@ -51,6 +52,27 @@ describe("storeMessages", () => {
       id: "a", title: "Trip", lastUpdated: "2026-02-02T00:00:00Z", createdAt: "2026-01-01T00:00:00Z", archived: true,
     });
     expect(metadata.find((m) => m.id === "b").pinned).toBe(true);
+  });
+
+  it("keeps legacy chats in creation order when the older chat finishes last", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({})));
+    const now = Date.now();
+    const opened = [120000, 60000].map((age) => new Date(now - age).toISOString());
+    const [older, newer] = ["older", "newer"].map((id, index) => {
+      const messages = [{ id: `${id}-m`, role: "user", content: "hi", timestamp: opened[index] }];
+      const metadata = { id, title: id, lastUpdated: opened[index] };
+      store.set(`conversation_${id}`, { ...metadata, messages });
+      return { metadata, messages };
+    });
+    store.set("conversations_metadata", [older.metadata, newer.metadata]);
+
+    await storeMessages("newer", newer.messages, new Date(now));
+    await storeMessages("older", older.messages, new Date(now + 1000));
+
+    const metadata = store.get("conversations_metadata");
+    expect(metadata.map((chat) => chat.createdAt)).toEqual(opened);
+    expect(groupConversations(metadata).flatMap((group) => group.conversations.map((chat) => chat.id)))
+      .toEqual(["newer", "older"]);
   });
 });
 

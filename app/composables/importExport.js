@@ -10,6 +10,7 @@ import localforage from "localforage";
 import { zipSync, unzipSync, strFromU8, strToU8 } from "fflate";
 import { emitter } from "~/composables/emitter";
 import { loadNotepad, saveNotepad } from "~/composables/notepad";
+import { getConversationCreatedAt } from "~/utils/conversationMetadata";
 import packageJson from "../../package.json";
 
 export const EXPORT_FORMAT = "kira-export";
@@ -410,7 +411,12 @@ export async function persistImportedChats(chats, mode) {
     }
 
     await localforage.setItem(`conversation_${chat.id}`, chat);
-    metadataMap.set(chat.id, { id: chat.id, title: chat.title || "Untitled", lastUpdated: chat.lastUpdated });
+    metadataMap.set(chat.id, {
+      id: chat.id,
+      title: chat.title || "Untitled",
+      lastUpdated: chat.lastUpdated,
+      createdAt: getConversationCreatedAt(chat),
+    });
     importedIds.add(chat.id);
     if (existing) replacedCount++;
     else importedCount++;
@@ -633,6 +639,7 @@ function normalizeChat(chat) {
   return {
     id: typeof chat.id === "string" ? chat.id : generateId(),
     title: typeof chat.title === "string" ? chat.title : "Imported chat",
+    ...(chat.createdAt ? { createdAt: chat.createdAt } : {}),
     lastUpdated: chat.lastUpdated ? new Date(chat.lastUpdated).toISOString() : new Date().toISOString(),
     messages: Array.isArray(chat.messages) ? chat.messages : [],
     branchPath: Array.isArray(chat.branchPath) ? chat.branchPath : [],
