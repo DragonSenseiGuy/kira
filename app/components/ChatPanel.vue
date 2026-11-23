@@ -11,6 +11,7 @@ import { copyTable, downloadTable } from '../utils/tableActions';
 import CollapsibleText from './CollapsibleText.vue';
 import { lastCopyableReply } from '../utils/lastReply';
 import { useKeybinds } from '../composables/useKeybinds';
+import { clipboardHtml, copyRichText } from '../utils/richCopy';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import { messageSources } from '../utils/messageSources';
 import MessageSources from './MessageSources.vue';
@@ -623,8 +624,14 @@ watch(() => props.currMessages, (visibleMessages) => {
 function copyMessage(message, event) {
   const button = event.currentTarget;
   const textToCopy = getMessageCopyText(message);
+  // A finished reply also goes on the clipboard as formatted text. A question
+  // is plain text already, and a reply still streaming is only partly rendered.
+  const rendered = message.role === 'assistant' && message.complete
+    ? button.closest('.message-content-footer')?.parentElement?.querySelectorAll('.part-content > .markdown-content')
+    : null;
+  const html = rendered ? clipboardHtml([...rendered]) : '';
 
-  navigator.clipboard.writeText(textToCopy).then(() => {
+  copyRichText(textToCopy, html).then(() => {
     // Visual feedback - temporarily change button to success state
     button.classList.add('copied');
 
