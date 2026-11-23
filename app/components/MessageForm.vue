@@ -286,8 +286,9 @@ function onArrowRight(e) {
   setCaret(span.end);
 }
 
-function onTabSelect() {
+function onTabSelect(event) {
   if (mentionOpen.value && mentionItems.value.length) {
+    event.preventDefault();
     pickMention(mentionItems.value[mentionActive.value] || mentionItems.value[0]);
   }
 }
@@ -495,15 +496,13 @@ function handleEnterKey(event) {
   }
   if (typeof window !== 'undefined' && window.innerWidth >= 768 && !event.shiftKey) {
     event.preventDefault(); // Prevent default newline behavior on desktop
+    // While a reply is streaming the next message can be written but not
+    // sent: Enter keeps the text until the reply is finished or stopped.
     if (!props.isLoading) {
       submitMessage();
     }
   }
   // On mobile or with Shift key, allow the default behavior (newline).
-  // Prevent submission during loading
-  if (props.isLoading && !event.shiftKey) {
-    event.preventDefault();
-  }
 }
 
 // --- Core Logic ---
@@ -807,6 +806,19 @@ useKeybinds({
   },
 });
 
+// Sending the first message of a chat navigates to that chat, which mounts a
+// new form just before the reply starts. Put the caret back so the next
+// message can be typed straight away. Desktop only: on a phone it would open
+// the keyboard over the reply.
+watch(
+  () => props.isLoading,
+  (loading) => {
+    if (!loading || window.innerWidth < 768) return;
+    const active = document.activeElement;
+    if (!active || active === document.body) textareaRef.value?.focus();
+  },
+);
+
 // Expose the setMessage function to be called from the parent component
 defineExpose({ setMessage, quoteText, toggleReasoning, setReasoningEffort, toggleSearch, $el: messageFormRoot });
 </script>
@@ -909,7 +921,6 @@ defineExpose({ setMessage, quoteText, toggleReasoning, setReasoningEffort, toggl
         <textarea
           ref="textareaRef"
           v-model="inputMessage"
-          :disabled="isLoading"
           :class="{ 'text-hidden': mirrorVisible }"
           @keydown.enter="handleEnterKey"
           @keydown.down.prevent="mentionActive >= 0 && mentionMove(1)"
@@ -919,7 +930,7 @@ defineExpose({ setMessage, quoteText, toggleReasoning, setReasoningEffort, toggl
           @keydown.delete="onDeleteKey"
           @keydown.left="onArrowLeft"
           @keydown.right="onArrowRight"
-          @keydown.tab.prevent="onTabSelect"
+          @keydown.tab="onTabSelect"
           @compositionstart="onCompositionStart"
           @compositionend="onCompositionEnd"
           @input="handleInput"

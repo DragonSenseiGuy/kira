@@ -108,10 +108,11 @@ globalThis.ResizeObserver = globalThis.ResizeObserver || class {
 
 import MessageForm from "~/components/MessageForm.vue";
 
-function mountForm() {
+function mountForm(props = {}) {
   return mount(MessageForm, {
     props: {
       isLoading: false,
+      ...props,
       selectedModelId: "",
       models: [],
       settingsManager: { settings: {}, saveSettings: vi.fn() },
@@ -319,5 +320,78 @@ describe("MessageForm — voice dictation", () => {
     await alert.find(".dismiss-error").trigger("click");
     expect(wrapper.find("[role=alert]").exists()).toBe(false);
     delete globalThis.webkitSpeechRecognition;
+  });
+});
+
+describe("writing the next message while a reply is streaming", () => {
+  function pressEnter(ta, init = {}) {
+    const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, ...init });
+    ta.element.dispatchEvent(event);
+    return event;
+  }
+
+  it("leaves the textarea editable", async () => {
+    const wrapper = mountForm({ isLoading: true });
+    const ta = await type(wrapper, "next question");
+    expect(ta.element.disabled).toBe(false);
+    expect(ta.element.value).toBe("next question");
+  });
+
+  it("does not send or lose the text on Enter until the reply is done", async () => {
+    const wrapper = mountForm({ isLoading: true });
+    const ta = await type(wrapper, "next question");
+
+    const blocked = pressEnter(ta);
+    await flushPromises();
+    expect(blocked.defaultPrevented).toBe(true);
+    expect(wrapper.emitted("send-message")).toBeUndefined();
+    expect(ta.element.value).toBe("next question");
+
+    await wrapper.setProps({ isLoading: false });
+    pressEnter(ta);
+    await flushPromises();
+    expect(wrapper.emitted("send-message")).toHaveLength(1);
+    expect(wrapper.emitted("send-message")[0][0]).toBe("next question");
+  });
+
+  it("still lets Shift+Enter add a line", async () => {
+    const wrapper = mountForm({ isLoading: true });
+    const ta = await type(wrapper, "line one");
+    expect(pressEnter(ta, { shiftKey: true }).defaultPrevented).toBe(false);
+  });
+
+  it("takes focus when a reply starts, unless something else has it", async () => {
+    const wrapper = mount(MessageForm, { attachTo: document.body, props: mountForm().props() });
+    const textarea = wrapper.find("textarea").element;
+    expect(document.activeElement).not.toBe(textarea);
+
+    await wrapper.setProps({ isLoading: true });
+    expect(document.activeElement).toBe(textarea);
+
+    await wrapper.setProps({ isLoading: false });
+    const other = document.createElement("input");
+    document.body.appendChild(other);
+    other.focus();
+    await wrapper.setProps({ isLoading: true });
+    expect(document.activeElement).toBe(other);
+
+    other.remove();
+    wrapper.unmount();
+  });
+
+  it("lets Tab leave the textarea so Stop can be reached from the keyboard", async () => {
+    const wrapper = mountForm({ isLoading: true });
+    const event = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    wrapper.find("textarea").element.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("keeps the main button as Stop while streaming", async () => {
+    const wrapper = mountForm({ isLoading: true });
+    await type(wrapper, "next question");
+    await wrapper.find(".send-btn").trigger("click");
+    expect(wrapper.emitted("abort-controller")).toHaveLength(1);
+    expect(wrapper.emitted("send-message")).toBeUndefined();
   });
 });
