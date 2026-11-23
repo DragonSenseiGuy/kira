@@ -1,8 +1,12 @@
+// The standalone Mermaid build, served as a file of its own (not bundled).
+import mermaidScriptUrl from "mermaid/dist/mermaid.min.js?url";
+
 // Shared utility functions for code blocks
 const langExtMap = {
   python: "py",
   javascript: "js",
   typescript: "ts",
+  mermaid: "mmd",
   html: "html",
   htm: "html",
   svg: "svg",
@@ -78,7 +82,7 @@ export function downloadCode(button, lang) {
   URL.revokeObjectURL(url);
 }
 
-const PREVIEWABLE_LANGS = new Set(["html", "htm", "svg"]);
+const PREVIEWABLE_LANGS = new Set(["html", "htm", "svg", "mermaid"]);
 
 /** True for code-block languages that can be rendered as a page. */
 export function isPreviewableLang(lang) {
@@ -94,6 +98,26 @@ const PREVIEW_ANCHOR_SCRIPT = `<script>document.addEventListener("click",functio
 export function buildPreviewDocument(lang, code) {
   if (String(lang).toLowerCase() !== "svg") return code + PREVIEW_ANCHOR_SCRIPT;
   return `<!doctype html><html><body style="margin:0;min-height:100vh;display:grid;place-items:center">${code}</body></html>`;
+}
+
+/**
+ * Builds the page that draws a Mermaid diagram inside the preview frame.
+ *
+ * The diagram source is model output, so Mermaid itself runs in the frame,
+ * never in the app page: `scriptUrl` is the standalone Mermaid build, which
+ * the frame loads on its own. The source is embedded as a JS string.
+ */
+export function buildMermaidDocument(code, scriptUrl) {
+  const source = JSON.stringify(String(code)).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+  const src = String(scriptUrl).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  return `<!doctype html><html><body style="margin:0;min-height:100vh;display:grid;place-items:center;font:14px system-ui,sans-serif">
+<div id="diagram">Drawing the diagram…</div>
+<script>
+function fail(message){var d=document.getElementById("diagram");d.textContent="";var b=document.createElement("strong");b.style.color="#b00020";b.textContent="This diagram could not be drawn.";var p=document.createElement("pre");p.style.whiteSpace="pre-wrap";p.textContent=message;d.append(b,p)}
+function draw(){mermaid.initialize({startOnLoad:false,securityLevel:"strict",theme:"default"});mermaid.render("diagram-svg",${source}).then(function(r){document.getElementById("diagram").innerHTML=r.svg},function(e){var s=document.getElementById("ddiagram-svg");if(s)s.remove();fail(e&&e.message||String(e))})}
+<\/script>
+<script src="${src}" onload="draw()" onerror="fail('The diagram renderer could not be loaded.')"><\/script>
+</body></html>`;
 }
 
 /**
@@ -121,12 +145,19 @@ export function togglePreview(button) {
     return;
   }
 
+  const lang = wrapper.dataset.lang;
+  const code = codeEl.textContent;
+  const page =
+    String(lang).toLowerCase() === "mermaid"
+      ? buildMermaidDocument(code, new URL(mermaidScriptUrl, document.baseURI).href)
+      : buildPreviewDocument(lang, code);
+
   const frame = document.createElement("iframe");
   frame.className = "code-preview-frame";
   frame.setAttribute("sandbox", "allow-scripts");
   frame.setAttribute("referrerpolicy", "no-referrer");
   frame.setAttribute("title", "Code preview");
-  frame.setAttribute("srcdoc", buildPreviewDocument(wrapper.dataset.lang, codeEl.textContent));
+  frame.setAttribute("srcdoc", page);
   wrapper.appendChild(frame);
   pre.hidden = true;
   if (label) label.textContent = "Code";
