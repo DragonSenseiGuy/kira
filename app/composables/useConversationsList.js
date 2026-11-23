@@ -136,10 +136,23 @@ export function useConversationsList() {
   // Listen for updates from other parts of the app
   emitter.on("updateConversations", updateConversations);
 
+  // The command palette acts on the open chat without knowing its title.
+  function renameById(id) {
+    const conversation = metadata.value.find(conv => conv.id === id);
+    if (!conversation) return;
+    // A search that hides the chat would leave no title field to type in.
+    searchQuery.value = "";
+    startRename(id, conversation.title);
+  }
+  emitter.on("renameConversation", renameById);
+  emitter.on("togglePinConversation", togglePin);
+
   onBeforeUnmount(() => {
     emitter.off("updateConversations", updateConversations);
     clearTimeout(searchTimer);
     searchRun++;
+    emitter.off("renameConversation", renameById);
+    emitter.off("togglePinConversation", togglePin);
   });
 
   // Computed: Filter conversations by search query

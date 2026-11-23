@@ -62,6 +62,7 @@ import { useLayoutRouteWatch } from '~/composables/useLayoutRouteWatch';
 import { useDeveloperMode } from '~/composables/useDeveloperMode';
 import { useDock } from '~/composables/useDock';
 import { useTopBarTitle } from '~/composables/useTopBarTitle';
+import { emitter } from '~/composables/emitter';
 
 import AppSidebar from '~/components/AppSidebar.vue'
 import WorkspacePanel from '~/components/WorkspacePanel.vue'
@@ -154,7 +155,8 @@ const topBarTitle = useTopBarTitle();
 const isTyping = ref(false); // Typing state
 
 // Show the per-chat export button only when viewing a specific chat
-const canExport = computed(() => !!route.params.id && route.path !== '/incognito');
+// A project page also has an id param, but it names a project, not a chat.
+const canExport = computed(() => !!route.params.id && route.path !== '/incognito' && !route.path.startsWith('/projects/'));
 
 // Use the global scroll status instead of local state
 const isScrolledTop = computed(() => getIsScrolledTop.value); // Track if chat is scrolled to the top
@@ -340,6 +342,22 @@ const paletteCommands = computed(() => {
       keywords: ['save', 'zip', 'download', 'backup'],
       run: handleExportChat,
     },
+    {
+      id: 'rename-chat',
+      when: () => canExport.value,
+      label: 'Rename this chat',
+      icon: 'material-symbols:edit-outline',
+      keywords: ['title', 'name'],
+      run: renameCurrentChat,
+    },
+    {
+      id: 'pin-chat',
+      when: () => canExport.value,
+      label: 'Pin or unpin this chat',
+      icon: 'material-symbols:keep-outline',
+      keywords: ['favorite', 'star', 'keep'],
+      run: () => emitter.emit('togglePinConversation', route.params.id),
+    },
   ];
 
   // One list in display order: a command's visibility rule sits on the
@@ -348,6 +366,14 @@ const paletteCommands = computed(() => {
 });
 
 //-- Keyboard shortcuts
+
+function renameCurrentChat() {
+  const id = route.params.id;
+  sidebarOpen.value = true;
+  // The palette hands focus back as it closes; start once that has happened,
+  // or the title field would lose focus and save straight away.
+  setTimeout(() => emitter.emit('renameConversation', id), 100);
+}
 
 function openShortcutHelp() {
   openSettingsPanel('keybinds');

@@ -121,6 +121,11 @@ function onRenameKeydown(event, id) {
   handleRenameKeydown(event, id);
 }
 watch(renamingId, async (id, previous) => {
+  if (id) {
+    const conversation = metadata.value.find(conv => conv.id === id);
+    if (conversation?.archived) isArchivedExpanded.value = true;
+    else if (conversation?.pinned) isPinnedExpanded.value = true;
+  }
   await nextTick();
   if (!id) {
     // Enter or Escape removed the field that had focus; hand it back to the
@@ -203,7 +208,8 @@ function handleMiddleClickNewChat(e) {
   }
 }
 function openAdjacentChat(step) {
-  const id = adjacentChatId(groupedConversations.value, route.params.id, step, isPinnedExpanded.value);
+  const visibleGroups = groupedConversations.value.filter(group => isGroupExpanded(group.key));
+  const id = adjacentChatId(visibleGroups, route.params.id, step);
   if (id) router.push(`/${id}`);
 }
 
