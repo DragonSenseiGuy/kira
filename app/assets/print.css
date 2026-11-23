@@ -37,6 +37,10 @@
     display: none !important;
   }
 
+  .chat-container {
+    padding-bottom: 0 !important;
+  }
+
   /* Hover-revealed and animated content must not print half-faded. */
   .message,
   .message * {
