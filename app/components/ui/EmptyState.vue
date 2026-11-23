@@ -52,6 +52,8 @@ defineProps({
 
 .ui-empty__desc {
   margin: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   max-width: 40ch;
   font-size: 0.82rem;
   color: var(--text-secondary);

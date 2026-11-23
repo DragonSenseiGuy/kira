@@ -344,8 +344,10 @@ function handleListKeydown(event) {
           v-else-if="isSearching && !groupedConversations.length"
           icon="material-symbols:search"
           title="No results found"
-          description="Try a different search term"
-        />
+          :description="`Nothing matches “${searchQuery.trim()}”`"
+        >
+          <button type="button" class="empty-search-clear" @click="clearSearch">Clear search</button>
+        </UiEmptyState>
 
         <!-- Grouped conversation list -->
         <div v-else class="conversation-list" @keydown="handleListKeydown">
@@ -855,6 +857,21 @@ function handleListKeydown(event) {
   background: none;
   color: var(--primary);
   font-weight: 600;
+}
+
+.empty-search-clear {
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.empty-search-clear:hover {
+  background: var(--btn-hover);
 }
 
 .pin-icon {
