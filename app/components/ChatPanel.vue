@@ -1083,6 +1083,22 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper, editLastUserM
                   Continue
                 </button>
               </div>
+              <div
+                v-if="message.role === 'assistant' && message.error && message.complete && !isLoading"
+                class="reply-failed"
+                role="status"
+              >
+                <span class="reply-failed-text">This reply did not finish.</span>
+                <UiButton
+                  class="retry-button"
+                  variant="secondary"
+                  size="sm"
+                  icon="material-symbols:refresh-rounded"
+                  @click="regenerateMessage(message.id)"
+                >
+                  Try again
+                </UiButton>
+              </div>
               <div class="message-content-footer" :class="{ 'user-footer': message.role === 'user' }">
                 <div class="footer-left-actions">
                   <UiTooltip content="Copy message">
@@ -1329,6 +1345,16 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper, editLastUserM
     transform var(--duration-slow) var(--ease-out-strong),
     opacity var(--duration-slow) var(--ease-out-strong);
   padding-bottom: 120px;
+}
+
+.reply-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 4px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
 }
 
 /* Cold-start screen. ChatGPT centres a single short question and puts the
