@@ -13,6 +13,7 @@ vi.mock("localforage", () => ({
 }));
 
 import { emitter } from "~/composables/emitter";
+import { loadConversation } from "~/composables/storeConversations";
 import { useConversationsList } from "~/composables/useConversationsList";
 
 async function mountList() {
@@ -51,6 +52,26 @@ describe("conversation list commands from outside the sidebar", () => {
     expect(list.searchQuery.value).toBe("");
     expect(list.renamingId.value).toBe("b");
     wrapper.unmount();
+  });
+
+  it("saves a sidebar rename in the chat record read when reopening it", async () => {
+    const chat = { title: "Second chat", messages: [{ id: "m", parentId: null }], branchPath: [] };
+    store.set("conversation_b", chat);
+    const { list, wrapper } = await mountList();
+    const onTitleUpdate = vi.fn();
+    emitter.on("conversationTitleUpdated", onTitleUpdate);
+
+    try {
+      list.startRename("b", chat.title);
+      list.newTitle.value = " Renamed chat ";
+      await list.saveRename("b");
+      expect(onTitleUpdate).toHaveBeenCalledWith({ conversationId: "b", title: "Renamed chat" });
+      expect(list.metadata.value.find((c) => c.id === "b").title).toBe("Renamed chat");
+      expect(await loadConversation("b")).toEqual({ ...chat, title: "Renamed chat" });
+    } finally {
+      emitter.off("conversationTitleUpdated", onTitleUpdate);
+      wrapper.unmount();
+    }
   });
 
   it("ignores a rename for a chat that is not in the list", async () => {

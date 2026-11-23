@@ -3,7 +3,7 @@ import localforage from "localforage";
 import { emitter } from "./emitter";
 import { isImeKey } from "~/utils/ime";
 import { findSnippet } from "../utils/chatSearch";
-import { deleteConversation as deleteConv, loadConversation, duplicateConversation } from "./storeConversations";
+import { deleteConversation as deleteConv, loadConversation, duplicateConversation, renameConversation } from "./storeConversations";
 import { downloadConversationMarkdown } from "~/utils/conversationMarkdown";
 import { confirmDialog } from "./useDialogs";
 
@@ -293,27 +293,16 @@ export function useConversationsList() {
   }
 
   async function saveRename(id) {
-    if (!newTitle.value.trim()) {
-      cancelRename();
-      return;
-    }
+    if (renamingId.value !== id) return;
+    const title = newTitle.value.trim();
+    cancelRename();
+    if (!title) return;
 
     try {
-      const storedMetadata = await localforage.getItem("conversations_metadata");
-      if (storedMetadata) {
-        const updatedMetadata = storedMetadata.map(conv =>
-          conv.id === id ? { ...conv, title: newTitle.value.trim() } : conv
-        );
-        await localforage.setItem("conversations_metadata", updatedMetadata);
-        metadata.value = updatedMetadata;
-        emitter.emit("updateConversations");
-        emitter.emit("conversationTitleUpdated", { conversationId: id, title: newTitle.value.trim() });
-      }
+      await renameConversation(id, title);
     } catch (error) {
       console.error("Error renaming conversation:", error);
     }
-
-    cancelRename();
   }
 
   function handleRenameKeydown(event, id) {

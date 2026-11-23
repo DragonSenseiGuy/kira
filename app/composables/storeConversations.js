@@ -194,6 +194,23 @@ async function generateTitleInBackground(conversationId, plainMessages, lastUpda
   }
 }
 
+export async function renameConversation(conversationId, title) {
+  const metadata = (await localforage.getItem("conversations_metadata")) || [];
+  const key = `conversation_${conversationId}`;
+  const conversation = await localforage.getItem(key);
+  if (!conversation) return;
+
+  const updatedConversation = { ...conversation, title };
+  await localforage.setItem(key, updatedConversation);
+  await localforage.setItem("conversations_metadata", metadata.map(conv =>
+    conv.id === conversationId ? { ...conv, title } : conv
+  ));
+
+  emitter.emit("updateConversations");
+  emitter.emit("conversationTitleUpdated", { conversationId, title });
+  useCloudSync().syncConversation(conversationId, updatedConversation);
+}
+
 export async function storeMessages(
   conversationId,
   plainMessages,
@@ -264,8 +281,7 @@ export async function duplicateConversation(conversationId) {
   }));
 
   const metadata = (await localforage.getItem("conversations_metadata")) || [];
-  // A rename from the sidebar only updates the list entry, so that is where
-  // the current title is.
+  // The list may still have a newer title from before renames updated both records.
   const listed = metadata.find((conv) => conv.id === conversationId);
   const title = copyTitle(listed?.title ?? original.title, metadata.map((conv) => conv.title));
   const copyId = crypto.randomUUID();
