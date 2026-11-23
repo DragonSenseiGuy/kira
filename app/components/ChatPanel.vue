@@ -4,6 +4,7 @@ import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode, togglePreview } from '../utils/codeBlockUtils';
 import { isAtBottom as isContainerAtBottom, shouldOfferJump } from '../utils/scrollPosition';
+import { quotableSelection, quoteButtonPosition } from '../utils/quoteReply';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -54,7 +55,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(["send-message", "set-message", "scroll", "edit-message", "regenerate-message", "navigate-branch"]);
+const emit = defineEmits(["send-message", "set-message", "quote-message", "scroll", "edit-message", "regenerate-message", "navigate-branch"]);
 
 // Helper function to calculate message stats
 function calculateMessageStats(message) {
@@ -345,12 +346,51 @@ function observeComposer() {
   composerObserver.observe(composer);
 }
 
+// "Quote" button shown next to text selected in an assistant message.
+const quoteButton = reactive({ visible: false, top: 0, left: 0, text: "" });
+
+function updateQuoteButton() {
+  const selection = typeof window !== "undefined" ? window.getSelection() : null;
+  const text = quotableSelection(selection);
+  if (!text) {
+    quoteButton.visible = false;
+    return;
+  }
+  const rect = selection.getRangeAt(0).getBoundingClientRect();
+  // Visible chat area: the scroller, minus the composer stuck to its bottom.
+  const scroller = (cachedScrollContainer || chatWrapper.value)?.getBoundingClientRect();
+  const composer = document.querySelector(".input-section")?.getBoundingClientRect();
+  const area = {
+    top: scroller?.top ?? 0,
+    bottom: Math.min(scroller?.bottom ?? window.innerHeight, composer?.top ?? window.innerHeight),
+    left: scroller?.left ?? 0,
+    right: scroller?.right ?? window.innerWidth,
+  };
+  // Nothing to anchor to once the selection is scrolled out of view.
+  if (rect.bottom < area.top || rect.top > area.bottom) {
+    quoteButton.visible = false;
+    return;
+  }
+  const position = quoteButtonPosition(rect, area);
+  quoteButton.text = text;
+  quoteButton.top = position.top;
+  quoteButton.left = position.left;
+  quoteButton.visible = true;
+}
+
+function quoteSelection() {
+  emit("quote-message", quoteButton.text);
+  quoteButton.visible = false;
+  window.getSelection()?.removeAllRanges();
+}
+
 const handleScroll = () => {
   const container = cachedScrollContainer || chatWrapper.value;
   if (!container) return;
 
   isAtBottom.value = isContainerAtBottom(container);
   showJumpToLatest.value = shouldOfferJump(container);
+  updateQuoteButton();
   emit('scroll', { isAtTop: container.scrollTop === 0 });
 };
 
@@ -448,6 +488,7 @@ onMounted(() => {
   // Trigger initial scroll check
   handleScroll();
   observeComposer();
+  document.addEventListener('selectionchange', updateQuoteButton);
 
   // Make functions available globally (only in browser)
   if (typeof window !== 'undefined') {
@@ -462,6 +503,7 @@ onUnmounted(() => {
   const scrollTarget = cachedScrollContainer || document;
   scrollTarget.removeEventListener('scroll', handleScroll);
   composerObserver?.disconnect();
+  document.removeEventListener('selectionchange', updateQuoteButton);
 });
 
 // Render message content with markdown and trigger lazy highlighting.
@@ -739,6 +781,17 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 
 <template>
   <div class="chat-wrapper" ref="chatWrapper">
+    <button
+      v-if="quoteButton.visible"
+      type="button"
+      class="quote-selection-button"
+      :style="{ top: `${quoteButton.top}px`, left: `${quoteButton.left}px` }"
+      @mousedown.prevent
+      @click="quoteSelection"
+    >
+      <Icon icon="material-symbols:format-quote-rounded" width="16" height="16" />
+      <span>Quote</span>
+    </button>
     <div class="chat-container">
       <div v-if="messages.length < 1 && showWelcome" class="welcome-container">
         <h1 v-if="!isIncognito" class="welcome-message">What can I help with?</h1>
@@ -1082,6 +1135,33 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
 .jump-fade-enter-from,
 .jump-fade-leave-to {
   opacity: 0;
+}
+
+.quote-selection-button {
+  position: fixed;
+  z-index: 30;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--popover-bg);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--line-strong), var(--popover-shadow);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.quote-selection-button:hover {
+  background: var(--bg-tertiary);
+}
+
+.quote-selection-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .chat-wrapper {
