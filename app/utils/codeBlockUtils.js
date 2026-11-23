@@ -4,6 +4,8 @@ const langExtMap = {
   javascript: "js",
   typescript: "ts",
   html: "html",
+  htm: "html",
+  svg: "svg",
   css: "css",
   vue: "vue",
   json: "json",
@@ -76,8 +78,64 @@ export function downloadCode(button, lang) {
   URL.revokeObjectURL(url);
 }
 
+const PREVIEWABLE_LANGS = new Set(["html", "htm", "svg"]);
+
+/** True for code-block languages that can be rendered as a page. */
+export function isPreviewableLang(lang) {
+  return typeof lang === "string" && PREVIEWABLE_LANGS.has(lang.toLowerCase());
+}
+
+/** Builds the document shown in the preview frame for a code block. */
+// A srcdoc frame resolves URLs against the parent page, so an in-page link
+// (`<a href="#top">`) would navigate the frame to the app itself and wipe the
+// preview. This script keeps those links scrolling inside the preview.
+const PREVIEW_ANCHOR_SCRIPT = `<script>document.addEventListener("click",function(e){if(e.defaultPrevented)return;var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href");if(!h||h.charAt(0)!=="#")return;e.preventDefault();var id=decodeURIComponent(h.slice(1));var t=id?document.getElementById(id)||document.getElementsByName(id)[0]:document.documentElement;if(t)t.scrollIntoView()});<\/script>`;
+
+export function buildPreviewDocument(lang, code) {
+  if (String(lang).toLowerCase() !== "svg") return code + PREVIEW_ANCHOR_SCRIPT;
+  return `<!doctype html><html><body style="margin:0;min-height:100vh;display:grid;place-items:center">${code}</body></html>`;
+}
+
+/**
+ * Switches a code block between its source and a rendered preview.
+ *
+ * The code is model output, so it is untrusted: it renders in an iframe
+ * sandboxed to an opaque origin (scripts run, but cannot reach the app,
+ * its storage, the top window, or open popups).
+ */
+export function togglePreview(button) {
+  const wrapper = button && button.closest(".code-block-wrapper");
+  if (!wrapper) return;
+  const pre = wrapper.querySelector("pre");
+  const codeEl = pre && pre.querySelector("code");
+  if (!codeEl) return;
+
+  const label = button.querySelector("span");
+  const existing = wrapper.querySelector(".code-preview-frame");
+
+  if (existing) {
+    existing.remove();
+    pre.hidden = false;
+    if (label) label.textContent = "Preview";
+    button.setAttribute("aria-pressed", "false");
+    return;
+  }
+
+  const frame = document.createElement("iframe");
+  frame.className = "code-preview-frame";
+  frame.setAttribute("sandbox", "allow-scripts");
+  frame.setAttribute("referrerpolicy", "no-referrer");
+  frame.setAttribute("title", "Code preview");
+  frame.setAttribute("srcdoc", buildPreviewDocument(wrapper.dataset.lang, codeEl.textContent));
+  wrapper.appendChild(frame);
+  pre.hidden = true;
+  if (label) label.textContent = "Code";
+  button.setAttribute("aria-pressed", "true");
+}
+
 // Make functions globally available for inline onclick handlers
 if (typeof window !== 'undefined') {
+  window.togglePreview = togglePreview;
   window.copyCode = copyCode;
   window.downloadCode = downloadCode;
 }
