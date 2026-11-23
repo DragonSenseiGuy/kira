@@ -110,6 +110,7 @@ function addExternalLinkTargets(md) {
  * @param {boolean} options.enableKatex - Enable KaTeX math rendering (default: true)
  * @param {boolean} options.enableFootnotes - Enable footnotes (default: true)
  * @param {boolean} options.enableTaskLists - Enable task lists (default: true)
+ * @param {boolean} options.untrusted - Render text from an unknown author: raw HTML is shown as text (default: false)
  * @returns {MarkdownIt} Configured markdown-it instance
  */
 export function createMarkdownInstance(options = {}) {
@@ -117,17 +118,20 @@ export function createMarkdownInstance(options = {}) {
     enableKatex = true,
     enableFootnotes = true,
     enableTaskLists = true,
+    untrusted = false,
   } = options;
 
   const md = new MarkdownIt({
-    html: true,
+    html: !untrusted,
     linkify: true,
     typographer: true,
     // Disable synchronous highlighting - we use lazy highlighting instead
     highlight: null,
   });
 
-  if (enableFootnotes) {
+  // Footnotes link within the page by fragment, which a page that keeps
+  // its content in the fragment cannot afford.
+  if (enableFootnotes && !untrusted) {
     md.use(markdownItFootnote);
   }
 
@@ -151,8 +155,27 @@ export function createMarkdownInstance(options = {}) {
     });
   }
 
-  addCodeBlockRenderer(md);
-  addTableActions(md);
+  // The code-block toolbar builds HTML with inline handlers, so untrusted
+  // text keeps markdown-it's plain, fully escaped code blocks.
+  if (untrusted) {
+    // Loading an image tells its host that the text was opened, so images
+    // become links the reader can choose to follow.
+    md.renderer.rules.image = (tokens, idx) => {
+      const src = md.utils.escapeHtml(tokens[idx].attrGet("src") || "");
+      const label = md.utils.escapeHtml(tokens[idx].content || "Image");
+      // An image used as a link's label stays that link's label: a second
+      // link inside it would take the click.
+      const opened = tokens.slice(0, idx).reduce(
+        (depth, token) => depth + (token.type === "link_open" ? 1 : token.type === "link_close" ? -1 : 0),
+        0,
+      );
+      if (opened > 0) return label;
+      return `<a href="${src}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+    };
+  } else {
+    addCodeBlockRenderer(md);
+    addTableActions(md);
+  }
   addExternalLinkTargets(md);
 
   // Raw HTML is allowed in Markdown, so whatever is rendered is sanitized
@@ -171,6 +194,9 @@ export const md = createMarkdownInstance({
   enableFootnotes: true,
   enableTaskLists: true,
 });
+
+// For text that did not come from the user's own chats (shared links).
+export const untrustedMd = createMarkdownInstance({ untrusted: true });
 
 // Backward-compatible exports
 // Both point to the same unified instance now

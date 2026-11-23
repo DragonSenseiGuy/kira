@@ -17,6 +17,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return;
   }
 
+  // A shared chat is read from the link itself and touches no account data.
+  if (to.path === "/shared") return;
+
   if (!isAuthenticated.value) {
     return navigateTo({
       path: "/login",

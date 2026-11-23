@@ -12,6 +12,9 @@ import { useConversationsList } from "~/composables/useConversationsList";
 import { useSettings } from "~/composables/useSettings";
 import { useAuth } from "~/composables/useAuth";
 import { hasUsableCredentials } from "~/composables/providers";
+import { loadConversation } from "~/composables/storeConversations";
+import { alertDialog } from "~/composables/useDialogs";
+import { buildShareLink } from "~/utils/shareLink";
 
 const emit = defineEmits([
   "reloadSettings",
@@ -34,6 +37,46 @@ const { accountsEnabled, user, logout } = useAuth();
 async function handleSignOut() {
   await logout();
   router.push("/login");
+}
+async function copyShareLink(id) {
+  const building = loadConversation(id).then((conversation) => buildShareLink(conversation, window.location.origin));
+  let copied = true;
+  try {
+    if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+      // Safari only allows a clipboard write started during the click, so
+      // the write starts now and is handed the link once it is built.
+      const text = building.then((link) => {
+        if (!link.ok) throw new Error(link.reason);
+        return new Blob([link.url], { type: "text/plain" });
+      });
+      await navigator.clipboard.write([new ClipboardItem({ "text/plain": text })]);
+    } else {
+      const link = await building;
+      if (link.ok) await navigator.clipboard.writeText(link.url);
+    }
+  } catch {
+    copied = false;
+  }
+
+  const link = await building.catch(() => null);
+  if (!link) return alertDialog({ title: "Can't share this chat", message: "This chat could not be loaded." });
+  if (!link.ok) {
+    return alertDialog({
+      title: "Can't share this chat",
+      message:
+        link.reason === "empty"
+          ? "This chat has no messages to share yet."
+          : "This chat is too long to fit in a link. Export it instead.",
+    });
+  }
+  if (!copied) {
+    return alertDialog({ title: "Couldn't copy the link", message: "Your browser blocked access to the clipboard." });
+  }
+  alertDialog({
+    title: "Share link copied",
+    message:
+      "Anyone with the link can read this chat as it is now. The link holds the chat's text itself: nothing was uploaded, and it can't be revoked once sent. Attachments, reasoning and tool results are not included.",
+  });
 }
 const hasApiKey = computed(() => hasUsableCredentials(settingsManager.settings));
 
@@ -294,6 +337,10 @@ function handleMiddleClickNewChat(e) {
                     <DropdownMenuItem class="conversation-menu-item" @select="exportMarkdown(data.id, data.title)">
                       <Icon icon="material-symbols:download" width="16" height="16" />
                       <span>Export as Markdown</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem class="conversation-menu-item" @select="copyShareLink(data.id)">
+                      <Icon icon="material-symbols:link" width="16" height="16" />
+                      <span>Copy share link</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem class="conversation-menu-item delete-item" @select="handleDelete(data.id)">
                       <Icon icon="material-symbols:delete" width="16" height="16" />
