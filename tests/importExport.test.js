@@ -404,6 +404,19 @@ describe("exportSingleChatToZip", () => {
 });
 
 describe("importFromZipBuffer round-trip", () => {
+  it("uses the earliest message timestamp for imported chats without a creation date", async () => {
+    const chat = createSampleChat("history");
+    chat.messages[0].timestamp = "2026-01-08T09:30:00.000Z";
+    chat.messages[1].timestamp = "2026-01-04T09:30:00.000Z";
+
+    await persistImportedChats([chat], "append");
+
+    expect(store.get("conversations_metadata")[0]).toMatchObject({
+      createdAt: "2026-01-04T09:30:00.000Z",
+      lastUpdated: chat.lastUpdated,
+    });
+  });
+
   it("imports a full native export back into storage", async () => {
     store.set("settings", { version: 5, selected_model_id: "x", custom_api_key: "secret", notepad_enabled: true });
     store.set("user_notepad", "# Memory");

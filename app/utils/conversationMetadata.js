@@ -3,6 +3,19 @@
  * @description Helpers for the `conversations_metadata` list.
  */
 
+export function getConversationCreatedAt(conversation) {
+  if (conversation.createdAt) return conversation.createdAt;
+
+  let earliest = Infinity;
+  for (const message of conversation.messages ?? []) {
+    if (message.timestamp == null) continue;
+    const time = new Date(message.timestamp).getTime();
+    if (time < earliest) earliest = time;
+  }
+
+  return Number.isFinite(earliest) ? new Date(earliest).toISOString() : conversation.lastUpdated;
+}
+
 /**
  * Applies changed fields to conversation entries, keeping whatever else an
  * entry already carries (pinned, archived, createdAt, ...). Entries for
