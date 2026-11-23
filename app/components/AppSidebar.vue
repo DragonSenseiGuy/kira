@@ -198,13 +198,28 @@ function handleResize() {
   windowWidth.value = window.innerWidth;
 }
 
+// On narrow screens the sidebar is a drawer over the page, and Escape closes
+// it like any other overlay. Fields, menus and dialogs keep their own Escape.
+function handleDrawerEscape(event) {
+  if (event.key !== "Escape" || event.defaultPrevented) return;
+  if (!props.isOpen || window.innerWidth >= 950) return;
+  if (event.target?.closest?.('input, textarea, [contenteditable="true"]')) return;
+  // The workspace dock is a permanent `role="dialog"`, so match open ones only.
+  if (document.querySelector(
+    '[role="menu"], [role="alertdialog"], [role="dialog"]:not(.workspace-dock), .workspace-dock.active',
+  )) return;
+  closeSidebar();
+}
+
 onMounted(() => {
   window.addEventListener("resize", handleResize);
+  window.addEventListener("keydown", handleDrawerEscape);
   handleResize();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("resize", handleResize);
+  window.removeEventListener("keydown", handleDrawerEscape);
 });
 
 function closeSidebar() {
@@ -288,7 +303,9 @@ function handleListKeydown(event) {
 <template>
   <div>
     <div :class="['sidebar-overlay', { active: props.isOpen }]" @click="closeSidebar"></div>
-    <div :class="['sidebar', { active: props.isOpen }]">
+    <!-- Closed, the rail is only moved off screen; `inert` keeps Tab and
+         screen readers out of it. -->
+    <div :class="['sidebar', { active: props.isOpen }]" :inert="props.isOpen ? undefined : ''">
       <div class="sidebar-header">
         <UiTooltip content="Close sidebar" side="bottom" shortcut="mod+b">
           <UiIconButton
