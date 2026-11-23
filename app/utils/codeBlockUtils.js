@@ -27,6 +27,39 @@ const langExtMap = {
   sql: "sql",
   xml: "xml",
   yaml: "yml",
+  // Short names and other languages models commonly label blocks with.
+  js: "js",
+  jsx: "jsx",
+  mjs: "mjs",
+  ts: "ts",
+  tsx: "tsx",
+  py: "py",
+  sh: "sh",
+  zsh: "sh",
+  yml: "yml",
+  md: "md",
+  "c++": "cpp",
+  "c#": "cs",
+  cs: "cs",
+  rs: "rs",
+  rb: "rb",
+  golang: "go",
+  kotlin: "kt",
+  swift: "swift",
+  scala: "scala",
+  dart: "dart",
+  lua: "lua",
+  r: "r",
+  perl: "pl",
+  powershell: "ps1",
+  toml: "toml",
+  ini: "ini",
+  scss: "scss",
+  svg: "svg",
+  csv: "csv",
+  diff: "diff",
+  graphql: "graphql",
+  dockerfile: "dockerfile",
 };
 
 export function copyCode(button) {
@@ -69,7 +102,10 @@ export function downloadCode(button, lang) {
   if (!codeEl) return; // Guard: <pre><code> not found
 
   const code = codeEl.innerText;
-  const extension = langExtMap[cleanLang.toLowerCase()] || "txt";
+  // Own entries only: a block labelled "constructor" must not pick up
+  // something inherited from Object.
+  const key = String(cleanLang).toLowerCase();
+  const extension = Object.hasOwn(langExtMap, key) ? langExtMap[key] : "txt";
   const filename = `code-${Date.now()}.${extension}`;
   const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
