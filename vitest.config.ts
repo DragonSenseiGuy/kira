@@ -10,7 +10,7 @@ const appDir = path.join(__dirname, "app").replace(/\\/g, "/");
 export default defineConfig({
   plugins: [vue()], // compiles .vue imports for mount tests
   // Vitest 4: pool settings live at the top level (not under `test`).
-  // maxForks bounds concurrent happy-dom environments, which are the
+  // maxForks bounds concurrent DOM environments, which are the
   // suite's dominant memory cost (system-RAM friendly on modest machines).
   // `npm test` goes through scripts/run-tests.mjs, which runs each file in
   // its own short-lived process so fork memory never accumulates across
@@ -19,7 +19,9 @@ export default defineConfig({
   maxForks: 4,
   test: {
     globals: true,
-    environment: "happy-dom",
+    // jsdom parses HTML to the spec, which the Markdown sanitizer depends on;
+    // under happy-dom it returns mangled, unsafe output.
+    environment: "jsdom",
     include: ["tests/**/*.test.js"],
     setupFiles: ["tests/setup.js"],
     // Coverage targets the pure logic layers; .vue components are excluded

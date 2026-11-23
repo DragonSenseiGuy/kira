@@ -20,6 +20,7 @@
   "dependencies": {
     "@iconify/vue": "^5.0.0",
     "@nuxtjs/sitemap": "^8.5.0",
+    "dompurify": "3.4.17",
     "fflate": "^0.8.3",
     "highlight.js": "^11.11.1",
     "isbot": "^5.1.39",
@@ -45,6 +46,7 @@
     "@vueuse/core": "^14.1.0",
     "@vueuse/nuxt": "^14.1.0",
     "happy-dom": "^20.9.0",
+    "jsdom": "29.1.0",
     "vitest": "^4.1.8"
   }
 }
