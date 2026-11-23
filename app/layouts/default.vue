@@ -44,7 +44,8 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, computed } from 'vue';
+import { ref, nextTick, onMounted, onBeforeUnmount, computed } from 'vue';
+import { useLightThemeWhilePrinting } from '~/utils/printTheme';
 import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
 import { useDark } from "@vueuse/core";
@@ -152,7 +153,11 @@ const canExport = computed(() => !!route.params.id && route.path !== '/incognito
 // Use the global scroll status instead of local state
 const isScrolledTop = computed(() => getIsScrolledTop.value); // Track if chat is scrolled to the top
 
+let stopPrintTheme = () => {};
+onBeforeUnmount(() => stopPrintTheme());
+
 onMounted(async () => {
+  stopPrintTheme = useLightThemeWhilePrinting();
   await settingsManager.loadSettings();
   // Set sidebar open state based on window width (only in browser)
   if (typeof window !== 'undefined') {
@@ -308,6 +313,18 @@ const paletteCommands = computed(() => {
       icon: 'material-symbols:keyboard-outline',
       keywords: ['keybinds', 'hotkeys', 'bindings'],
       run: openShortcutHelp,
+    },
+    {
+      id: 'print-chat',
+      when: () => route.path === '/incognito' || (!!route.params.id && !route.path.startsWith('/projects')),
+      label: 'Print or save as PDF',
+      icon: 'material-symbols:print-outline',
+      keywords: ['pdf', 'paper', 'printer', 'export'],
+      run: async () => {
+        // Let the palette close before the browser captures the page.
+        await nextTick();
+        window.print();
+      },
     },
     {
       id: 'export-chat',

@@ -18,6 +18,7 @@ Kira does **not** sell user information. Chats stay on your device by default; i
 - Share a chat as a read-only link that holds the chat itself (nothing is uploaded)
 - Duplicate a chat, with all its branches, to continue it separately
 - Each message shows when it was sent
+- Print a chat or save it as a PDF
 - Incognito mode to prevent chat history or memory from being saved
 - Opt-in notepad that remembers user details/preferences/opinions across chats
 - Conversation branching with message editing/regenerating
