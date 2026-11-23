@@ -7,6 +7,7 @@ import { copyCode, downloadCode, togglePreview } from '../utils/codeBlockUtils';
 import { isAtBottom as isContainerAtBottom, shouldOfferJump } from '../utils/scrollPosition';
 import { quotableSelection, quoteButtonPosition } from '../utils/quoteReply';
 import { copyTable, downloadTable } from '../utils/tableActions';
+import CollapsibleText from './CollapsibleText.vue';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -626,6 +627,13 @@ function copyDebugDump(message, event) {
 // --- Branching Logic ---
 const editingMessageId = ref(null);
 
+// Long user messages the reader has opened with "Show more".
+const expandedMessages = reactive(new Set());
+function setExpanded(messageId, expanded) {
+  if (expanded) expandedMessages.add(messageId);
+  else expandedMessages.delete(messageId);
+}
+
 function startEditing(message) {
   editingMessageId.value = message.id;
 }
@@ -963,7 +971,12 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                         </div>
                       </div>
                       <!-- Message text -->
-                      <div v-if="editingMessageId !== message.id" class="user-text">{{ message.content }}</div>
+                      <CollapsibleText
+                        v-if="editingMessageId !== message.id"
+                        :text="message.content"
+                        :expanded="expandedMessages.has(message.id)"
+                        @update:expanded="setExpanded(message.id, $event)"
+                      />
                       <!-- Edit area -->
                       <div v-else class="edit-area">
                         <MessageEditArea
@@ -1841,12 +1854,6 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.user-text {
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  word-break: break-word;
 }
 
 .message-attachments {
