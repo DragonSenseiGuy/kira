@@ -12,6 +12,7 @@ import { useSettings } from './useSettings';
 import { useGlobalIncognito } from './useGlobalIncognito';
 import { emitter } from './emitter';
 import { holdLeaveGuard } from './leaveGuard';
+import { noteReplyFinished } from './tabAttention';
 import { resolveChatTarget } from './providers';
 import {
   setActiveConversation,
@@ -574,6 +575,7 @@ export function useMessagesManager(chatPanel) {
           incognito: isIncognito.value,
         });
       }
+      noteReplyFinished();
 
       // Store messages if not in incognito mode
       try {
