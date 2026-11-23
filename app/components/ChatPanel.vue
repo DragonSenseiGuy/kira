@@ -19,6 +19,7 @@ import ContextSummaryMarker from './ContextSummaryMarker.vue';
 import MessageEditArea from './MessageEditArea.vue';
 import { useContextCompression } from '../composables/useContextCompression';
 import { getFormattedStatsFromExecutedTools } from '../composables/searchViewStats';
+import { messageTime } from '../utils/messageTime';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
 import { useDeveloperMode } from '../composables/useDeveloperMode';
 import { useReadAloud } from '../composables/useReadAloud';
@@ -215,6 +216,13 @@ const normalizedMessages = computed(() => {
 
 // Keep messages as alias for normalizedMessages for compatibility
 const messages = normalizedMessages;
+
+// A one-item list (or none) so the template can bind the label, tooltip and
+// datetime from a single computation.
+function timeOf(message) {
+  const time = messageTime(message.timestamp);
+  return time ? [time] : [];
+}
 
 // Phase 2.2: Cached message stats with caching for complete messages
 function getMessageStats(message) {
@@ -1114,6 +1122,14 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                     </span>
                   </div>
                 </template>
+
+                <time
+                  v-for="time in timeOf(message)"
+                  :key="time.iso"
+                  class="message-time"
+                  :datetime="time.iso"
+                  :title="time.full"
+                >{{ time.label }}</time>
               </div>
 
               <div
@@ -1796,7 +1812,8 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   opacity: 0.7;
 }
 
-.message-content-footer:hover {
+.message-content-footer:hover,
+.message-content-footer:focus-within {
   opacity: 1 !important;
 }
 
@@ -1811,6 +1828,23 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
   color: var(--text-secondary-light);
   margin-left: 8px;
   user-select: none;
+}
+
+.message-time {
+  font-size: 0.75rem;
+  color: var(--text-secondary-light);
+  margin-left: 8px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.dark .message-time {
+  color: var(--text-secondary-dark);
+}
+
+.user-footer .message-time {
+  order: -1;
+  margin: 0 8px 0 0;
 }
 
 .dark .message-stats-row {
