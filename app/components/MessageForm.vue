@@ -2,6 +2,7 @@
 import { insertQuote } from "~/utils/quoteReply";
 import { ref, computed, watch, nextTick, toRaw, onMounted, onBeforeUnmount } from "vue";
 import { shouldStopOnEscape } from "~/utils/escapeToStop";
+import { isImeKey } from '~/utils/ime';
 import { Icon } from "@iconify/vue";
 import {
   DropdownMenuRoot,
@@ -529,6 +530,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowEscape, true
  * @param {KeyboardEvent} event
  */
 function handleEnterKey(event) {
+  // Enter that confirms an input-method candidate is not a send.
+  if (isImeKey(event)) return;
   // @mention picker intercepts Enter to select the highlighted file.
   if (mentionOpen.value && mentionItems.value.length && !event.shiftKey) {
     event.preventDefault();

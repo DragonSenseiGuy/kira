@@ -50,6 +50,7 @@
 
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue';
+import { isImeKey } from '~/utils/ime';
 import { Icon } from '@iconify/vue';
 
 /**
@@ -85,6 +86,7 @@ watch(content, resizeTextarea);
  * On desktop, plain Enter submits; Shift+Enter or mobile Enter inserts a newline.
  */
 function handleEnterKey(event) {
+  if (isImeKey(event)) return;
   if (typeof window !== 'undefined' && window.innerWidth >= 768 && !event.shiftKey) {
     event.preventDefault();
     submit();
