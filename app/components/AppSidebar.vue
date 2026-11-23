@@ -38,6 +38,10 @@ async function handleSignOut() {
   await logout();
   router.push("/login");
 }
+async function duplicateAndOpen(id) {
+  const copyId = await handleDuplicate(id);
+  if (copyId) router.push(`/${copyId}`);
+}
 async function copyShareLink(id) {
   const building = loadConversation(id).then((conversation) => buildShareLink(conversation, window.location.origin));
   let copied = true;
@@ -92,6 +96,7 @@ const {
   toggleArchive,
   handleDelete,
   exportMarkdown,
+  handleDuplicate,
   startRename,
   cancelRename,
   saveRename,
@@ -341,6 +346,10 @@ function handleMiddleClickNewChat(e) {
                     <DropdownMenuItem class="conversation-menu-item" @select="copyShareLink(data.id)">
                       <Icon icon="material-symbols:link" width="16" height="16" />
                       <span>Copy share link</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem class="conversation-menu-item" @select="duplicateAndOpen(data.id)">
+                      <Icon icon="material-symbols:content-copy-outline-rounded" width="16" height="16" />
+                      <span>Duplicate</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem class="conversation-menu-item delete-item" @select="handleDelete(data.id)">
                       <Icon icon="material-symbols:delete" width="16" height="16" />

@@ -227,6 +227,56 @@ export async function storeMessages(
 
 }
 
+/**
+ * Title for a copy: "Copy of X", or "Copy of X (2)" and so on when taken.
+ * @param {string} title
+ * @param {string[]} takenTitles
+ * @returns {string}
+ */
+// The account database stores titles in 255 characters.
+const MAX_TITLE_LENGTH = 255;
+
+export function copyTitle(title, takenTitles) {
+  // Code points, so that an emoji at the cut is never split in half.
+  const name = Array.from((title || "").trim() || "Untitled");
+  const taken = new Set(takenTitles);
+  for (let n = 1; ; n++) {
+    const suffix = n === 1 ? "" : ` (${n})`;
+    const room = MAX_TITLE_LENGTH - "Copy of ".length - suffix.length;
+    const candidate = `Copy of ${name.slice(0, room).join("").trimEnd()}${suffix}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
+export async function duplicateConversation(conversationId) {
+  const original = await loadConversation(conversationId);
+  if (!original) return null;
+
+  const newIds = new Map((original.messages || []).map((msg) => [msg.id, crypto.randomUUID()]));
+  const messages = JSON.parse(JSON.stringify(original.messages || [])).map((msg) => ({
+    ...msg,
+    id: newIds.get(msg.id),
+    parentId: msg.parentId == null ? null : (newIds.get(msg.parentId) ?? null),
+  }));
+
+  const metadata = (await localforage.getItem("conversations_metadata")) || [];
+  // A rename from the sidebar only updates the list entry, so that is where
+  // the current title is.
+  const listed = metadata.find((conv) => conv.id === conversationId);
+  const title = copyTitle(listed?.title ?? original.title, metadata.map((conv) => conv.title));
+  const copyId = crypto.randomUUID();
+  const now = new Date();
+  const branchPath = [...(original.branchPath || [])];
+
+  await localforage.setItem(`conversation_${copyId}`, { title, lastUpdated: now, messages, branchPath });
+  metadata.push({ id: copyId, title, lastUpdated: now, createdAt: now });
+  await localforage.setItem("conversations_metadata", metadata);
+  emitter.emit("updateConversations");
+
+  useCloudSync().cloudCreateConversation(copyId, { title, messages, branchPath });
+  return copyId;
+}
+
 export async function deleteConversation(conversationId) {
   // Remove full conversation data
   await localforage.removeItem(`conversation_${conversationId}`);

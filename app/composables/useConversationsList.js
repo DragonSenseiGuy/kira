@@ -1,7 +1,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import localforage from "localforage";
 import { emitter } from "./emitter";
-import { deleteConversation as deleteConv, loadConversation } from "./storeConversations";
+import { deleteConversation as deleteConv, loadConversation, duplicateConversation } from "./storeConversations";
 import { downloadConversationMarkdown } from "~/utils/conversationMarkdown";
 
 /**
@@ -212,6 +212,18 @@ export function useConversationsList() {
     }
   }
 
+  /** Copies a conversation and returns the id of the copy (null on failure). */
+  async function handleDuplicate(id) {
+    try {
+      const copyId = await duplicateConversation(id);
+      await updateConversations();
+      return copyId;
+    } catch (error) {
+      console.error("Error duplicating conversation:", error);
+      return null;
+    }
+  }
+
   // Rename functions
   function startRename(id, currentTitle) {
     renamingId.value = id;
@@ -278,6 +290,7 @@ export function useConversationsList() {
     toggleArchive,
     handleDelete,
     exportMarkdown,
+    handleDuplicate,
     startRename,
     cancelRename,
     saveRename,
