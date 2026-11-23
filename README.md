@@ -12,6 +12,7 @@ Kira does **not** sell user information. Chats stay on your device by default; i
 - Image generation support
 - Sandboxed local projects & workspaces with code execution
 - Personalizable with name, occupation, and custom instructions
+- Response styles: Default, Concise, Explanatory, or Formal
 - Web search & web crawling tools
 - Incognito mode to prevent chat history or memory from being saved
 - Opt-in notepad that remembers user details/preferences/opinions across chats

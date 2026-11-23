@@ -292,7 +292,7 @@ const paletteCommands = computed(() => {
       id: 'open-customization',
       label: 'Edit custom instructions',
       icon: 'material-symbols:person-edit-outline',
-      keywords: ['persona', 'name', 'occupation', 'system prompt'],
+      keywords: ['persona', 'name', 'occupation', 'system prompt', 'response style', 'concise', 'formal'],
       run: () => openSettingsPanel('customization'),
     },
     {
