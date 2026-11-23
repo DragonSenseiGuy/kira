@@ -8,6 +8,8 @@ import { isAtBottom as isContainerAtBottom, shouldOfferJump } from '../utils/scr
 import { quotableSelection, quoteButtonPosition } from '../utils/quoteReply';
 import { copyTable, downloadTable } from '../utils/tableActions';
 import CollapsibleText from './CollapsibleText.vue';
+import { lastCopyableReply } from '../utils/lastReply';
+import { useKeybinds } from '../composables/useKeybinds';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -609,6 +611,23 @@ function copyMessage(message, event) {
     // Visual feedback for error - could add error styling here
   });
 }
+
+// Copies the newest assistant reply that has text (Settings → Shortcuts).
+// The reply's own copy button shows the usual confirmation.
+useKeybinds({
+  copy_last_response: () => {
+    const message = lastCopyableReply(messages.value, getMessageCopyText);
+    if (!message) return;
+    navigator.clipboard.writeText(getMessageCopyText(message)).then(() => {
+      const button = chatWrapper.value?.querySelector(`[data-message-id="${CSS.escape(String(message.id))}"] .copy-button`);
+      if (!button) return;
+      button.classList.add('copied');
+      setTimeout(() => button.classList.remove('copied'), 2000);
+    }).catch(err => {
+      console.error('Failed to copy message:', err);
+    });
+  },
+});
 
 // Copy a diagnostic report (timings, usage, part structure, tool calls).
 // Long bodies are previewed rather than dumped — "Copy message" above is

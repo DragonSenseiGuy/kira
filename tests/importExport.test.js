@@ -349,6 +349,7 @@ describe("exportAllToZip", () => {
         toggle_sidebar: "mod+b",
         toggle_parameters: "mod+alt+b",
         toggle_incognito: "mod+alt+i",
+        copy_last_response: "mod+shift+c",
       },
       model_settings: {},
       parameter_config: { temperature: 1.0, top_p: 0.95, seed: null, max_tokens: 16384, grounding: false },

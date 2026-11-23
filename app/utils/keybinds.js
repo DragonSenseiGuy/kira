@@ -19,7 +19,28 @@ export const KEYBIND_ACTIONS = [
   { id: 'toggle_sidebar', label: 'Toggle main sidebar', default: 'mod+b' },
   { id: 'toggle_parameters', label: 'Toggle model parameters', default: 'mod+alt+b' },
   { id: 'toggle_incognito', label: 'Toggle incognito mode', default: 'mod+alt+i' },
+  { id: 'copy_last_response', label: 'Copy last response', default: 'mod+shift+c' },
 ];
+
+/**
+ * Saved binds plus the default of every action added since they were
+ * saved. A new action stays unbound when one of the saved actions already
+ * uses its default combo, so one key press never runs two actions.
+ *
+ * @param {Record<string, string>} saved
+ * @returns {Record<string, string>}
+ */
+export function withNewActionDefaults(saved) {
+  const binds = { ...saved };
+  const taken = new Set(Object.values(binds).map((combo) => normalizeCombo(combo)).filter(Boolean));
+  for (const action of KEYBIND_ACTIONS) {
+    if (action.id in binds) continue;
+    const combo = normalizeCombo(action.default);
+    binds[action.id] = taken.has(combo) ? '' : action.default;
+    if (combo) taken.add(combo);
+  }
+  return binds;
+}
 
 /** Ordered modifier tokens (canonical ordering). */
 const MODIFIER_ORDER = ['mod', 'ctrl', 'meta', 'alt', 'shift'];
