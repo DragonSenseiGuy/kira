@@ -20,6 +20,18 @@ const INSERT_MESSAGE_SQL = `
   )`;
 
 /**
+ * The timing columns hold epoch milliseconds, but the browser keeps these
+ * moments as Dates, which reach the server as ISO strings.
+ * @param {unknown} value - A number, an ISO string, or nothing.
+ * @returns {number|null} Epoch milliseconds, or null when there is no usable time.
+ */
+export function toEpochMs(value) {
+  if (value == null || value === "") return null;
+  const ms = typeof value === "number" ? value : new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
  * Replaces every message in a conversation with the given list.
  * Must run inside a transaction.
  * @param {import('pg').PoolClient} client
@@ -46,13 +58,13 @@ export async function replaceMessages(client, conversationId, messages) {
       msg.branchIndex || 0,
       msg.attachments ? JSON.stringify(msg.attachments) : null,
       msg.reasoning || null,
-      msg.reasoningStartTime || null,
-      msg.reasoningEndTime || null,
+      toEpochMs(msg.reasoningStartTime),
+      toEpochMs(msg.reasoningEndTime),
       msg.reasoningDuration || null,
       msg.tool_calls ? JSON.stringify(msg.tool_calls) : null,
-      msg.apiCallTime || null,
-      msg.firstTokenTime || null,
-      msg.completionTime || null,
+      toEpochMs(msg.apiCallTime),
+      toEpochMs(msg.firstTokenTime),
+      toEpochMs(msg.completionTime),
       msg.tokenCount || null,
       msg.totalTokens || null,
       msg.promptTokens || null,
