@@ -6,18 +6,18 @@
     </div>
 
     <div class="stx-card">
-      <div class="stx-item">
+      <div class="stx-item theme-item">
         <div class="stx-info">
-          <h3>Dark Mode</h3>
-          <p>Toggle between light and dark themes</p>
+          <h3>Theme</h3>
+          <p>System follows your device's light or dark setting</p>
         </div>
-        <SwitchRoot
-          class="switch-root stx-switch-root"
-          :model-value="isDark"
-          @update:model-value="toggleDark()"
-        >
-          <SwitchThumb class="switch-thumb stx-switch-thumb" />
-        </SwitchRoot>
+        <UiSegmented
+          class="theme-choice"
+          :model-value="themeChoice"
+          :options="themeOptions"
+          aria-label="Theme"
+          @update:model-value="themeChoice = $event"
+        />
       </div>
 
       <div class="stx-item">
@@ -88,17 +88,33 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { SwitchRoot, SwitchThumb } from 'reka-ui';
-import { useDark, useToggle } from '@vueuse/core';
+import { useColorMode } from '@vueuse/core';
+import UiSegmented from '~/components/ui/Segmented.vue';
 import { useSettings } from '~/composables/useSettings';
 import { confirmNotifications, requestNotificationPermission } from '~/utils/replyNotification';
 
 const settingsManager = useSettings();
 const settings = settingsManager.settings;
 
-const isDark = useDark();
-const toggleDark = useToggle(isDark);
+// Same storage key and classes as the useDark() calls on the pages, so the
+// stored choice is shared with them. "auto" follows the device. The class is
+// applied here directly, so a pick still takes effect when storage is blocked.
+const colorMode = useColorMode({
+  storageKey: 'vueuse-color-scheme',
+  modes: { dark: 'dark', light: '' },
+});
+const storedTheme = colorMode.store;
+const themeOptions = [
+  { value: 'auto', label: 'System', icon: 'material-symbols:computer-outline-rounded' },
+  { value: 'light', label: 'Light', icon: 'material-symbols:light-mode-outline-rounded' },
+  { value: 'dark', label: 'Dark', icon: 'material-symbols:dark-mode-outline-rounded' },
+];
+const themeChoice = computed({
+  get: () => (themeOptions.some((option) => option.value === storedTheme.value) ? storedTheme.value : 'auto'),
+  set: (value) => { storedTheme.value = value; },
+});
 
 function set(key, value) {
   settings[key] = value;
@@ -127,3 +143,14 @@ async function setNotify(on) {
   set('notify_on_reply', on);
 }
 </script>
+
+<style scoped>
+/* The three-way picker does not shrink, so on a narrow screen it goes under its label. */
+@media (max-width: 520px) {
+  .theme-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+</style>
