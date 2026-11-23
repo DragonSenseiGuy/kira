@@ -51,6 +51,7 @@ export function downloadCode(button, lang) {
   if (!wrapper) return; // Guard: button isn't inside a code block
 
   // Remove any surrounding quotes that might have been added by JSON.stringify
+  if (typeof lang !== 'string') lang = wrapper.dataset.lang || 'text';
   let cleanLang = lang;
   if (typeof lang === 'string' && lang.startsWith('"') && lang.endsWith('"')) {
     cleanLang = lang.slice(1, -1);
