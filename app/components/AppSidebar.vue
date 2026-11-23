@@ -317,6 +317,7 @@ function handleListKeydown(event) {
           class="search-input"
           placeholder="Search chats"
           @keydown="handleSearchKeydown"
+          aria-label="Search chats"
         />
         <UiIconButton
           v-if="searchQuery"
@@ -391,6 +392,7 @@ function handleListKeydown(event) {
                   v-if="renamingId === data.id"
                   v-model="newTitle"
                   class="rename-input"
+                  aria-label="Chat title"
                   @keydown="onRenameKeydown($event, data.id)"
                   @blur="saveRename(data.id)"
                   ref="renameInput"
