@@ -20,6 +20,7 @@ import { hasUsableCredentials } from "~/composables/providers";
 import { loadConversation } from "~/composables/storeConversations";
 import { alertDialog } from "~/composables/useDialogs";
 import { buildShareLink } from "~/utils/shareLink";
+import { matchParts } from "~/utils/matchParts";
 
 const emit = defineEmits([
   "reloadSettings",
@@ -411,7 +412,10 @@ function handleListKeydown(event) {
                   <span
                     class="conversation-title"
                     @mouseenter="showTitleWhenClipped($event.currentTarget, data.title)"
-                  >{{ data.title }}</span>
+                  ><template
+                    v-for="(part, partIndex) in matchParts(data.title, searchQuery)"
+                    :key="partIndex"
+                  ><mark v-if="part.match" class="title-match">{{ part.text }}</mark><template v-else>{{ part.text }}</template></template></span>
                   <span v-if="contentMatches.get(data.id)" class="conversation-snippet">
                     {{ contentMatches.get(data.id).before }}<mark>{{ contentMatches.get(data.id).match }}</mark>{{ contentMatches.get(data.id).after }}
                   </span>
@@ -845,6 +849,12 @@ function handleListKeydown(event) {
   .chat-activity.generating {
     animation-duration: 2.4s;
   }
+}
+
+.title-match {
+  background: none;
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .pin-icon {
