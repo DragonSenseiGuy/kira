@@ -70,18 +70,29 @@ export function copyCode(button) {
   if (!codeEl) return; // Guard: <pre><code> not found
 
   const text = codeEl.innerText;
-  navigator.clipboard.writeText(text).then(() => {
-    const textEl = button.querySelector("span");
-    if (textEl) {
-      textEl.textContent = "Copied!";
-      button.classList.add("copied");
-      setTimeout(() => {
-        textEl.textContent = "Copy";
-        button.classList.remove("copied");
-      }, 2000);
-    }
-  }).catch(err => {
+  const textEl = button.querySelector("span");
+  // Shows the outcome on the button for two seconds, then restores "Copy".
+  const flash = (label, className) => {
+    if (!textEl) return;
+    textEl.textContent = label;
+    button.classList.add(className);
+    setTimeout(() => {
+      textEl.textContent = "Copy";
+      button.classList.remove(className);
+    }, 2000);
+  };
+
+  // `navigator.clipboard` is missing on pages not served over HTTPS, so the
+  // call itself can throw as well as reject.
+  let written;
+  try {
+    written = navigator.clipboard.writeText(text);
+  } catch (err) {
+    written = Promise.reject(err);
+  }
+  return written.then(() => flash("Copied!", "copied")).catch(err => {
     console.error('Failed to copy text: ', err);
+    flash("Copy failed", "copy-failed");
   });
 }
 
