@@ -11,6 +11,8 @@ import CollapsibleText from './CollapsibleText.vue';
 import { lastCopyableReply } from '../utils/lastReply';
 import { useKeybinds } from '../composables/useKeybinds';
 import { buildMessageDebugDump } from '../utils/messageDebug';
+import { messageSources } from '../utils/messageSources';
+import MessageSources from './MessageSources.vue';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
 import ContextSummaryMarker from './ContextSummaryMarker.vue';
@@ -674,6 +676,14 @@ function navigateBranch(messageId, direction) {
   emit("navigate-branch", messageId, direction);
 }
 
+// Stored messages are replaced, not mutated, once complete, so the
+// sources of a message object never change.
+const sourcesCache = new WeakMap();
+function sourcesOf(message) {
+  if (!sourcesCache.has(message)) sourcesCache.set(message, messageSources(message));
+  return sourcesCache.get(message);
+}
+
 // Function to determine CSS classes for parts based on their position and adjacent parts
 function getPartClass(partType, index, parts) {
   // Only apply special styling to reasoning and tool_group parts
@@ -1006,6 +1016,10 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                       </div>
                     </div>
                   </div>
+              <MessageSources
+                v-if="message.role === 'assistant' && message.complete"
+                :sources="sourcesOf(message)"
+              />
               <div class="message-content-footer" :class="{ 'user-footer': message.role === 'user' }">
                 <div class="footer-left-actions">
                   <UiTooltip content="Copy message">
