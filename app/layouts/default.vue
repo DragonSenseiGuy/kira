@@ -30,6 +30,7 @@
         :parameter-config-open="openDock === 'parameters'" :workspace-open="openDock === 'workspace'"
         :conversation-id="route.params.id"
         :can-export="canExport"
+        :title="canExport ? topBarTitle : ''"
         @toggle-incognito="toggleIncognito"
         @toggle-parameter-config="toggleParameterPanel"
         @toggle-workspace="toggleWorkspacePanel"
@@ -59,6 +60,7 @@ import { useKeybinds } from '~/composables/useKeybinds';
 import { useLayoutRouteWatch } from '~/composables/useLayoutRouteWatch';
 import { useDeveloperMode } from '~/composables/useDeveloperMode';
 import { useDock } from '~/composables/useDock';
+import { useTopBarTitle } from '~/composables/useTopBarTitle';
 
 import AppSidebar from '~/components/AppSidebar.vue'
 import WorkspacePanel from '~/components/WorkspacePanel.vue'
@@ -144,7 +146,7 @@ const messages = ref([]); // Placeholder for messages
 const isLoading = ref(false); // Placeholder for loading state
 const controller = ref(new AbortController()); // Placeholder for controller
 const currConvo = ref(route.params.id || ''); // Current conversation ID
-const conversationTitle = ref(''); // Current conversation title
+const topBarTitle = useTopBarTitle();
 const isTyping = ref(false); // Typing state
 
 // Show the per-chat export button only when viewing a specific chat

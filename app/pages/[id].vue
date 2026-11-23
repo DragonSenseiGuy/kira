@@ -48,7 +48,7 @@
 
 <script setup>
 // This page is for displaying a specific conversation by ID
-import { ref, nextTick, onMounted, computed } from 'vue';
+import { ref, nextTick, onMounted, onBeforeUnmount, computed, watchEffect } from 'vue';
 import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
 import { useDark } from "@vueuse/core";
@@ -59,6 +59,7 @@ import { hcFullModels } from '~/composables/providers';
 import { useSettings } from '~/composables/useSettings';
 import { useConversation } from '~/composables/useConversation';
 import { useGlobalScrollStatus } from '~/composables/useGlobalScrollStatus';
+import { useTopBarTitle } from '~/composables/useTopBarTitle';
 
 import ChatPanel from '~/components/ChatPanel.vue';
 import ContextCompressionChip from '~/components/ContextCompressionChip.vue';
@@ -188,6 +189,11 @@ const selectedModelName = computed(() => settingsManager.selectedModelName);
 function handleChatScroll(event) {
   setIsScrolledTop(event.isAtTop);
 }
+
+// Show the chat's title in the top bar while this chat is open.
+const topBarTitle = useTopBarTitle();
+watchEffect(() => { topBarTitle.value = conversationTitle.value || ''; });
+onBeforeUnmount(() => { topBarTitle.value = ''; });
 
 // Update page head dynamically
 useHead({

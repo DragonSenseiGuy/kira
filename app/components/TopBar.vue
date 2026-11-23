@@ -27,6 +27,8 @@
         Incognito mode
       </UiBadge>
 
+      <span v-else-if="title" class="chat-title" :title="title">{{ title }}</span>
+
       <div class="action-toggles">
         <UiTooltip content="Search and commands" side="bottom" shortcut="mod+k">
           <UiIconButton
@@ -132,6 +134,11 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  // Title of the open chat, shown centered; empty on other screens.
+  title: {
+    type: String,
+    default: ''
+  },
   canExport: {
     type: Boolean,
     default: false,
@@ -177,6 +184,20 @@ const isScrolledTopValue = computed(() => {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+}
+
+.chat-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Leaves room for the button groups on either side. */
+  max-width: calc(100% - 280px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .action-toggles {
