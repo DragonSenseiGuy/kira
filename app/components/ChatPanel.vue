@@ -12,6 +12,7 @@ import { useContextCompression } from '../composables/useContextCompression';
 import { getFormattedStatsFromExecutedTools } from '../composables/searchViewStats';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
 import { useDeveloperMode } from '../composables/useDeveloperMode';
+import { useReadAloud } from '../composables/useReadAloud';
 
 // Debug tooling (e.g. the message debug copy button) is opt-in via
 // Settings → General → Developer Mode.
@@ -502,6 +503,25 @@ function getMessageCopyText(message) {
   return message.content || '';
 }
 
+const readAloud = useReadAloud();
+// Which disclosures in the answer are expanded on screen, so read-aloud
+// speaks what is shown rather than what the source started with.
+function shownDetails(event) {
+  const message = event?.currentTarget?.closest?.('.message');
+  if (!message) return undefined;
+  return Array.from(
+    message.querySelectorAll('.markdown-content:not(.reasoning-content) details'),
+  ).map((details) => details.open);
+}
+watch(() => props.currConvo, () => readAloud.stop());
+// Branch navigation, edits and deletions can hide the message being read.
+watch(() => props.currMessages, (visibleMessages) => {
+  const speakingId = readAloud.speakingId.value;
+  if (speakingId !== null && !visibleMessages?.some(message => message.id === speakingId)) {
+    readAloud.stop();
+  }
+});
+
 // Function to copy message content
 function copyMessage(message, event) {
   const button = event.currentTarget;
@@ -903,6 +923,21 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
                       label="Edit message"
                       size="sm"
                       @click="startEditing(message)"
+                    />
+                  </UiTooltip>
+
+                  <UiTooltip
+                    v-if="readAloud.supported && message.role === 'assistant' && message.complete"
+                    :content="readAloud.speakingId.value === message.id ? 'Stop reading' : 'Read aloud'"
+                  >
+                    <UiIconButton
+                      class="footer-action-btn read-aloud-button"
+                      :icon="readAloud.speakingId.value === message.id ? 'material-symbols:stop-circle-outline-rounded' : 'material-symbols:volume-up-outline-rounded'"
+                      :label="readAloud.speakingId.value === message.id ? 'Stop reading' : 'Read aloud'"
+                      :active="readAloud.speakingId.value === message.id"
+                      togglable
+                      size="sm"
+                      @click="readAloud.toggle(message.id, getMessageCopyText(message), { detailsOpen: shownDetails($event) })"
                     />
                   </UiTooltip>
 
