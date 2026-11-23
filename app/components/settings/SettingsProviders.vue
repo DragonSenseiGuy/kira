@@ -201,6 +201,7 @@ import { reactive, ref, computed, inject } from 'vue';
 import { Icon } from '@iconify/vue';
 import { useSettings } from '~/composables/useSettings';
 import {
+  HACKCLUB_PROVIDER_ID,
   PRESET_PROVIDERS,
   generateProviderId,
   clearCachedProviderModels,
@@ -209,12 +210,21 @@ import {
   hcFullModels,
   customProviderModels,
   isLocalBaseUrl,
+  parseCustomModelId,
+  resolveChatTarget,
 } from '~/composables/providers';
 
 const ui = inject('settings-ui', null);
 const settingsManager = useSettings();
 
 const providers = computed(() => settingsManager.settings.custom_providers || []);
+const selectedModelUsesRemovedProvider = computed(() => {
+  const settings = settingsManager.settings;
+  const model = parseCustomModelId(settings.selected_model_id);
+  return !!model &&
+    !providers.value.some(provider => provider.id === model.providerId) &&
+    resolveChatTarget(settings).providerId === HACKCLUB_PROVIDER_ID;
+});
 
 // Built-in Hack Club provider (key stored as custom_api_key)
 const showHackClubKey = ref(false);
