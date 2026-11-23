@@ -41,7 +41,8 @@ function getGroupLabel(groupKey) {
     yesterday: "Yesterday",
     thisWeek: "This Week",
     thisMonth: "This Month",
-    older: "Older"
+    older: "Older",
+    archived: "Archived"
   };
   return labels[groupKey] || groupKey;
 }
@@ -58,10 +59,57 @@ function getGroupOrder(groupKey) {
     yesterday: 2,
     thisWeek: 3,
     thisMonth: 4,
-    older: 5
+    older: 5,
+    archived: 6
   };
   return order[groupKey] ?? 99;
 }
+
+/**
+ * Groups conversations for the sidebar: pinned first, then by age, with
+ * archived conversations in their own group at the end.
+ *
+ * @param {Array<Object>} conversations  Sidebar metadata entries.
+ * @returns {Array<{key: string, label: string, conversations: Array<Object>}>}
+ */
+export function groupConversations(conversations) {
+    const groups = {};
+
+    // Sort by createdAt (most recently created first), falling back to lastUpdated for older entries
+    const sorted = [...conversations].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt) : (a.lastUpdated ? new Date(a.lastUpdated) : new Date(0));
+      const dateB = b.createdAt ? new Date(b.createdAt) : (b.lastUpdated ? new Date(b.lastUpdated) : new Date(0));
+      return dateB - dateA;
+    });
+
+    // Group conversations
+    for (const conv of sorted) {
+      let groupKey;
+      if (conv.archived) {
+        groupKey = "archived";
+      } else if (conv.pinned) {
+        groupKey = "pinned";
+      } else {
+        groupKey = getTimeGroup(conv.createdAt ?? conv.lastUpdated);
+      }
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(conv);
+    }
+
+    // Sort groups by priority
+    const sortedGroups = Object.entries(groups)
+      .sort(([keyA], [keyB]) => getGroupOrder(keyA) - getGroupOrder(keyB))
+      .map(([key, conversations]) => ({
+        key,
+        label: getGroupLabel(key),
+        conversations
+      }));
+
+    return sortedGroups;
+  }
 
 /**
  * Composable for managing conversations list with grouping, search, and pinning
@@ -101,42 +149,7 @@ export function useConversationsList() {
   });
 
   // Computed: Group conversations by time and pinned status
-  const groupedConversations = computed(() => {
-    const groups = {};
-
-    // Sort by createdAt (most recently created first), falling back to lastUpdated for older entries
-    const sorted = [...filteredConversations.value].sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt) : (a.lastUpdated ? new Date(a.lastUpdated) : new Date(0));
-      const dateB = b.createdAt ? new Date(b.createdAt) : (b.lastUpdated ? new Date(b.lastUpdated) : new Date(0));
-      return dateB - dateA;
-    });
-
-    // Group conversations
-    for (const conv of sorted) {
-      let groupKey;
-      if (conv.pinned) {
-        groupKey = "pinned";
-      } else {
-        groupKey = getTimeGroup(conv.createdAt ?? conv.lastUpdated);
-      }
-
-      if (!groups[groupKey]) {
-        groups[groupKey] = [];
-      }
-      groups[groupKey].push(conv);
-    }
-
-    // Sort groups by priority
-    const sortedGroups = Object.entries(groups)
-      .sort(([keyA], [keyB]) => getGroupOrder(keyA) - getGroupOrder(keyB))
-      .map(([key, conversations]) => ({
-        key,
-        label: getGroupLabel(key),
-        conversations
-      }));
-
-    return sortedGroups;
-  });
+  const groupedConversations = computed(() => groupConversations(filteredConversations.value));
 
   // Check if search is active
   const isSearching = computed(() => searchQuery.value.trim().length > 0);
@@ -155,6 +168,25 @@ export function useConversationsList() {
       }
     } catch (error) {
       console.error("Error toggling pin:", error);
+    }
+  }
+
+  // Archive or restore a conversation. Archiving also unpins it.
+  async function toggleArchive(id) {
+    try {
+      const storedMetadata = await localforage.getItem("conversations_metadata");
+      if (storedMetadata) {
+        const updatedMetadata = storedMetadata.map(conv =>
+          conv.id === id
+            ? { ...conv, archived: !conv.archived, pinned: conv.archived ? conv.pinned : false }
+            : conv
+        );
+        await localforage.setItem("conversations_metadata", updatedMetadata);
+        metadata.value = updatedMetadata;
+        emitter.emit("updateConversations");
+      }
+    } catch (error) {
+      console.error("Error archiving conversation:", error);
     }
   }
 
@@ -231,6 +263,7 @@ export function useConversationsList() {
     // Methods
     updateConversations,
     togglePin,
+    toggleArchive,
     handleDelete,
     startRename,
     cancelRename,

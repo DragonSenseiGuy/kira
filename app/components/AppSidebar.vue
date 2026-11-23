@@ -46,6 +46,7 @@ const {
   groupedConversations,
   isSearching,
   togglePin,
+  toggleArchive,
   handleDelete,
   startRename,
   cancelRename,
@@ -61,8 +62,20 @@ const windowWidth = ref(
 // Collapsible pinned section state
 const isPinnedExpanded = ref(true);
 
-function togglePinnedExpanded() {
-  isPinnedExpanded.value = !isPinnedExpanded.value;
+// Archived chats stay folded away until asked for (or searched).
+const isArchivedExpanded = ref(false);
+
+const COLLAPSIBLE_GROUPS = ["pinned", "archived"];
+
+function isGroupExpanded(key) {
+  if (key === "pinned") return isPinnedExpanded.value;
+  if (key === "archived") return isArchivedExpanded.value || isSearching.value;
+  return true;
+}
+
+function toggleGroupExpanded(key) {
+  if (key === "pinned") isPinnedExpanded.value = !isPinnedExpanded.value;
+  else if (key === "archived") isArchivedExpanded.value = !isArchivedExpanded.value;
 }
 
 function handleResize() {
@@ -202,21 +215,29 @@ function handleMiddleClickNewChat(e) {
                   height="14"
                   class="header-pin-icon"
                 />
+                <Icon
+                  v-if="group.key === 'archived'"
+                  icon="material-symbols:archive-outline"
+                  width="14"
+                  height="14"
+                  class="header-pin-icon"
+                />
                 {{ group.label }}
               </span>
               <UiIconButton
-                v-if="group.key === 'pinned'"
+                v-if="COLLAPSIBLE_GROUPS.includes(group.key) && !(group.key === 'archived' && isSearching)"
                 icon="material-symbols:keyboard-arrow-down-rounded"
-                label="Toggle pinned section"
+                :label="`Toggle ${group.key} section`"
                 size="sm"
                 class="collapse-btn"
-                :class="{ 'is-collapsed': !isPinnedExpanded }"
-                @click="togglePinnedExpanded"
+                :class="{ 'is-collapsed': !isGroupExpanded(group.key) }"
+                :aria-expanded="isGroupExpanded(group.key)"
+                @click="toggleGroupExpanded(group.key)"
               />
             </div>
             
             <!-- Conversations in this group -->
-            <template v-if="group.key !== 'pinned' || isPinnedExpanded">
+            <template v-if="isGroupExpanded(group.key)">
               <div
                 v-for="data in group.conversations"
                 :key="data.id"
@@ -249,7 +270,7 @@ function handleMiddleClickNewChat(e) {
                     <Icon icon="material-symbols:more-horiz" width="18" height="18" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent class="conversation-menu-dropdown" side="bottom" align="start" :side-offset="4">
-                    <DropdownMenuItem class="conversation-menu-item" @select="togglePin(data.id)">
+                    <DropdownMenuItem v-if="!data.archived" class="conversation-menu-item" @select="togglePin(data.id)">
                       <Icon
                         :icon="data.pinned ? 'material-symbols:keep-off-outline' : 'material-symbols:keep-outline'"
                         width="16"
@@ -260,6 +281,14 @@ function handleMiddleClickNewChat(e) {
                     <DropdownMenuItem class="conversation-menu-item" @select="startRename(data.id, data.title)">
                       <Icon icon="material-symbols:edit-outline" width="16" height="16" />
                       <span>Rename</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem class="conversation-menu-item" @select="toggleArchive(data.id)">
+                      <Icon
+                        :icon="data.archived ? 'material-symbols:unarchive-outline' : 'material-symbols:archive-outline'"
+                        width="16"
+                        height="16"
+                      />
+                      <span>{{ data.archived ? 'Unarchive' : 'Archive' }}</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem class="conversation-menu-item delete-item" @select="handleDelete(data.id)">
                       <Icon icon="material-symbols:delete" width="16" height="16" />

@@ -7,6 +7,7 @@ import { isLocalBaseUrl } from "~/composables/providers";
 import { deleteChatSummary } from "./chatSummarizer";
 import { deleteContextSummary } from "./contextCompressor";
 import { useCloudSync } from "~/composables/useCloudSync";
+import { mergeMetadataEntries } from "~/utils/conversationMetadata";
 
 /**
  * Serializes a message object for storage, removing Vue reactivity proxies
@@ -212,8 +213,10 @@ export async function storeMessages(
   });
 
   const metadata = (await localforage.getItem("conversations_metadata")) || [];
-  const updatedMetadata = metadata.filter((m) => m.id !== conversationId);
-  updatedMetadata.push({ id: conversationId, title, lastUpdated });
+  // Keep the rest of the entry (pinned, archived, createdAt).
+  const updatedMetadata = mergeMetadataEntries(metadata, [
+    { id: conversationId, title, lastUpdated },
+  ]);
   await localforage.setItem("conversations_metadata", updatedMetadata);
 
   useCloudSync().syncConversation(conversationId, {

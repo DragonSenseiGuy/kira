@@ -1,3 +1,4 @@
+import { mergeMetadataEntries } from "~/utils/conversationMetadata";
 import localforage from "localforage";
 import { ref } from "vue";
 import { emitter } from "~/composables/emitter";
@@ -194,7 +195,7 @@ export function useCloudSync() {
         (await localforage.getItem("conversations_metadata")) || [];
       const localById = new Map(localMetadata.map((m) => [m.id, m]));
 
-      let metadataChanged = false;
+      const pulled = [];
 
       for (const summary of remote) {
         const local = localById.get(summary.id);
@@ -221,21 +222,25 @@ export function useCloudSync() {
           createdAt: full.createdAt,
         };
 
-        if (local) {
-          Object.assign(local, entry);
-        } else {
-          localMetadata.push(entry);
-          localById.set(entry.id, entry);
-        }
-        metadataChanged = true;
+        pulled.push(entry);
       }
 
-      if (metadataChanged) {
-        await localforage.setItem("conversations_metadata", localMetadata);
+      // The downloads above take a while and the user may have pinned,
+      // archived or renamed something meanwhile, so the pulled entries are
+      // applied to the list as it is now, not to the one read at the start.
+      if (pulled.length) {
+        const currentMetadata = mergeMetadataEntries(
+          (await localforage.getItem("conversations_metadata")) || [],
+          pulled,
+        );
+        await localforage.setItem("conversations_metadata", currentMetadata);
         emitter.emit("updateConversations");
       }
 
-      // Anything local the account has never seen goes up.
+      // Anything local the account has never seen goes up. Only chats that
+      // were already here when hydration started: one created since then is
+      // uploaded by the normal sync, and posting it again from here could
+      // replace newer turns saved from another device.
       const remoteIds = new Set(remote.map((c) => c.id));
       for (const conv of localMetadata) {
         if (remoteIds.has(conv.id)) continue;
