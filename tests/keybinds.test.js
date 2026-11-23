@@ -140,3 +140,17 @@ describe("withNewActionDefaults", () => {
     expect(withNewActionDefaults({ copy_last_response: "mod+j" }).copy_last_response).toBe("mod+j");
   });
 });
+
+
+describe("chat navigation shortcut defaults", () => {
+  it("unbinds a new action whose default the user already uses", () => {
+    const saved = { new_chat: "mod+alt+arrowup" };
+    expect(withNewActionDefaults(saved)).toMatchObject({ new_chat: "mod+alt+arrowup", previous_chat: "", next_chat: "mod+alt+arrowdown" });
+  });
+
+  it("keeps binds the user saved, and everything when nothing was saved", () => {
+    const merged = { a: "mod+k", b: "mod+k" };
+    expect(withNewActionDefaults(merged)).toMatchObject(merged);
+    expect(withNewActionDefaults(undefined)).toMatchObject({ previous_chat: "mod+alt+arrowup", next_chat: "mod+alt+arrowdown" });
+  });
+});

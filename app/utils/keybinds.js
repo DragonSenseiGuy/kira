@@ -20,6 +20,8 @@ export const KEYBIND_ACTIONS = [
   { id: 'toggle_parameters', label: 'Toggle model parameters', default: 'mod+alt+b' },
   { id: 'toggle_incognito', label: 'Toggle incognito mode', default: 'mod+alt+i' },
   { id: 'copy_last_response', label: 'Copy last response', default: 'mod+shift+c' },
+  { id: 'previous_chat', label: 'Go to the chat above', default: 'mod+alt+arrowup' },
+  { id: 'next_chat', label: 'Go to the chat below', default: 'mod+alt+arrowdown' },
 ];
 
 /**
