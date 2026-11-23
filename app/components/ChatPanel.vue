@@ -6,6 +6,7 @@ import { md } from '../utils/markdown';
 import { copyCode, downloadCode, togglePreview } from '../utils/codeBlockUtils';
 import { isAtBottom as isContainerAtBottom, shouldOfferJump } from '../utils/scrollPosition';
 import { quotableSelection, quoteButtonPosition } from '../utils/quoteReply';
+import { copyTable, downloadTable } from '../utils/tableActions';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -498,6 +499,8 @@ onMounted(() => {
     window.copyCode = copyCode;
     window.downloadCode = downloadCode;
     window.togglePreview = togglePreview;
+    window.copyTable = copyTable;
+    window.downloadTable = downloadTable;
   }
 });
 

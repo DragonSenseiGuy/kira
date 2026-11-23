@@ -5,6 +5,7 @@ import markdownItTaskLists from "markdown-it-task-lists";
 import markdownItTexmath from "markdown-it-texmath";
 import katex from "katex";
 import { isPreviewableLang } from "./codeBlockUtils";
+import { addTableActions } from "./tableActions";
 
 // Shared fence renderer for code blocks (without synchronous highlighting)
 // Highlighting is now done lazily via lazyHighlight.js
@@ -151,6 +152,7 @@ export function createMarkdownInstance(options = {}) {
   }
 
   addCodeBlockRenderer(md);
+  addTableActions(md);
   addExternalLinkTargets(md);
 
   // Raw HTML is allowed in Markdown, so whatever is rendered is sanitized

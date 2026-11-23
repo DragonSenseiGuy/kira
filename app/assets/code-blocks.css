@@ -353,7 +353,8 @@
 }
 
 /* Tables: 1em top margin */
-.streaming-content-streaming.has-preceding-content>table:first-child {
+.streaming-content-streaming.has-preceding-content>table:first-child,
+.streaming-content-streaming.has-preceding-content>.table-wrapper:first-child {
   margin-top: 1em !important;
 }
 
@@ -524,6 +525,77 @@
   background-color: var(--stripe);
 }
 
+/* A Markdown table and its actions. The wrapper owns the vertical margin so
+   the actions sit directly under the table. */
+.markdown-content .table-wrapper {
+  margin: 1em 0;
+  max-width: 100%;
+}
+
+.markdown-content .table-wrapper > table {
+  margin: 0;
+}
+
+.table-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0;
+  transition: opacity var(--duration) var(--ease-out);
+}
+
+.table-wrapper:hover .table-actions,
+.table-actions:focus-within {
+  opacity: 1;
+}
+
+/* No hover on touch screens: keep the actions visible. */
+@media (hover: none) {
+  .table-actions {
+    opacity: 1;
+  }
+}
+
+.table-action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-chip);
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  font-size: 0.8em;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    transform var(--duration) var(--ease-out);
+}
+
+.table-action-button:hover {
+  background-color: var(--stripe-bg);
+  color: var(--text-primary);
+}
+
+.table-action-button:active {
+  transform: scale(var(--press-scale));
+}
+
+.table-action-button.copied {
+  color: var(--success);
+}
+
+.table-action-button svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* KaTeX math display */
 .katex-inline {
   vertical-align: middle;
@@ -649,7 +721,8 @@
 }
 
 /* Tables: 1em top margin */
-.streaming-content-streaming.has-preceding-content>table:first-child {
+.streaming-content-streaming.has-preceding-content>table:first-child,
+.streaming-content-streaming.has-preceding-content>.table-wrapper:first-child {
   margin-top: 1em !important;
 }
 

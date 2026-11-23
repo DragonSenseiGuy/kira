@@ -18,6 +18,7 @@
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue';
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode, togglePreview } from '../utils/codeBlockUtils';
+import { copyTable, downloadTable } from '../utils/tableActions';
 import { highlightAllBlocks } from '../utils/lazyHighlight';
 import { splitIntoBlocks, addCaretToHtml } from '../utils/streamBlocks';
 
@@ -44,6 +45,8 @@ if (typeof window !== 'undefined') {
   window.copyCode = copyCode;
   window.downloadCode = downloadCode;
   window.togglePreview = togglePreview;
+  window.copyTable = copyTable;
+  window.downloadTable = downloadTable;
 }
 
 /**
