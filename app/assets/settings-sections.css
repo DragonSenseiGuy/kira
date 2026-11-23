@@ -375,3 +375,8 @@ a.stx-btn {
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
+
+.stx-info p.stx-notify-problem {
+  color: var(--danger);
+  margin-top: 4px;
+}

@@ -327,6 +327,7 @@ describe("exportAllToZip", () => {
     store.set("settings", {
       version: 5,
       notepad_enabled: false,
+      notify_on_reply: false,
       context_compression_enabled: true,
       context_compression_threshold_tokens: DEFAULT_THRESHOLD_TOKENS,
       context_compression_keep_recent_tokens: DEFAULT_KEEP_RECENT_TOKENS,

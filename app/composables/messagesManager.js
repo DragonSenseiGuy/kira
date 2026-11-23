@@ -1,4 +1,5 @@
 import { useFollowUps } from './useFollowUps';
+import { notifyReplyFinished } from "../utils/replyNotification";
 import { ref, computed, nextTick, onMounted, onUnmounted, toRaw } from 'vue';
 import { useRouter } from 'vue-router';
 import localforage from 'localforage';
@@ -248,6 +249,7 @@ export function useMessagesManager(chatPanel) {
     }
 
     controller.value = new AbortController();
+    const { signal: stopSignal } = controller.value;
     isLoading.value = true;
     // Scope the file workspace to this conversation (null while incognito).
     setActiveConversation(isIncognito.value ? null : currConvo.value || null);
@@ -542,6 +544,14 @@ export function useMessagesManager(chatPanel) {
       }
 
       isLoading.value = false;
+
+      if (settingsManager.settings?.notify_on_reply && !stopSignal.aborted) {
+        notifyReplyFinished({
+          title: conversationTitle.value,
+          failed: !!assistantMsg.error,
+          incognito: isIncognito.value,
+        });
+      }
 
       // Store messages if not in incognito mode
       if (!isIncognito.value) {
