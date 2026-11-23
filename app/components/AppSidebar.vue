@@ -21,6 +21,7 @@ import { loadConversation } from "~/composables/storeConversations";
 import { alertDialog } from "~/composables/useDialogs";
 import { buildShareLink } from "~/utils/shareLink";
 import { matchParts } from "~/utils/matchParts";
+import { loadPinnedExpanded, savePinnedExpanded } from "~/utils/pinnedSection";
 
 const emit = defineEmits([
   "reloadSettings",
@@ -152,7 +153,7 @@ const windowWidth = ref(
 );
 
 // Collapsible pinned section state
-const isPinnedExpanded = ref(true);
+const isPinnedExpanded = ref(loadPinnedExpanded());
 
 // Archived chats stay folded away until asked for (or searched).
 const isArchivedExpanded = ref(false);
@@ -166,8 +167,10 @@ function isGroupExpanded(key) {
 }
 
 function toggleGroupExpanded(key) {
-  if (key === "pinned") isPinnedExpanded.value = !isPinnedExpanded.value;
-  else if (key === "archived") isArchivedExpanded.value = !isArchivedExpanded.value;
+  if (key === "pinned") {
+    isPinnedExpanded.value = !isPinnedExpanded.value;
+    savePinnedExpanded(isPinnedExpanded.value);
+  } else if (key === "archived") isArchivedExpanded.value = !isArchivedExpanded.value;
 }
 
 function handleResize() {
@@ -374,7 +377,7 @@ function handleListKeydown(event) {
               <UiIconButton
                 v-if="COLLAPSIBLE_GROUPS.includes(group.key) && !(group.key === 'archived' && isSearching)"
                 icon="material-symbols:keyboard-arrow-down-rounded"
-                :label="`Toggle ${group.key} section`"
+                :label="`${isGroupExpanded(group.key) ? 'Collapse' : 'Expand'} ${group.key} chats`"
                 size="sm"
                 class="collapse-btn"
                 :class="{ 'is-collapsed': !isGroupExpanded(group.key) }"
