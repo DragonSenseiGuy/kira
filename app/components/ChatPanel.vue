@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref, watch, nextTick, computed, reactive } from
 import { Icon } from "@iconify/vue";
 import { md } from '../utils/markdown';
 import { copyCode, downloadCode, togglePreview } from '../utils/codeBlockUtils';
+import { isAtBottom as isContainerAtBottom, shouldOfferJump } from '../utils/scrollPosition';
 import { buildMessageDebugDump } from '../utils/messageDebug';
 import StreamingMessage from './StreamingMessage.vue';
 import ChatWidget from './ChatWidget.vue';
@@ -327,13 +328,30 @@ async function focusMessage(messageId, options = {}) {
   return true;
 }
 
+const showJumpToLatest = ref(false);
+
+// The composer grows with the draft, so the button is placed from its
+// measured height rather than a fixed offset.
+const composerHeight = ref(120);
+let composerObserver = null;
+
+function observeComposer() {
+  const composer = (cachedScrollContainer || document).querySelector?.(".input-section");
+  if (!composer || typeof ResizeObserver === "undefined") return;
+  composerHeight.value = composer.offsetHeight || composerHeight.value;
+  composerObserver = new ResizeObserver(() => {
+    composerHeight.value = composer.offsetHeight || composerHeight.value;
+  });
+  composerObserver.observe(composer);
+}
+
 const handleScroll = () => {
   const container = cachedScrollContainer || chatWrapper.value;
   if (!container) return;
 
-  const { scrollHeight, scrollTop, clientHeight } = container;
-  isAtBottom.value = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
-  emit('scroll', { isAtTop: scrollTop === 0 });
+  isAtBottom.value = isContainerAtBottom(container);
+  showJumpToLatest.value = shouldOfferJump(container);
+  emit('scroll', { isAtTop: container.scrollTop === 0 });
 };
 
 watch(
@@ -429,6 +447,7 @@ onMounted(() => {
 
   // Trigger initial scroll check
   handleScroll();
+  observeComposer();
 
   // Make functions available globally (only in browser)
   if (typeof window !== 'undefined') {
@@ -442,6 +461,7 @@ onUnmounted(() => {
   // Clean up scroll listener from cached container or document fallback
   const scrollTarget = cachedScrollContainer || document;
   scrollTarget.removeEventListener('scroll', handleScroll);
+  composerObserver?.disconnect();
 });
 
 // Render message content with markdown and trigger lazy highlighting.
@@ -1000,10 +1020,70 @@ defineExpose({ scrollToEnd, focusMessage, isAtBottom, chatWrapper });
         </template>
       </div>
     </div>
+    <div class="jump-to-latest-anchor" :style="{ bottom: `${composerHeight + 12}px` }">
+      <Transition name="jump-fade">
+        <button
+          v-if="showJumpToLatest"
+          type="button"
+          class="jump-to-latest"
+          aria-label="Jump to latest message"
+          title="Jump to latest message"
+          @click="scrollToEnd('smooth')"
+        >
+          <Icon icon="material-symbols:arrow-downward-rounded" width="20" height="20" />
+        </button>
+      </Transition>
+    </div>
   </div>
 </template>
 
 <style>
+/* Zero-height sticky row so the button floats above the composer without
+   taking space in the conversation. */
+.jump-to-latest-anchor {
+  position: sticky;
+  height: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.jump-to-latest {
+  pointer-events: auto;
+  transform: translateY(-100%);
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--popover-bg);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--line-strong), var(--popover-shadow);
+  cursor: pointer;
+}
+
+.jump-to-latest:hover {
+  background: var(--bg-tertiary);
+}
+
+.jump-to-latest:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.jump-fade-enter-active,
+.jump-fade-leave-active {
+  transition: opacity var(--duration-fast) ease;
+}
+
+.jump-fade-enter-from,
+.jump-fade-leave-to {
+  opacity: 0;
+}
+
 .chat-wrapper {
   --text-primary-light: var(--text-primary);
   --text-secondary-light: var(--text-secondary);
