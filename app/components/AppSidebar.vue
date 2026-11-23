@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
 } from "reka-ui";
 import { useConversationsList } from "~/composables/useConversationsList";
+import { showTitleWhenClipped } from "~/utils/clippedTitle";
 import { useSettings } from "~/composables/useSettings";
 import { useKeybinds } from "~/composables/useKeybinds";
 import { adjacentChatId } from "~/utils/chatNavigation";
@@ -405,7 +406,10 @@ function handleListKeydown(event) {
                   @dblclick.prevent="startRename(data.id, data.title)"
                   @keydown.f2.prevent="startRename(data.id, data.title)"
                 >
-                  <span class="conversation-title">{{ data.title }}</span>
+                  <span
+                    class="conversation-title"
+                    @mouseenter="showTitleWhenClipped($event.currentTarget, data.title)"
+                  >{{ data.title }}</span>
                   <span v-if="contentMatches.get(data.id)" class="conversation-snippet">
                     {{ contentMatches.get(data.id).before }}<mark>{{ contentMatches.get(data.id).match }}</mark>{{ contentMatches.get(data.id).after }}
                   </span>
