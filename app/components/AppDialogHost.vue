@@ -10,7 +10,8 @@
           @keydown.enter.exact.prevent="onConfirm" />
       </div>
       <footer class="dlg-footer">
-        <button v-if="cfg.kind !== 'alert'" type="button" class="dlg-btn ghost" @click="onCancel">
+        <button v-if="cfg.kind !== 'alert'" type="button" class="dlg-btn ghost" @click="onCancel"
+          @keydown.enter.stop>
           {{ cfg.cancelLabel }}
         </button>
         <button ref="okRef" type="button" class="dlg-btn solid" :class="{ danger: cfg.danger }" @click="onConfirm">

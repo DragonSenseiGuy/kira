@@ -355,7 +355,7 @@ function handleMiddleClickNewChat(e) {
                       <Icon icon="material-symbols:content-copy-outline-rounded" width="16" height="16" />
                       <span>Duplicate</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem class="conversation-menu-item delete-item" @select="handleDelete(data.id)">
+                    <DropdownMenuItem class="conversation-menu-item delete-item" @select="handleDelete(data.id, data.title)">
                       <Icon icon="material-symbols:delete" width="16" height="16" />
                       <span>Delete</span>
                     </DropdownMenuItem>
