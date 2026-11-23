@@ -1,6 +1,7 @@
 <script setup>
 import { insertQuote } from "~/utils/quoteReply";
 import { ref, computed, watch, nextTick, toRaw, onMounted, onBeforeUnmount } from "vue";
+import { shouldStopOnEscape } from "~/utils/escapeToStop";
 import { Icon } from "@iconify/vue";
 import {
   DropdownMenuRoot,
@@ -505,6 +506,20 @@ function handleActionClick() {
     submitMessage();
   }
 }
+
+// Escape stops the reply, as the stop button does. Capture phase: an open
+// menu or dialog is still in the page then, and keeps Escape for itself.
+function onWindowEscape(event) {
+  if (!props.isLoading || !shouldStopOnEscape(event, textareaRef.value)) return;
+  event.preventDefault();
+  emit("abort-controller");
+}
+// The composer is disabled while a reply streams, so a mention list still
+// open then could not be dismissed and would hold back Escape-to-stop.
+watch(() => props.isLoading, (loading) => { if (loading) mentionClose(); });
+
+onMounted(() => window.addEventListener("keydown", onWindowEscape, true));
+onBeforeUnmount(() => window.removeEventListener("keydown", onWindowEscape, true));
 
 /**
  * Handles the Enter key press on the textarea.
