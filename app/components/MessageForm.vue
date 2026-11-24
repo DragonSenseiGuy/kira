@@ -26,6 +26,7 @@ import { canAutofocusComposer } from "~/utils/composerAutofocus";
 import { useWorkspaceBrowser } from "~/composables/useWorkspaceBrowser";
 import { useDictation } from "~/composables/useDictation";
 import { isTextFile, TEXT_FILE_EXTENSIONS } from "~/utils/attachmentParts";
+import { isDocxFile, DOCX_MIME_TYPE } from "~/utils/docxText";
 import {
   buildKnownPaths,
   backspaceTarget,
@@ -366,7 +367,7 @@ const supportsVision = computed(() => {
 // Computed property for accepted file types based on model capabilities
 // PDFs work with any model (via file-parser plugin), images require vision
 const acceptedFileTypes = computed(() => {
-  const textTypes = `text/*,${TEXT_FILE_EXTENSIONS.map((ext) => `.${ext}`).join(',')}`;
+  const textTypes = `text/*,${TEXT_FILE_EXTENSIONS.map((ext) => `.${ext}`).join(',')},.docx,${DOCX_MIME_TYPE}`;
   return supportsVision.value
     ? `image/png,image/jpeg,image/webp,image/gif,.pdf,application/pdf,${textTypes}`
     : `.pdf,application/pdf,${textTypes}`;
@@ -728,7 +729,7 @@ async function handleFileSelect(event) {
 }
 
 /**
- * Checks if a file is an allowed type (image, PDF, or text)
+ * Checks if a file is an allowed type (image, PDF, Word, or text)
  * @param {File} file - The file to check
  * @returns {boolean}
  */
@@ -747,7 +748,7 @@ function isAllowedFileType(file) {
     return supportsVision.value;
   }
 
-  return isTextFile(file);
+  return isDocxFile(file) || isTextFile(file);
 }
 
 /**
