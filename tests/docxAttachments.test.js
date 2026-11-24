@@ -92,6 +92,15 @@ describe("documentXmlToText", () => {
     expect(documentXmlToText(xml)).toBe("\tline 1 line 2\t\nx\ty\tz");
   });
 
+  it("keeps rows and cells wrapped in content controls", () => {
+    const cell = (text) => `<w:tc>${paragraph(text)}</w:tc>`;
+    const sdt = (inner) => `<w:sdt><w:sdtPr><w:alias w:val="x"/></w:sdtPr><w:sdtContent>${inner}</w:sdtContent></w:sdt>`;
+    const xml = documentXml(
+      `<w:tbl><w:tr>${cell("a")}${sdt(cell("b"))}${cell("c")}</w:tr>${sdt(`<w:tr>${cell("d")}${cell("e")}${cell("f")}</w:tr>`)}</w:tbl>`,
+    );
+    expect(documentXmlToText(xml)).toBe("a\tb\tc\nd\te\tf");
+  });
+
   it("handles empty self-closing text runs", () => {
     const xml = documentXml(
       '<w:p><w:r><w:t xml:space="preserve"/></w:r></w:p><w:p><w:r><w:t>second</w:t></w:r></w:p><w:p><w:r><w:t>third</w:t></w:r></w:p>',

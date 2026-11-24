@@ -55,7 +55,7 @@ function childrenNamed(node, localName) {
   return Array.from(node.children).filter((child) => child.localName === localName);
 }
 
-const SKIPPED = new Set(["pPr", "rPr", "sectPr", "tblPr", "tblGrid", "trPr", "tcPr", "delText", "instrText", "delInstrText"]);
+const SKIPPED = new Set(["pPr", "rPr", "sectPr", "tblPr", "tblGrid", "trPr", "tcPr", "delText", "instrText", "delInstrText", "sdtPr", "sdtEndPr"]);
 
 function inlineText(node) {
   let out = "";
@@ -76,10 +76,21 @@ function inlineText(node) {
   return out;
 }
 
+const WRAPPERS = new Set(["sdt", "sdtContent", "customXml"]);
+
+// Rows and cells can sit inside content controls (w:sdt) or custom XML.
+function childrenThroughWrappers(node, localName, found = []) {
+  for (const child of node.children) {
+    if (child.localName === localName) found.push(child);
+    else if (WRAPPERS.has(child.localName)) childrenThroughWrappers(child, localName, found);
+  }
+  return found;
+}
+
 function tableRows(table) {
   const rows = [];
-  for (const row of childrenNamed(table, "tr")) {
-    const cells = childrenNamed(row, "tc").map((cell) =>
+  for (const row of childrenThroughWrappers(table, "tr")) {
+    const cells = childrenThroughWrappers(row, "tc").map((cell) =>
       blockLines(cell).join(" ").replace(/\s+/g, " ").trim(),
     );
     rows.push(cells.join("\t"));
