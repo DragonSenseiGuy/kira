@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 import { zipSync, strToU8 } from "fflate";
-import { isDocxFile, documentXmlToText, extractDocxText, DOCX_MIME_TYPE } from "../app/utils/docxText.js";
+import { isDocxFile, documentXmlToText, notesXmlToText, extractDocxText, DOCX_MIME_TYPE, MAX_DOCX_PART_BYTES } from "../app/utils/docxText.js";
 import { decodeTextDataUrl, attachmentsToContentParts, isTextFile } from "../app/utils/attachmentParts.js";
 import { useAttachments } from "../app/composables/useAttachments.js";
 
@@ -20,10 +20,11 @@ function paragraph(text, properties = "") {
   return `<w:p>${properties ? `<w:pPr>${properties}</w:pPr>` : ""}<w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`;
 }
 
-function docxBytes(body) {
+function docxBytes(body, extraParts = {}) {
   return zipSync({
     "[Content_Types].xml": strToU8("<Types/>"),
     "word/document.xml": strToU8(documentXml(body)),
+    ...Object.fromEntries(Object.entries(extraParts).map(([name, xml]) => [name, strToU8(xml)])),
   });
 }
 
@@ -83,6 +84,41 @@ describe("documentXmlToText", () => {
     expect(documentXmlToText(xml)).toBe("a\tb\nc\td\nafter");
   });
 
+  it("keeps one line per table row, with multi-line and empty cells", () => {
+    const cell = (...texts) => `<w:tc><w:tcPr/>${texts.length ? texts.map((t) => paragraph(t)).join("") : "<w:p/>"}</w:tc>`;
+    const xml = documentXml(
+      `<w:tbl><w:tblPr/><w:tr>${cell()}${cell("line 1", "line 2")}${cell()}</w:tr><w:tr>${cell("x")}${cell("y")}${cell("z")}</w:tr></w:tbl>`,
+    );
+    expect(documentXmlToText(xml)).toBe("\tline 1 line 2\t\nx\ty\tz");
+  });
+
+  it("handles empty self-closing text runs", () => {
+    const xml = documentXml(
+      '<w:p><w:r><w:t xml:space="preserve"/></w:r></w:p><w:p><w:r><w:t>second</w:t></w:r></w:p><w:p><w:r><w:t>third</w:t></w:r></w:p>',
+    );
+    expect(documentXmlToText(xml)).toBe("second\nthird");
+  });
+
+  it("includes Office Math equation text", () => {
+    const xml = documentXml(
+      '<w:p><w:r><w:t xml:space="preserve">Area: </w:t></w:r><m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>A=πr</m:t></m:r><m:sSup><m:e><m:r><m:t>2</m:t></m:r></m:e></m:sSup></m:oMath></w:p>',
+    );
+    expect(documentXmlToText(xml)).toBe("Area: A=πr2");
+  });
+
+  it("throws on malformed XML", () => {
+    expect(() => documentXmlToText(documentXml(paragraph("ok")).slice(0, -40))).toThrow();
+  });
+
+  it("stays fast on large tables", () => {
+    const row = `<w:tr>${"<w:tc><w:p><w:r><w:t>cell</w:t></w:r></w:p></w:tc>".repeat(10)}</w:tr>`;
+    const xml = documentXml(`<w:tbl>${row.repeat(5000)}</w:tbl>`);
+    const start = performance.now();
+    const text = documentXmlToText(xml);
+    expect(text.split("\n")).toHaveLength(5000);
+    expect(performance.now() - start).toBeLessThan(5000);
+  });
+
   it("ignores deleted text and field codes", () => {
     const xml = documentXml(
       '<w:p><w:r><w:delText>gone</w:delText></w:r><w:r><w:instrText> PAGE </w:instrText></w:r><w:r><w:t>kept</w:t></w:r></w:p>',
@@ -94,6 +130,23 @@ describe("documentXmlToText", () => {
 describe("extractDocxText", () => {
   it("reads word/document.xml from the zip", () => {
     expect(extractDocxText(docxBytes(paragraph("one") + paragraph("two")))).toBe("one\ntwo");
+  });
+
+  it("appends footnotes and endnotes after the body", () => {
+    const notes = (kind) =>
+      `<w:${kind}s ${W}><w:${kind} w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:${kind}>` +
+      `<w:${kind} w:id="1"><w:p><w:r><w:${kind}Ref/></w:r><w:r><w:t xml:space="preserve"> ${kind} text</w:t></w:r></w:p></w:${kind}></w:${kind}s>`;
+    const body =
+      '<w:p><w:r><w:t>Claim</w:t></w:r><w:r><w:footnoteReference w:id="1"/></w:r><w:r><w:t xml:space="preserve"> and more</w:t></w:r><w:r><w:endnoteReference w:id="1"/></w:r></w:p>';
+    const bytes = docxBytes(body, { "word/footnotes.xml": notes("footnote"), "word/endnotes.xml": notes("endnote") });
+    expect(extractDocxText(bytes)).toBe("Claim[^1] and more[^e1]\n\n[^1]: footnote text\n\n[^e1]: endnote text");
+    expect(notesXmlToText(notes("footnote"), "footnote")).toBe("[^1]: footnote text");
+  });
+
+  it("refuses parts that would inflate past the size cap", () => {
+    const huge = new Uint8Array(MAX_DOCX_PART_BYTES + 1);
+    const bytes = zipSync({ "word/document.xml": huge });
+    expect(() => extractDocxText(bytes)).toThrow("Not a valid .docx file");
   });
 
   it("throws for data that is not a Word document", () => {
