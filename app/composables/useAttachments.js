@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import { isTextFile } from '~/utils/attachmentParts';
+import { isDocxFile, extractDocxText } from '~/utils/docxText';
 
 // Maximum file size: 4.5MB
 const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
@@ -55,12 +56,15 @@ export function useAttachments() {
         const isAllowedExtension = ALLOWED_EXTENSIONS.includes(extension);
 
         if (!fileType && !isAllowedExtension) {
+            if (isDocxFile(file)) {
+                return { valid: true, isImage: false, isPDF: false, isText: true, isDocx: true };
+            }
             if (isTextFile(file)) {
                 return { valid: true, isImage: false, isPDF: false, isText: true };
             }
             return {
                 valid: false,
-                error: `File type not supported. Allowed: PNG, JPG, WEBP, GIF, PDF, and text or code files.`,
+                error: `File type not supported. Allowed: PNG, JPG, WEBP, GIF, PDF, Word (.docx), and text or code files.`,
                 isImage: false,
                 isPDF: false
             };
@@ -219,6 +223,20 @@ export function useAttachments() {
                 const result = await processImage(file);
                 dataUrl = result.dataUrl;
                 mimeType = result.mimeType;
+            } else if (validation.isDocx) {
+                let text;
+                try {
+                    text = extractDocxText(await file.arrayBuffer());
+                } catch {
+                    error.value = `"${file.name}" could not be read as a Word document.`;
+                    return { success: false, error: error.value };
+                }
+                if (!text) {
+                    error.value = `"${file.name}" has no text to attach.`;
+                    return { success: false, error: error.value };
+                }
+                dataUrl = await fileToDataUrl(new Blob([text], { type: 'text/plain' }));
+                mimeType = 'text/plain';
             } else {
                 // PDF or text: just convert to data URL
                 dataUrl = await fileToDataUrl(file);
