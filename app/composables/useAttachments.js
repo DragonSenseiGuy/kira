@@ -288,6 +288,25 @@ export function useAttachments() {
     }
 
     /**
+     * Adds several files, keeping every rejection visible: addFile clears the
+     * error on each call, so a later success would hide an earlier failure.
+     * @param {File[]} files - The files to add
+     * @param {boolean} supportsVision - Whether the current model supports vision
+     */
+    async function addFiles(files, supportsVision = false) {
+        const errors = [];
+        for (const file of files) {
+            const result = await addFile(file, supportsVision);
+            if (!result.success) errors.push(result.error);
+        }
+        if (errors.length > 1) {
+            error.value = `${errors[0]} ${errors.length - 1} more file(s) were not attached.`;
+        } else {
+            error.value = errors[0] ?? null;
+        }
+    }
+
+    /**
      * Removes an attachment by ID
      * @param {string} id - The attachment ID to remove
      */
@@ -317,6 +336,7 @@ export function useAttachments() {
         hasImages,
         hasPDFs,
         addFile,
+        addFiles,
         removeAttachment,
         clearAttachments,
         clearError,

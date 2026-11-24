@@ -336,7 +336,7 @@ const {
   attachments,
   error: attachmentError,
   hasAttachments,
-  addFile,
+  addFiles,
   removeAttachment,
   clearAttachments,
   clearError: clearAttachmentError
@@ -720,10 +720,7 @@ function openFilePicker() {
  * @param {Event} event - The change event from file input
  */
 async function handleFileSelect(event) {
-  const files = Array.from(event.target.files || []);
-  for (const file of files) {
-    await addFile(file, supportsVision.value);
-  }
+  await addFiles(Array.from(event.target.files || []), supportsVision.value);
   // Reset input to allow selecting the same file again
   event.target.value = '';
 }
@@ -777,9 +774,7 @@ async function handlePaste(event) {
     event.preventDefault();
     isProcessingFiles.value = true;
     try {
-      for (const file of filesToAdd) {
-        await addFile(file, supportsVision.value);
-      }
+      await addFiles(filesToAdd, supportsVision.value);
     } finally {
       isProcessingFiles.value = false;
     }
@@ -842,9 +837,7 @@ async function handleDrop(event) {
   if (filesToAdd.length > 0) {
     isProcessingFiles.value = true;
     try {
-      for (const file of filesToAdd) {
-        await addFile(file, supportsVision.value);
-      }
+      await addFiles(filesToAdd, supportsVision.value);
     } finally {
       isProcessingFiles.value = false;
     }

@@ -48,4 +48,29 @@ describe("useAttachments limits", () => {
     removeAttachment(attachments.value[0].id);
     expect((await addFile(textFile("big3.txt", fileBytes), false)).success).toBe(true);
   });
+
+  it("keeps a rejection visible when a later file in the batch fits", async () => {
+    const { addFiles, attachments, error } = useAttachments();
+    const fileBytes = 4 * 1024 * 1024;
+    await addFiles([
+      ...Array.from({ length: 4 }, (_, i) => textFile(`big${i}.txt`, fileBytes)),
+      textFile("small.txt", 10),
+    ], false);
+    expect(attachments.value.map((a) => a.filename)).toEqual(["big0.txt", "big1.txt", "big2.txt", "small.txt"]);
+    expect(error.value).toContain('"big3.txt" doesn\'t fit');
+  });
+
+  it("summarises several rejections in one batch", async () => {
+    const { addFiles, attachments, error } = useAttachments();
+    await addFiles(Array.from({ length: 103 }, (_, i) => textFile(`f${i}.txt`, 10)), false);
+    expect(attachments.value).toHaveLength(100);
+    expect(error.value).toBe("Maximum of 100 attachments allowed. 2 more file(s) were not attached.");
+  });
+
+  it("clears the error after a fully successful batch", async () => {
+    const { addFiles, error } = useAttachments();
+    error.value = "old";
+    await addFiles([textFile("a.txt", 10)], false);
+    expect(error.value).toBe(null);
+  });
 });
