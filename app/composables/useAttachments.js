@@ -5,8 +5,13 @@ import { isDocxFile, extractDocxText } from '~/utils/docxText';
 // Maximum file size: 4.5MB
 const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
 
-// Maximum number of attachments
-const MAX_ATTACHMENTS = 4;
+// Maximum number of attachments per message: the lowest per-request image
+// cap among the major providers (Anthropic allows 100).
+const MAX_ATTACHMENTS = 100;
+
+// Maximum encoded size of one message's attachments. The Hack Club proxy
+// rejects request bodies over 20 MiB; the rest is left for the conversation.
+const MAX_TOTAL_ATTACHMENT_SIZE = 19 * 1024 * 1024;
 
 // Maximum image width (images wider than this will be resized)
 const MAX_IMAGE_WIDTH = 3000;
@@ -251,6 +256,12 @@ export function useAttachments() {
                 return { success: false, error: error.value };
             }
 
+            const totalSize = attachments.value.reduce((sum, a) => sum + a.dataUrl.length, dataUrl.length);
+            if (totalSize > MAX_TOTAL_ATTACHMENT_SIZE) {
+                error.value = `"${file.name}" doesn't fit: one message's attachments can total at most 19MB once encoded.`;
+                return { success: false, error: error.value };
+            }
+
             // Determine type
             const type = validation.isImage ? 'image' : validation.isText ? 'text' : 'pdf';
 
@@ -311,6 +322,7 @@ export function useAttachments() {
         clearError,
         MAX_FILE_SIZE,
         MAX_ATTACHMENTS,
+        MAX_TOTAL_ATTACHMENT_SIZE,
         ALLOWED_EXTENSIONS
     };
 }
