@@ -42,12 +42,12 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
     "@vue/test-utils": "^2.4.10",
     "@vueuse/core": "^14.1.0",
     "@vueuse/nuxt": "^14.1.0",
     "happy-dom": "^20.9.0",
     "jsdom": "29.1.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.12"
   }
 }
